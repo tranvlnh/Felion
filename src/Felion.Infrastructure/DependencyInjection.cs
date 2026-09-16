@@ -35,6 +35,10 @@ public static class DependencyInjection
         services.AddScoped<IMemberManagementService, MemberManagementService>();
         services.AddScoped<IProbationTeamStore, ProbationTeamStore>();
         services.AddScoped<IProbationTeamManagementService, ProbationTeamManagementService>();
+        services.AddScoped<IProbationDecisionStore, ProbationDecisionStore>();
+        services.AddScoped<IProbationDecisionService, ProbationDecisionService>();
+        services.AddSingleton<IProbationRetentionPolicyProvider, ProbationRetentionPolicyProvider>();
+        services.AddSingleton<IWorkspaceEmailGenerator, WorkspaceEmailGenerator>();
         services.AddScoped<IEvaluationStore, EvaluationStore>();
         services.AddScoped<IEvaluationManagementService, EvaluationManagementService>();
         services.AddSingleton<IEvaluationDefaultsProvider, EvaluationDefaultsProvider>();

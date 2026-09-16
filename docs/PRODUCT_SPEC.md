@@ -70,18 +70,20 @@ Core/Admin selects candidates in bulk and chooses PASS/FAIL.
 
 PASS must be atomic from the application's perspective:
 - validate candidate is eligible and linked state is consistent;
-- create active Member using candidate identity fields plus required member data;
+- create active Member using candidate identity fields, `Position=Member`, and a generated Workspace email;
 - transfer Discord link;
 - sync Discord roles: remove probation/team roles, add Member/Department/Generation mappings;
 - record immutable audit event;
-- archive or delete probation record according to configured retention policy.
+- archive or delete probation record according to configured `Probation:SuccessPolicy` (`Archive` or `Delete`).
+
+The generated Workspace email uses the normalized given name followed by the initials of the family and middle-name tokens, plus `Authentication:Google:WorkspaceDomain`; for example, `Trần Hữu Vinh` becomes `vinhth@gdscptit.dev`. A generated email conflict is reported as a per-candidate decision failure.
 
 FAIL:
 - record immutable audit event;
 - kick linked Discord user from guild (handle already-left idempotently);
 - archive/delete probation record according to `ProbationFailurePolicy`.
 
-`ProbationFailurePolicy`: `MarkInactive | Delete`. Audit records must never be lost. Evaluation history must remain interpretable even when candidate rows are deleted.
+`ProbationFailurePolicy`: `MarkInactive | Delete`. Audit records must never be lost. Evaluation history must remain interpretable even when candidate rows are deleted. A failed candidate's identity link is removed and the kick is queued for retry.
 
 ## Imports
 Phase 1 supports manual CRUD and bulk import. CSV is mandatory. Excel (.xlsx) may be supported using a maintained library; import must validate the entire file and return row-level errors. Do not partially import by default.

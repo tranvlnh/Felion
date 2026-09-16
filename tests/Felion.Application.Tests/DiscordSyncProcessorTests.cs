@@ -86,9 +86,28 @@ public sealed class DiscordSyncProcessorTests
         Assert.Equal("Discord rejected the role mutation request.", store.Job.LastError);
     }
 
+    [Fact]
+    public async Task ProcessorKicksUserForKickJob()
+    {
+        var store = new FakeSyncJobStore
+        {
+            Job = DiscordSyncJob.Create(
+                DiscordIdentitySubjectType.Probation,
+                Guid.NewGuid(),
+                DiscordSyncOperation.KickUser,
+                "{\"DiscordUserId\":123456789}")
+        };
+        var guildGateway = new FakeGuildGateway();
+        var processor = new DiscordSyncProcessor(store, new FakeRoleGateway(), guildGateway);
+
+        Assert.True(await processor.ProcessNextAsync(CancellationToken.None));
+        Assert.Equal(DiscordSyncJobStatus.Succeeded, store.Job.Status);
+        Assert.Equal(123456789, guildGateway.KickedUserId);
+    }
+
     private sealed class FakeSyncJobStore : IDiscordSyncJobStore
     {
-        public DiscordSyncJob Job { get; } = DiscordSyncJob.Create(
+        public DiscordSyncJob Job { get; init; } = DiscordSyncJob.Create(
             DiscordIdentitySubjectType.Member,
             Guid.NewGuid(),
             DiscordSyncOperation.SynchronizeRoles,
@@ -163,6 +182,17 @@ public sealed class DiscordSyncProcessorTests
 
             DesiredRoleIds = desiredRoleIds;
             ManagedRoleIds = managedRoleIds;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeGuildGateway : IDiscordGuildGateway
+    {
+        public long KickedUserId { get; private set; }
+
+        public Task KickUserAsync(long discordUserId, CancellationToken cancellationToken)
+        {
+            KickedUserId = discordUserId;
             return Task.CompletedTask;
         }
     }

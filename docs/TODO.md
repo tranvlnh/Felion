@@ -66,12 +66,12 @@
 - [x] Immutable/history-safe snapshots
 
 ## Milestone 7 — Probation decisions
-- [ ] Bulk PASS/FAIL
-- [ ] PASS promotion to Member
-- [ ] Discord sync job/retry
-- [ ] FAIL kick
-- [ ] MarkInactive/Delete policy
-- [ ] Preserve audit/evaluation history
+- [x] Bulk PASS/FAIL
+- [x] PASS promotion to Member
+- [x] Discord sync job/retry
+- [x] FAIL kick
+- [x] MarkInactive/Delete policy
+- [x] Preserve audit/evaluation history
 
 ## Milestone 8 — Events
 - [ ] Event CRUD/lifecycle

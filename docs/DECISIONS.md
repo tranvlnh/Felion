@@ -59,3 +59,6 @@ Felion.Application ────> Felion.Domain
 
 ## ADR-014 — Member import semantics and development actor boundary
 Member import is create-only and validates the entire CSV/XLSX file before committing. A normalized duplicate StudentId or ClubEmail is a row-level error; no existing Member is updated and any error prevents all rows from being persisted. Web authentication now uses Google Workspace and issues application claims only for an active matching Member. Development and Testing may additionally use the temporary `X-Felion-Actor-Member-Id` compatibility header after active-Member lookup; production rejects that transport.
+
+## ADR-015 — Probation promotion identity and retention configuration
+PASS always creates a regular `Member` (`Position=Member`). The application generates `ClubEmail` from the candidate's normalized given name followed by the initials of preceding name tokens, appended to `Authentication:Google:WorkspaceDomain`; generated email collisions fail that candidate decision. PASS retention is configurable with `Probation:SuccessPolicy` (`Archive` or `Delete`, default `Archive`). FAIL continues to use `Probation:FailurePolicy` (`MarkInactive` or `Delete`, default `MarkInactive`).

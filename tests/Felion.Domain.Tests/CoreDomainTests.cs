@@ -92,6 +92,24 @@ public sealed class CoreDomainTests
     }
 
     [Fact]
+    public void DiscordLinkCanTransferProbationIdentityToMember()
+    {
+        var candidateId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        var link = DiscordIdentityLink.Create(
+            123456789,
+            "SV001",
+            DiscordIdentitySubjectType.Probation,
+            candidateId);
+
+        link.TransferToMember(memberId);
+
+        Assert.Equal(DiscordIdentitySubjectType.Member, link.SubjectType);
+        Assert.Equal(memberId, link.SubjectId);
+        Assert.Equal("SV001", link.StudentId);
+    }
+
+    [Fact]
     public void AuditLogRequiresValidActorAndJson()
     {
         var memberId = Guid.NewGuid();

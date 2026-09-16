@@ -5,7 +5,8 @@ namespace Felion.Application.Discord;
 
 public sealed class DiscordSyncProcessor(
     IDiscordSyncJobStore store,
-    IDiscordRoleGateway roleGateway) : IDiscordSyncProcessor
+    IDiscordRoleGateway roleGateway,
+    IDiscordGuildGateway? guildGateway = null) : IDiscordSyncProcessor
 {
     public async Task<bool> ProcessNextAsync(CancellationToken cancellationToken)
     {
@@ -17,40 +18,52 @@ public sealed class DiscordSyncProcessor(
 
         try
         {
-            if (job.Operation != DiscordSyncOperation.SynchronizeRoles)
+            switch (job.Operation)
             {
-                throw new DiscordSyncProcessingException("Unsupported Discord sync operation.");
-            }
+                case DiscordSyncOperation.SynchronizeRoles:
+                    {
+                        var mappings = await store.ListRoleMappingsAsync(cancellationToken);
+                        var managedRoleIds = mappings
+                            .Select(mapping => mapping.DiscordRoleId)
+                            .ToHashSet();
+                        var target = await store.FindTargetAsync(job, cancellationToken)
+                            ?? throw new DiscordSyncProcessingException(
+                                "The identity subject for the Discord sync job no longer exists or is not linked.");
+                        var desiredRoleIds = mappings
+                            .Where(mapping => IsDesired(mapping, target))
+                            .Select(mapping => mapping.DiscordRoleId)
+                            .ToHashSet();
 
-            var mappings = await store.ListRoleMappingsAsync(cancellationToken);
-            var managedRoleIds = mappings
-                .Select(mapping => mapping.DiscordRoleId)
-                .ToHashSet();
-            DiscordRoleSyncTarget? target = null;
-            long discordUserId;
-            IReadOnlyCollection<long> desiredRoleIds;
-            if (job.Operation == DiscordSyncOperation.ClearManagedRoles)
-            {
-                discordUserId = ReadDiscordUserId(job.PayloadJson);
-                desiredRoleIds = [];
-            }
-            else
-            {
-                target = await store.FindTargetAsync(job, cancellationToken)
-                    ?? throw new DiscordSyncProcessingException(
-                        "The identity subject for the Discord sync job no longer exists or is not linked.");
-                discordUserId = target.DiscordUserId;
-                desiredRoleIds = mappings
-                    .Where(mapping => IsDesired(mapping, target))
-                    .Select(mapping => mapping.DiscordRoleId)
-                    .ToHashSet();
-            }
+                        await roleGateway.SynchronizeUserRolesAsync(
+                            target.DiscordUserId,
+                            desiredRoleIds,
+                            managedRoleIds,
+                            cancellationToken);
+                        break;
+                    }
+                case DiscordSyncOperation.ClearManagedRoles:
+                    {
+                        var mappings = await store.ListRoleMappingsAsync(cancellationToken);
+                        await roleGateway.SynchronizeUserRolesAsync(
+                            ReadDiscordUserId(job.PayloadJson),
+                            [],
+                            mappings.Select(mapping => mapping.DiscordRoleId).ToHashSet(),
+                            cancellationToken);
+                        break;
+                    }
+                case DiscordSyncOperation.KickUser:
+                    if (guildGateway is null)
+                    {
+                        throw new DiscordSyncProcessingException("Discord guild operations are unavailable.");
+                    }
 
-            await roleGateway.SynchronizeUserRolesAsync(
-                discordUserId,
-                desiredRoleIds,
-                managedRoleIds,
-                cancellationToken);
+                    await guildGateway.KickUserAsync(
+                        ReadDiscordUserId(job.PayloadJson),
+                        cancellationToken);
+                    break;
+                default:
+                    throw new DiscordSyncProcessingException("Unsupported Discord sync operation.");
+            }
 
             job.MarkSucceeded();
             await store.SaveJobAsync(job, cancellationToken);
@@ -85,6 +98,7 @@ public sealed class DiscordSyncProcessor(
     private static string GetSafeError(Exception exception)
     {
         return exception is DiscordRoleGatewayException
+            or DiscordGuildGatewayException
             or DiscordSyncProcessingException
             ? exception.Message
             : "Discord synchronization failed.";

@@ -3,10 +3,10 @@
 Last Updated: 2026-09-16
 
 ## Current Milestone
-Milestone 6 — Evaluation
+Milestone 7 — Probation decisions
 
 ## Current Focus
-Milestone 6 — Evaluation đã hoàn tất. Save point tiếp theo là Milestone 7 — probation PASS/FAIL decisions.
+Milestone 7 — probation PASS/FAIL decisions đã hoàn tất. Save point tiếp theo là Milestone 8 — Events.
 
 ## Completed
 - [x] Product scope baseline
@@ -58,21 +58,28 @@ Milestone 6 — Evaluation đã hoàn tất. Save point tiếp theo là Mileston
 - [x] Evaluation persistence migration, validation, authorization and audit coverage
 - [x] Peer/mentor submission rules, Open-only writes and duplicate edit behavior
 - [x] Core/Admin-only raw results and history-safe identity/question snapshots
+- [x] Bulk PASS/FAIL decision API with per-candidate outcomes
+- [x] PASS promotion to regular Member with generated Workspace email
+- [x] Transactional identity transfer, audit and role-sync enqueue
+- [x] FAIL identity removal and retryable idempotent Discord kick
+- [x] Configurable PASS/FAIL retention policies
+- [x] Promotion/failure domain, application and Discord worker tests
 
 ## In Progress
-Không có. Milestone 6 đã hoàn tất.
+Không có. Milestone 7 đã hoàn tất.
 
 ## Known Issues / Open Questions
 Không có blocker code. PostgreSQL và Discord Gateway được cấu hình optional để local build/test không cần secret hoặc service đang chạy. Google OAuth credentials phải được cung cấp qua environment variables hoặc user-secrets khi chạy thật. `X-Felion-Actor-Member-Id` chỉ là compatibility path cho Development/Testing và bị từ chối ngoài hai environment này. Design-time EF fallback dùng local user `postgres`; local database đã apply toàn bộ migration hiện tại. PostgreSQL live integration test vẫn chưa có. Chưa có live Discord integration test vì môi trường không có guild/token. EF CLI migration scaffolding đã sinh migration team/mentor và evaluation thành công; các migration được nhận diện bởi EF model.
 
 ## Next Recommended Task
-Milestone 7 — Probation decisions: bulk PASS/FAIL, promotion transaction, Discord sync/kick and retention policy.
+Milestone 8 — Events: Event/position lifecycle, registration approval, capacity concurrency and manual attendance.
 
 ## Verification
 - dotnet restore: PASS — `dotnet restore Felion.slnx -p:NuGetAudit=false`
 - dotnet format: PASS — `dotnet format Felion.slnx --verify-no-changes --no-restore`
 - dotnet build: PASS — Release, 0 warnings, 0 errors
-- dotnet test: PASS — 16 domain tests, 50 application tests và 13 integration/import-model/transport/authorization tests
+- dotnet test: PASS — 16 domain tests, 57 application tests và 14 integration/import-model/transport/authorization tests
 - EF migration: PASS — `20260916112125_AddEvaluations`
 - EF migration: PASS — `20260916115048_AddEvaluationSubmissions`
+- EF migration: PASS — `20260916123701_AddKickUserSyncOperation`
 - dotnet ef database update: PASS — local PostgreSQL với user `postgres`, đã apply toàn bộ migration hiện tại

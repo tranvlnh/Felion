@@ -44,6 +44,7 @@ public static class DependencyInjection
 
         services.AddSingleton(new ConfiguredDiscordGuild(parsedGuildId));
         services.AddSingleton<IDiscordRoleGateway, NetCordDiscordRoleGateway>();
+        services.AddSingleton<IDiscordGuildGateway, NetCordDiscordGuildGateway>();
         services.AddHostedService<DiscordSyncWorker>();
         services
             .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>()

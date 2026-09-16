@@ -84,8 +84,11 @@ Snapshot question prompt/type to preserve history if forms are edited/deleted.
 No cascade delete from domain entities into AuditLog.
 
 ## DiscordSyncJob (recommended)
-`Id, SubjectType, SubjectId, Operation(SynchronizeRoles|ClearManagedRoles), PayloadJson, Status(Pending|Running|Succeeded|Failed), Attempts, LastError?, CreatedAt, UpdatedAt`
+`Id, SubjectType, SubjectId, Operation(SynchronizeRoles|ClearManagedRoles|KickUser), PayloadJson, Status(Pending|Running|Succeeded|Failed), Attempts, LastError?, CreatedAt, UpdatedAt`
 Used to retry role changes/kicks after DB decisions.
+
+## Probation decision configuration
+`Probation:SuccessPolicy = Archive | Delete` (default `Archive`) controls PASS retention. `Probation:FailurePolicy = MarkInactive | Delete` controls FAIL retention. PASS creates a regular Member and derives `ClubEmail` from the candidate name and configured Workspace domain.
 
 # Planned Events & Attendance model
 Keep these tables in the Events module/schema ownership when implemented.

@@ -77,4 +77,15 @@ public sealed class DiscordIdentityLink
         DiscordUserId = discordUserId;
         LinkedAt = (linkedAt ?? DateTimeOffset.UtcNow).ToUniversalTime();
     }
+
+    public void TransferToMember(Guid memberId)
+    {
+        if (memberId == Guid.Empty)
+        {
+            throw new DomainException("Member identity is required.");
+        }
+
+        SubjectType = DiscordIdentitySubjectType.Member;
+        SubjectId = memberId;
+    }
 }
