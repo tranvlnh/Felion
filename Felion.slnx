@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/Src/">
+    <Project Path="src/Felion.Api/Felion.Api.csproj" />
+    <Project Path="src/Felion.Application/Felion.Application.csproj" />
+    <Project Path="src/Felion.Bot/Felion.Bot.csproj" />
+    <Project Path="src/Felion.Domain/Felion.Domain.csproj" />
+    <Project Path="src/Felion.Host/Felion.Host.csproj" />
+    <Project Path="src/Felion.Infrastructure/Felion.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="tests/Felion.Application.Tests/Felion.Application.Tests.csproj" />
+    <Project Path="tests/Felion.Domain.Tests/Felion.Domain.Tests.csproj" />
+    <Project Path="tests/Felion.IntegrationTests/Felion.IntegrationTests.csproj" />
+  </Folder>
+</Solution>
