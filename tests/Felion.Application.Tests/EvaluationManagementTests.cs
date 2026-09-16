@@ -12,7 +12,7 @@ public sealed class EvaluationManagementTests
     public async Task CreatePeriodWritesAuditAndStartsDraft()
     {
         var fixture = CreateFixture();
-        var service = new EvaluationManagementService(fixture.Store, fixture.MemberStore, fixture.Defaults);
+        var service = new EvaluationManagementService(fixture.Store, fixture.MemberStore, fixture.Defaults, null, new TestRateLimitGate());
 
         var result = await service.CreatePeriodAsync(
             fixture.Admin.Id,
@@ -29,7 +29,7 @@ public sealed class EvaluationManagementTests
     public async Task OpenAndClosePeriodWriteAuditsAndEnforceLifecycle()
     {
         var fixture = CreateFixture();
-        var service = new EvaluationManagementService(fixture.Store, fixture.MemberStore, fixture.Defaults);
+        var service = new EvaluationManagementService(fixture.Store, fixture.MemberStore, fixture.Defaults, null, new TestRateLimitGate());
         var period = EvaluationPeriod.Create("Week 1");
         fixture.Store.Periods.Add(period);
 
@@ -61,7 +61,7 @@ public sealed class EvaluationManagementTests
         var fixture = CreateFixture();
         var period = EvaluationPeriod.Create("Week 1");
         fixture.Store.Periods.Add(period);
-        var service = new EvaluationManagementService(fixture.Store, fixture.MemberStore, fixture.Defaults);
+        var service = new EvaluationManagementService(fixture.Store, fixture.MemberStore, fixture.Defaults, null, new TestRateLimitGate());
 
         var form = await service.CreateFormAsync(
             fixture.Admin.Id,
@@ -90,7 +90,7 @@ public sealed class EvaluationManagementTests
         var fixture = CreateFixture();
         var period = EvaluationPeriod.Create("Week 1");
         fixture.Store.Periods.Add(period);
-        var service = new EvaluationManagementService(fixture.Store, fixture.MemberStore, fixture.Defaults);
+        var service = new EvaluationManagementService(fixture.Store, fixture.MemberStore, fixture.Defaults, null, new TestRateLimitGate());
 
         await Assert.ThrowsAsync<EvaluationValidationException>(() => service.CreateFormAsync(
             fixture.Admin.Id,
@@ -112,7 +112,7 @@ public sealed class EvaluationManagementTests
     public async Task RegularMemberCannotManageEvaluations()
     {
         var fixture = CreateFixture();
-        var service = new EvaluationManagementService(fixture.Store, fixture.MemberStore, fixture.Defaults);
+        var service = new EvaluationManagementService(fixture.Store, fixture.MemberStore, fixture.Defaults, null, new TestRateLimitGate());
 
         await Assert.ThrowsAsync<EvaluationAccessDeniedException>(() => service.ListPeriodsAsync(
             fixture.RegularMember.Id,

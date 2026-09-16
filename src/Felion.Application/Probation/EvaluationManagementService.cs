@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Felion.Application.Hardening;
 using Felion.Application.Members;
 using Felion.Domain.Audit;
 using Felion.Domain.Common;
@@ -12,7 +13,8 @@ public sealed class EvaluationManagementService(
     IEvaluationStore store,
     IMemberStore memberStore,
     IEvaluationDefaultsProvider defaultsProvider,
-    IProbationTeamStore? probationTeamStore = null) : IEvaluationManagementService
+    IProbationTeamStore? probationTeamStore,
+    IRateLimitGate rateLimitGate) : IEvaluationManagementService
 {
     public async Task<IReadOnlyList<EvaluationPeriodDto>> ListPeriodsAsync(
         Guid actorMemberId,
@@ -267,6 +269,15 @@ public sealed class EvaluationManagementService(
         if (reviewerId == Guid.Empty)
         {
             throw new EvaluationSubmissionValidationException("Reviewer is required.");
+        }
+
+        var rateLimit = await rateLimitGate.TryAcquireAsync(
+            RateLimitOperation.EvaluationSubmission,
+            $"{reviewerType}:{reviewerId:N}",
+            cancellationToken);
+        if (!rateLimit.IsAcquired)
+        {
+            throw new RateLimitExceededException(RateLimitOperation.EvaluationSubmission, rateLimit.RetryAfter);
         }
 
         var form = await store.FindFormAsync(command.FormId, track: false, cancellationToken)

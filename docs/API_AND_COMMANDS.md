@@ -13,7 +13,10 @@ This is a planning contract, not generated OpenAPI. Codex should keep actual Ope
 - `POST /api/v1/members/{id}/sync-discord-roles`
 - `POST /api/v1/imports/members` (multipart CSV; optional XLSX)
 - `GET/POST /api/v1/probation/candidates`
-- `POST /api/v1/probation/candidates/import`
+- `GET/PATCH /api/v1/probation/candidates/{candidateId}`
+- `PUT /api/v1/probation/candidates/{candidateId}/team`
+- `GET /api/v1/probation/candidates/reference-data`
+- `GET /api/v1/probation/candidates/mentor-options`
 - `GET/POST/PATCH /api/v1/probation/teams`
 - `GET /api/v1/probation/teams/{teamId}`
 - `PUT/DELETE /api/v1/probation/teams/{teamId}/candidates/{candidateId}`
@@ -60,14 +63,18 @@ Discord role mapping management is Admin-only. `PUT /api/v1/discord/role-mapping
 
 Probation team management is Core/Admin-only. Team deactivation is a soft delete through `PATCH /api/v1/probation/teams/{teamId}` with `IsActive=false`; candidate assignment is limited to one active team, and mentors must be active Members.
 
+Probation candidate management is Core/Admin-only. `GET /api/v1/probation/candidates` supports `page`, `pageSize`, `search` (StudentId/full name), `departmentId`, `generationId`, `teamId`, `hasTeam` and `status` filters. Create/edit accepts StudentId, FullName, DepartmentId and GenerationId; edit is limited to active candidates and never changes status. `PUT /api/v1/probation/candidates/{candidateId}/team` atomically assigns, changes or removes a team with `{ "teamId": "guid|null" }`, writes audit history and enqueues Discord role synchronization when linked. `reference-data` provides dropdown data, and `mentor-options` searches active Members for the team mentor selector. The internal dashboard is available at `/admin/probation/` and reuses the same-origin Google cookie session.
+
 Evaluation period and form management is Core/Admin-only. A period transitions `Draft -> Open -> Closed`; only `Open` accepts evaluation submissions. Forms specify `Peer` or `Mentor` reviewer type and contain at least one ordered `Score` or `Text` question. Score questions use `ScoreMin`/`ScoreMax` (defaulting to `Evaluation:DefaultScoreMin`/`Evaluation:DefaultScoreMax`), while Text questions use `TextMaxLength` (defaulting to `Evaluation:DefaultTextMaxLength`). Question order is unique within a form. Period/form mutations are audited. `POST /api/v1/probation/evaluations/mentor` accepts an active Member's mentor submission and returns only a receipt; peer submission remains available through the shared application contract because probation candidates have no web access. `GET /api/v1/probation/evaluations/results` is Core/Admin-only and is the only current API surface that returns raw answers and reviewer/target identity snapshots. Re-submission while Open edits the existing reviewer/target/form submission.
+
+Discord account linking is limited to five attempts per Discord user per ten-minute fixed window. Peer and mentor evaluation submissions are limited to ten attempts per reviewer per one-minute fixed window. HTTP rate-limit rejection returns `429 Too Many Requests` and a `Retry-After` header; Discord interactions return an ephemeral retry message.
 
 `POST /api/v1/probation/decisions` accepts `{ "items": [{ "candidateId": "...", "decision": "Pass|Fail" }] }` and returns one outcome per candidate. PASS creates a regular Member with a generated email from the candidate's name and `Authentication:Google:WorkspaceDomain`, transfers the identity link and queues role synchronization. FAIL queues an idempotent guild kick and removes the identity link. Retention is configured through `Probation:SuccessPolicy` (`Archive|Delete`) and `Probation:FailurePolicy` (`MarkInactive|Delete`).
 
 `POST /api/v1/discord/roles` is Admin-only and creates a role in the configured guild. When the Discord adapter is configured, role mapping upserts verify the role belongs to that guild and store the role name returned by Discord; the synchronization worker consumes retryable `DiscordSyncJob` rows and only mutates roles managed by Felion.
 
-# Planned Events API / bot surface
-These are contracts to preserve architecture; do not implement until the Events milestone is requested.
+# Events API / bot surface
+The Event lifecycle, position, registration, attendance and Member history endpoints below are implemented. Registration cancellation remains planned.
 
 - `POST /api/v1/events` — Core/Admin create draft
 - `PATCH /api/v1/events/{eventId}` — Core/Admin edit according to lifecycle/invariants
@@ -77,17 +84,20 @@ These are contracts to preserve architecture; do not implement until the Events 
 - `POST /api/v1/events/{eventId}/complete`
 - `POST /api/v1/events/{eventId}/cancel`
 - `GET /api/v1/events` — active Member sees published events
-- `GET /api/v1/events/{eventId}` — includes positions, capacity and current member state
+- `GET /api/v1/events/{eventId}` — includes positions and capacity
 - `POST /api/v1/events/{eventId}/positions` — Core/Admin
 - `PATCH /api/v1/events/{eventId}/positions/{positionId}` — Core/Admin
 - `POST /api/v1/events/{eventId}/positions/{positionId}/registrations` — current Member requests eligible position; creates Pending
-- `DELETE /api/v1/events/{eventId}/positions/{positionId}/registrations/me` — cancel own registration when permitted
 - `GET /api/v1/events/{eventId}/registrations` — Core/Admin
 - `POST /api/v1/events/{eventId}/registrations/{registrationId}/approve` — Core/Admin
 - `POST /api/v1/events/{eventId}/registrations/{registrationId}/reject` — Core/Admin
 - `POST /api/v1/events/{eventId}/positions/{positionId}/assignments` — Core/Admin directly assign Member; Department eligibility bypassed
-- `POST /api/v1/events/{eventId}/attendance` — Core/Admin manual check-in by MemberId; registration not required
-- `GET /api/v1/events/{eventId}/attendance` — Core/Admin
-- `GET /api/v1/members/{memberId}/event-history` — Member self or Core/Admin according to authorization policy
+- `POST /api/v1/events/{eventId}/attendance` — Core/Admin manual check-in by `{ memberId }` while `InProgress` or `Completed`; registration not required and repeated requests are idempotent
+- `GET /api/v1/events/{eventId}/attendance` — Core/Admin attendance reporting
+- `GET /api/v1/members/{memberId}/event-history` — Member self, or any Member history for Core/Admin; includes registration and attendance facts
+
+## Planned cancellation endpoint
+
+- `DELETE /api/v1/events/{eventId}/positions/{positionId}/registrations/me` — cancel own registration when permitted
 
 Discord commands must call the same application use cases, e.g. `/event create`, `/event position`, `/event register`, `/event approve`, `/event assign`, `/event checkin`, `/event attendance`. Do not duplicate capacity, eligibility, approval or attendance rules in NetCord handlers.

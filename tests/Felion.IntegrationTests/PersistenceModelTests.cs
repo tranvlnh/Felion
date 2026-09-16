@@ -1,4 +1,5 @@
 using Felion.Domain.Evaluation;
+using Felion.Domain.Events;
 using Felion.Domain.Identity;
 using Felion.Domain.Members;
 using Felion.Domain.Probation;
@@ -61,6 +62,27 @@ public sealed class PersistenceModelTests
             index.Properties.Count == 2
             && index.Properties[0].Name == nameof(DiscordSyncJob.Status)
             && index.Properties[1].Name == nameof(DiscordSyncJob.CreatedAt));
+
+        var @event = context.Model.FindEntityType(typeof(Event));
+        Assert.NotNull(@event);
+        Assert.Contains(@event!.GetIndexes(), index =>
+            index.Properties.Count == 1
+            && index.Properties[0].Name == nameof(Event.Status));
+
+        var eventPosition = context.Model.FindEntityType(typeof(EventPosition));
+        Assert.NotNull(eventPosition);
+        Assert.Contains(eventPosition!.GetIndexes(), index =>
+            index.Properties.Select(property => property.Name).SequenceEqual(
+                [nameof(EventPosition.EventId), nameof(EventPosition.SortOrder)]));
+
+        AssertUniqueIndex<EventRegistration>(
+            context,
+            nameof(EventRegistration.EventPositionId),
+            nameof(EventRegistration.MemberId));
+        AssertUniqueIndex<EventAttendance>(
+            context,
+            nameof(EventAttendance.EventId),
+            nameof(EventAttendance.MemberId));
     }
 
     [Fact]

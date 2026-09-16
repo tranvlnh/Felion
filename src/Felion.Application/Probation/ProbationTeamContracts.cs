@@ -15,7 +15,22 @@ public sealed record ProbationTeamDto(
     IReadOnlyList<Guid> CandidateIds,
     IReadOnlyList<Guid> MentorMemberIds,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt)
+{
+    public IReadOnlyList<ProbationTeamCandidateSummary> Candidates { get; init; } = [];
+
+    public IReadOnlyList<ProbationTeamMentorSummary> Mentors { get; init; } = [];
+}
+
+public sealed record ProbationTeamCandidateSummary(
+    Guid Id,
+    string StudentId,
+    string FullName);
+
+public sealed record ProbationTeamMentorSummary(
+    Guid MemberId,
+    string StudentId,
+    string FullName);
 
 public sealed record ProbationTeamView(
     Guid Id,
@@ -24,7 +39,9 @@ public sealed record ProbationTeamView(
     IReadOnlyList<Guid> CandidateIds,
     IReadOnlyList<Guid> MentorMemberIds,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<ProbationTeamCandidateSummary>? Candidates = null,
+    IReadOnlyList<ProbationTeamMentorSummary>? Mentors = null);
 
 public interface IProbationTeamStore
 {

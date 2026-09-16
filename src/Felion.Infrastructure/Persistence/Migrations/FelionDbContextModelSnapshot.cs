@@ -399,6 +399,241 @@ namespace Felion.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Felion.Domain.Events.Event", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AllowMultiplePositions")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_multiple_positions");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_member_id");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<DateTimeOffset?>("EndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at");
+
+                    b.Property<string>("Location")
+                        .HasColumnType("text")
+                        .HasColumnName("location");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId");
+
+                    b.HasIndex("StartsAt");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("events", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_events_status", "status IN ('Draft', 'Published', 'RegistrationClosed', 'InProgress', 'Completed', 'Cancelled')");
+                        });
+                });
+
+            modelBuilder.Entity("Felion.Domain.Events.EventAttendance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CheckedInAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checked_in_at");
+
+                    b.Property<Guid>("CheckedInByMemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("checked_in_by_member_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CheckedInByMemberId");
+
+                    b.HasIndex("MemberId");
+
+                    b.HasIndex("EventId", "MemberId")
+                        .IsUnique();
+
+                    b.ToTable("event_attendances", (string)null);
+                });
+
+            modelBuilder.Entity("Felion.Domain.Events.EventPosition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("integer")
+                        .HasColumnName("capacity");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid?>("RequiredDepartmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("required_department_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequiredDepartmentId");
+
+                    b.HasIndex("EventId", "SortOrder");
+
+                    b.ToTable("event_positions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_event_positions_capacity", "capacity > 0");
+
+                            t.HasCheckConstraint("ck_event_positions_sort_order", "sort_order >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Felion.Domain.Events.EventRegistration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AssignedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assigned_at");
+
+                    b.Property<Guid?>("AssignedByMemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_by_member_id");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<Guid?>("DecidedByMemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decided_by_member_id");
+
+                    b.Property<Guid>("EventPositionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_position_id");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.Property<DateTimeOffset?>("RequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedByMemberId");
+
+                    b.HasIndex("DecidedByMemberId");
+
+                    b.HasIndex("MemberId");
+
+                    b.HasIndex("EventPositionId", "MemberId")
+                        .IsUnique()
+                        .HasFilter("status IN ('Pending', 'Approved', 'Assigned')");
+
+                    b.HasIndex("EventPositionId", "Status");
+
+                    b.ToTable("event_registrations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_event_registrations_status", "status IN ('Pending', 'Approved', 'Rejected', 'Cancelled', 'Assigned')");
+                        });
+                });
+
             modelBuilder.Entity("Felion.Domain.Identity.DiscordIdentityLink", b =>
                 {
                     b.Property<Guid>("Id")
@@ -895,6 +1130,75 @@ namespace Felion.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("TargetCandidateId")
                         .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Felion.Domain.Events.Event", b =>
+                {
+                    b.HasOne("Felion.Domain.Members.Member", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Felion.Domain.Events.EventAttendance", b =>
+                {
+                    b.HasOne("Felion.Domain.Members.Member", null)
+                        .WithMany()
+                        .HasForeignKey("CheckedInByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Felion.Domain.Events.Event", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Felion.Domain.Members.Member", null)
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Felion.Domain.Events.EventPosition", b =>
+                {
+                    b.HasOne("Felion.Domain.Events.Event", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Felion.Domain.Members.Department", null)
+                        .WithMany()
+                        .HasForeignKey("RequiredDepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Felion.Domain.Events.EventRegistration", b =>
+                {
+                    b.HasOne("Felion.Domain.Members.Member", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Felion.Domain.Members.Member", null)
+                        .WithMany()
+                        .HasForeignKey("DecidedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Felion.Domain.Events.EventPosition", null)
+                        .WithMany()
+                        .HasForeignKey("EventPositionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Felion.Domain.Members.Member", null)
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Felion.Domain.Members.Member", b =>

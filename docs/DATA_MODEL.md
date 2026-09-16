@@ -90,8 +90,8 @@ Used to retry role changes/kicks after DB decisions.
 ## Probation decision configuration
 `Probation:SuccessPolicy = Archive | Delete` (default `Archive`) controls PASS retention. `Probation:FailurePolicy = MarkInactive | Delete` controls FAIL retention. PASS creates a regular Member and derives `ClubEmail` from the candidate name and configured Workspace domain.
 
-# Planned Events & Attendance model
-Keep these tables in the Events module/schema ownership when implemented.
+# Events & Attendance model
+These tables are owned by the Events module/schema and are implemented by the Events module.
 
 ```mermaid
 erDiagram
@@ -116,14 +116,14 @@ Events are voluntary. Do not add required participation, target audience, absenc
 ### EventRegistration
 `Id, EventPositionId, MemberId, Status(Pending|Approved|Rejected|Cancelled|Assigned), RequestedAt?, DecidedAt?, DecidedByMemberId?, AssignedAt?, AssignedByMemberId?, CancelledAt?`
 
-Normal Member registration always starts `Pending` after lifecycle, eligibility, duplicate/multiple-position and capacity checks. `Approved` means Core/Admin accepted a request. `Assigned` means Core/Admin directly placed the Member and may bypass Department eligibility. Core/Admin may not bypass `AllowMultiplePositions`; do not assume capacity bypass.
+Normal Member registration always starts `Pending` after lifecycle, eligibility, duplicate/multiple-position and capacity checks. `Pending`, `Approved` and `Assigned` consume one capacity slot. `Rejected` and `Cancelled` do not. `Approved` means Core/Admin accepted a request. `Assigned` means Core/Admin directly placed the Member and may bypass Department eligibility. Core/Admin may not bypass `AllowMultiplePositions` or capacity.
 
 Use database/application constraints to prevent duplicate active registration for the same `(EventPositionId, MemberId)`. When `AllowMultiplePositions=false`, enforce at the application/domain level (and with a safe database strategy where practical) that a Member cannot hold multiple accepted/assigned positions in the same Event. Capacity approval must be concurrency-safe; two Core actions must not overfill a position.
 
 ### EventAttendance
 `Id, EventId, MemberId, CheckedInAt, CheckedInByMemberId, CreatedAt`
 
-Attendance is independent of EventRegistration. Core/Admin may create attendance for an active Member without registration or assignment. Enforce unique `(EventId, MemberId)`. Do not infer attendance from registration and do not add checkout in current scope.
+Attendance is independent of EventRegistration. Core/Admin may create attendance for an active Member without registration or assignment when the Event is `InProgress` or `Completed`. Enforce unique `(EventId, MemberId)` and treat repeated check-in as idempotent. Do not infer attendance from registration and do not add checkout in current scope.
 
 ### Historical integrity
 Events may reference stable Member IDs but must not mutate Member. Avoid cascade delete from Member into registration/attendance. Attendance is club history used for Member activity reporting and should survive deactivation. All privileged event mutations are also written to AuditLog.

@@ -6,7 +6,7 @@ Single deployable ASP.NET Core .NET 10 application (modular monolith). Web API a
 ```mermaid
 flowchart LR
   Discord[Discord] -->|Gateway / interactions| Host[ASP.NET Core Host]
-  Browser[Future Web UI] -->|HTTPS REST| Host
+  Browser[Probation Admin Dashboard] -->|HTTPS REST| Host
   Google[Google Workspace OAuth] --> Host
   Host --> API[API Transport]
   Host --> Bot[NetCord Transport]
@@ -60,7 +60,7 @@ Felion.Application ────> Felion.Domain
 - Evaluations
 - Audit
 - Imports
-- Events & Attendance (planned module; preserve boundary now)
+- Events & Attendance
 - Configuration
 
 ## Shared use cases
@@ -96,6 +96,8 @@ Prefer NetCord application commands + component interactions (buttons/modals). T
 ## API
 Use `/api/v1`. Return Problem Details for errors. Generate OpenAPI. Use pagination for collections. Bulk endpoints return per-item outcomes and a correlation id.
 
+The initial internal Probation Admin Dashboard is framework-free static HTML/CSS/ES modules hosted by `Felion.Host` under `/admin/probation/`. It uses the existing same-origin Google cookie session and calls the API; it contains no authorization, validation, promotion/failure or domain workflow logic.
+
 Suggested endpoint groups:
 - `/auth/*`
 - `/members/*`
@@ -107,9 +109,9 @@ Suggested endpoint groups:
 - `/discord/sync/*`
 - `/imports/members`
 - `/audit`
-- `/events/*` (planned)
-- `/events/{eventId}/registrations/*` (planned)
-- `/events/{eventId}/check-ins/*` (planned)
+- `/events/*`
+- `/events/{eventId}/registrations/*`
+- `/events/{eventId}/check-ins/*`
 
 ## Observability
 Structured logging, request correlation id, health checks for DB and Discord connectivity, and no secret/token logging.
@@ -136,7 +138,7 @@ Cross-module references use stable IDs and application queries/contracts. For ex
 
 Do not introduce a generic `Repository<T>` or generic event/rule engine. Prefer module-specific ports such as `IMemberDirectory`, `IEventEligibilityEvaluator`, `IDiscordGuildService`, and `IAuditWriter`.
 
-## Events & Attendance boundary (planned)
+## Events & Attendance boundary
 ```mermaid
 flowchart LR
   API[Web API] --> Events[Events Application]
@@ -154,6 +156,6 @@ The aggregate boundary is `Event`, with event-local `EventPosition` children/pol
 
 Registration and attendance are separate facts. Member request -> Pending -> Core/Admin Approved/Rejected. Core/Admin can directly assign a Member and bypass Department eligibility. Capacity and `AllowMultiplePositions` remain invariants and must be concurrency-safe.
 
-Attendance is event-level and manual. Core/Admin can check in an active Member without registration/assignment. This intentionally supports people who appeared and helped without registering. The attendance record is the source for later Member activity statistics.
+Attendance is event-level and manual. Core/Admin can check in an active Member without registration/assignment while the Event is `InProgress` or `Completed`. This intentionally supports people who appeared and helped without registering, including omitted history added after completion. The attendance record is the source for later Member activity statistics.
 
 Every Core manages every Event. Do not introduce EventManager ownership/ACL tables. `CreatedByMemberId` is audit provenance only. All privileged changes flow through application use cases and AuditLog.

@@ -1,3 +1,4 @@
+using Felion.Application.Hardening;
 using Felion.Application.Members;
 using Felion.Application.Probation;
 using Felion.Domain.Audit;
@@ -147,13 +148,33 @@ public sealed class EvaluationSubmissionTests
         Assert.Equal(4, Assert.Single(result.Answers).ScoreValue);
     }
 
-    private static EvaluationManagementService CreateService(Fixture fixture)
+    [Fact]
+    public async Task SubmissionRejectsRequestsWhenTheReviewerRateLimitIsReached()
+    {
+        var fixture = CreateFixture();
+        var rateLimitGate = new TestRateLimitGate(isAcquired: false, retryAfter: TimeSpan.FromMinutes(1));
+        var service = CreateService(fixture, rateLimitGate);
+
+        var exception = await Assert.ThrowsAsync<RateLimitExceededException>(() => service.SubmitPeerEvaluationAsync(
+            fixture.PeerReviewer.Id,
+            new SubmitEvaluationCommand(fixture.PeerForm.Id, fixture.Target.Id, []),
+            CancellationToken.None));
+
+        Assert.Equal(RateLimitOperation.EvaluationSubmission, exception.Operation);
+        Assert.Equal(TimeSpan.FromMinutes(1), exception.RetryAfter);
+        Assert.Contains(rateLimitGate.Attempts, attempt => attempt.PartitionKey == $"Peer:{fixture.PeerReviewer.Id:N}");
+    }
+
+    private static EvaluationManagementService CreateService(
+        Fixture fixture,
+        TestRateLimitGate? rateLimitGate = null)
     {
         return new EvaluationManagementService(
             fixture.EvaluationStore,
             fixture.MemberStore,
             new DefaultsProvider(),
-            fixture.ProbationStore);
+            fixture.ProbationStore,
+            rateLimitGate ?? new TestRateLimitGate());
     }
 
     private static Fixture CreateFixture()

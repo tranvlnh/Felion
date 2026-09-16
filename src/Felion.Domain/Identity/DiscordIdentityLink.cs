@@ -88,4 +88,9 @@ public sealed class DiscordIdentityLink
         SubjectType = DiscordIdentitySubjectType.Member;
         SubjectId = memberId;
     }
+
+    public void UpdateStudentId(string studentId)
+    {
+        StudentId = IdentityNormalizer.StudentId(studentId);
+    }
 }

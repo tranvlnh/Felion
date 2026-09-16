@@ -81,6 +81,23 @@ public sealed class ProbationCandidate
         Touch(now);
     }
 
+    public void UpdateProfile(
+        string studentId,
+        string fullName,
+        Guid departmentId,
+        Guid generationId,
+        DateTimeOffset? now = null)
+    {
+        EnsureActive();
+
+        StudentId = IdentityNormalizer.StudentId(studentId);
+        FullName = IdentityNormalizer.RequiredText(fullName, nameof(FullName));
+        ValidateIds(departmentId, generationId, TeamId);
+        DepartmentId = departmentId;
+        GenerationId = generationId;
+        Touch(now);
+    }
+
     public void RemoveFromTeam(DateTimeOffset? now = null)
     {
         EnsureActive();

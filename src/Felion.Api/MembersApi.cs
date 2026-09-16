@@ -32,9 +32,11 @@ public static class MembersApi
         imports.MapPost("/members", ImportMembersAsync);
 
         DiscordRoleMappingsApi.Map(group);
+        ProbationCandidatesApi.Map(group);
         ProbationTeamsApi.Map(group);
         EvaluationsApi.Map(group);
         ProbationDecisionsApi.Map(group);
+        EventsApi.Map(group);
         AuthenticationApi.Map(endpoints);
 
         return endpoints;

@@ -8,6 +8,13 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.AddServerHeader = false;
+    options.Limits.MaxRequestHeadersTotalSize = 32 * 1024;
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
+});
+
 builder.Logging.ClearProviders();
 if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"))
 {
@@ -60,10 +67,18 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration["Discord:Token"]))
 
 app.UseExceptionHandler();
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseStatusCodePages();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 if (!app.Environment.IsEnvironment("Testing"))
 {
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseHsts();
+    }
+
     app.UseHttpsRedirection();
 }
 

@@ -1,11 +1,14 @@
 using System.Text.Json;
+using Felion.Application.Hardening;
 using Felion.Domain.Audit;
 using Felion.Domain.Common;
 using Felion.Domain.Identity;
 
 namespace Felion.Application.Discord;
 
-public sealed class DiscordLinkingService(IDiscordLinkStore store) : IDiscordLinkingService
+public sealed class DiscordLinkingService(
+    IDiscordLinkStore store,
+    IRateLimitGate rateLimitGate) : IDiscordLinkingService
 {
     private const int MaxStudentIdLength = 50;
 
@@ -18,6 +21,15 @@ public sealed class DiscordLinkingService(IDiscordLinkStore store) : IDiscordLin
         if (discordUserId <= 0)
         {
             throw new DiscordLinkValidationException("Discord user ID must be a positive signed snowflake.");
+        }
+
+        var rateLimit = await rateLimitGate.TryAcquireAsync(
+            RateLimitOperation.DiscordLink,
+            discordUserId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            cancellationToken);
+        if (!rateLimit.IsAcquired)
+        {
+            throw new RateLimitExceededException(RateLimitOperation.DiscordLink, rateLimit.RetryAfter);
         }
 
         string normalizedStudentId;

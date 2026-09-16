@@ -339,7 +339,11 @@ public sealed class ProbationTeamManagementService(
             team.CandidateIds,
             team.MentorMemberIds,
             team.CreatedAt,
-            team.UpdatedAt);
+            team.UpdatedAt)
+        {
+            Candidates = team.Candidates ?? [],
+            Mentors = team.Mentors ?? []
+        };
     }
 
     private static string Snapshot(ProbationTeam team)

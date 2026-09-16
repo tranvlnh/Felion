@@ -62,3 +62,15 @@ Member import is create-only and validates the entire CSV/XLSX file before commi
 
 ## ADR-015 — Probation promotion identity and retention configuration
 PASS always creates a regular `Member` (`Position=Member`). The application generates `ClubEmail` from the candidate's normalized given name followed by the initials of preceding name tokens, appended to `Authentication:Google:WorkspaceDomain`; generated email collisions fail that candidate decision. PASS retention is configurable with `Probation:SuccessPolicy` (`Archive` or `Delete`, default `Archive`). FAIL continues to use `Probation:FailurePolicy` (`MarkInactive` or `Delete`, default `MarkInactive`).
+
+## ADR-016 — Event registration capacity reservation
+`Pending`, `Approved` and `Assigned` EventRegistration records all reserve one EventPosition capacity slot. A new normal registration or direct assignment is rejected when the total of these statuses reaches capacity; rejection (and later cancellation) releases its slot. This prevents implicit waitlists.
+
+## ADR-017 — Event attendance lifecycle
+Core/Admin may manually check in an active Member when an Event is `InProgress` or `Completed`; `Cancelled` and earlier lifecycle states reject check-in. This permits adding omitted attendance after completion. Attendance remains one immutable historical fact per `(EventId, MemberId)`: repeated check-in is idempotent and does not modify or duplicate the record.
+
+## ADR-018 — Link and evaluation abuse limits
+Discord linking is limited to five attempts per Discord user per fixed ten-minute window. Peer and mentor evaluation submissions are limited to ten attempts per reviewer per fixed one-minute window. The limiter is shared at the application boundary so it applies to every transport; HTTP rejection returns `429` with `Retry-After`, while Discord returns an ephemeral retry response. The initial implementation is process-local because Felion currently has one application process. Anti-forgery enforcement for cookie-authenticated JSON mutations is explicitly deferred.
+
+## ADR-019 — Priority Probation Admin Dashboard MVP
+The internal Probation Admin Dashboard is implemented as framework-free static HTML/CSS/ES modules under `Felion.Host/wwwroot/admin/probation`, served at `/admin/probation/`. It calls the existing same-origin REST API and reuses Google Workspace cookie authentication. No separate frontend project, SPA framework, CORS policy or new authentication strategy is introduced for this MVP.

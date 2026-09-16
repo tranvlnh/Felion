@@ -57,6 +57,14 @@
 - [x] Candidate assignment
 - [x] Multi-mentor assignment
 
+## Priority MVP — Probation Admin Dashboard
+- [x] Static same-origin dashboard at `/admin/probation/`
+- [x] Candidate list/detail with MSSV/name/Department/Generation/Team/Status filters
+- [x] Candidate create/edit, atomic team change and audit/role-sync preservation
+- [x] Team create/edit, mentor assignment/removal and destructive-action confirmations
+- [x] PASS/FAIL confirmation UI backed by existing decision workflow
+- [x] Candidate application/API/dashboard integration coverage
+
 ## Milestone 6 — Evaluation
 - [x] EvaluationPeriod lifecycle
 - [x] Configurable Score/Text form
@@ -74,21 +82,26 @@
 - [x] Preserve audit/evaluation history
 
 ## Milestone 8 — Events
-- [ ] Event CRUD/lifecycle
-- [ ] EventPosition + capacity
-- [ ] Department eligibility
-- [ ] `AllowMultiplePositions`
-- [ ] Member Pending registration
-- [ ] Core/Admin approve/reject
-- [ ] Core/Admin direct assignment with eligibility bypass
-- [ ] Concurrency-safe capacity enforcement
-- [ ] Manual event-level check-in without registration requirement
-- [ ] Member participation history
+- [x] Event CRUD/lifecycle
+- [x] EventPosition + capacity definition
+- [x] Department eligibility
+- [x] `AllowMultiplePositions`
+- [x] Member Pending registration
+- [x] Core/Admin approve/reject
+- [x] Core/Admin direct assignment with eligibility bypass
+- [x] Concurrency-safe capacity enforcement
+- [x] Manual event-level check-in without registration requirement
+- [x] Member participation history
 
 ## Cross-cutting
-- [ ] Audit privileged mutations
+- [x] Audit privileged Event, position, registration and attendance mutations
 - [x] Authorization tests
 - [x] Domain invariant tests
-- [ ] PostgreSQL integration tests
+- [x] Scope-safe temporary actor middleware dependency resolution
+- [x] Events API integration tests (authorization, check-in transport and Problem Details mapping)
+- [x] PostgreSQL integration test for EventAttendance uniqueness under concurrent inserts
+- [x] Shared fixed-window rate limits for Discord linking and peer/mentor evaluation submissions
+- [x] HTTP `429`/`Retry-After` integration coverage for rate-limited evaluation submission
+- [x] Cookie/HTTPS/HSTS, Kestrel and security response-header hardening
 - [ ] API integration tests
 - [x] Keep specs/status/TODO/decisions synchronized for completed Member management slice

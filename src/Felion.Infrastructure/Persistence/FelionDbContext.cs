@@ -1,5 +1,6 @@
 using Felion.Domain.Audit;
 using Felion.Domain.Evaluation;
+using Felion.Domain.Events;
 using Felion.Domain.Identity;
 using Felion.Domain.Members;
 using Felion.Domain.Probation;
@@ -38,6 +39,14 @@ public sealed class FelionDbContext(DbContextOptions<FelionDbContext> options) :
     public DbSet<EvaluationSubmission> EvaluationSubmissions => Set<EvaluationSubmission>();
 
     public DbSet<EvaluationAnswer> EvaluationAnswers => Set<EvaluationAnswer>();
+
+    public DbSet<Event> Events => Set<Event>();
+
+    public DbSet<EventPosition> EventPositions => Set<EventPosition>();
+
+    public DbSet<EventRegistration> EventRegistrations => Set<EventRegistration>();
+
+    public DbSet<EventAttendance> EventAttendances => Set<EventAttendance>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -1,9 +1,12 @@
 using Felion.Application.Discord;
+using Felion.Application.Events;
+using Felion.Application.Hardening;
 using Felion.Application.Identity;
 using Felion.Application.Members;
 using Felion.Application.Probation;
 using Felion.Infrastructure.MemberImports;
 using Felion.Infrastructure.Persistence;
+using Felion.Infrastructure.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +31,7 @@ public static class DependencyInjection
         IConfiguration configuration,
         IHealthChecksBuilder healthChecks)
     {
+        services.AddSingleton<IRateLimitGate, InMemoryRateLimitGate>();
         services.AddScoped<MemberStore>();
         services.AddScoped<IMemberStore>(services => services.GetRequiredService<MemberStore>());
         services.AddScoped<IWebIdentityDirectory>(services => services.GetRequiredService<MemberStore>());
@@ -35,12 +39,16 @@ public static class DependencyInjection
         services.AddScoped<IMemberManagementService, MemberManagementService>();
         services.AddScoped<IProbationTeamStore, ProbationTeamStore>();
         services.AddScoped<IProbationTeamManagementService, ProbationTeamManagementService>();
+        services.AddScoped<IProbationCandidateStore, ProbationCandidateStore>();
+        services.AddScoped<IProbationCandidateManagementService, ProbationCandidateManagementService>();
         services.AddScoped<IProbationDecisionStore, ProbationDecisionStore>();
         services.AddScoped<IProbationDecisionService, ProbationDecisionService>();
         services.AddSingleton<IProbationRetentionPolicyProvider, ProbationRetentionPolicyProvider>();
         services.AddSingleton<IWorkspaceEmailGenerator, WorkspaceEmailGenerator>();
         services.AddScoped<IEvaluationStore, EvaluationStore>();
         services.AddScoped<IEvaluationManagementService, EvaluationManagementService>();
+        services.AddScoped<IEventStore, EventStore>();
+        services.AddScoped<IEventManagementService, EventManagementService>();
         services.AddSingleton<IEvaluationDefaultsProvider, EvaluationDefaultsProvider>();
         services.AddScoped<IDiscordLinkStore, DiscordLinkStore>();
         services.AddScoped<IDiscordLinkingService, DiscordLinkingService>();

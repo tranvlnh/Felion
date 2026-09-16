@@ -1,7 +1,7 @@
 # Product Specification — Phase 1
 
 ## Goal
-Create a Discord-integrated club administration backend. The first release focuses on identity linking, Discord role synchronization, member management and probation management/evaluation. Event management and check-in are explicitly deferred.
+Create a Discord-integrated club administration backend. The first release focuses on identity linking, Discord role synchronization, member management, probation management/evaluation and event operations, including manual attendance.
 
 ## Actors
 - **Admin**: unrestricted administration.
@@ -27,6 +27,8 @@ A verification message exposes a button. Button opens a Discord modal containing
 6. Synchronize configured Discord roles.
 7. Audit the link.
 
+To mitigate abusive retries, Discord linking is limited to five attempts per Discord user in each fixed ten-minute window. A rejected attempt must not reach identity lookup or persistence.
+
 Admin/Core may unlink/relink and force role sync through web/API and Discord application commands according to authorization.
 
 ## Discord role mapping
@@ -40,7 +42,7 @@ Mappings are configuration stored in DB, not hard-coded IDs. Supported role dime
 Admin can choose an existing guild role or create a new Discord role and save the mapping. Only the configured single guild is valid.
 
 ## Probation
-Probation candidates are separate from Members. Each candidate belongs to exactly one Department, one Generation and optionally one active ProbationTeam.
+Probation candidates are separate from Members. Each candidate belongs to exactly one Department, one Generation and optionally one active ProbationTeam. Active Core/Admin members may create and edit an active candidate's StudentId, FullName, Department and Generation; candidate status remains controlled only by the PASS/FAIL decision workflow. Changing the StudentId of a linked active candidate updates its Discord identity link in the same persistence operation.
 
 A team has a name and optional/configured Discord role. A team may have many mentors. Mentors must reference active Members; a Member may mentor multiple teams.
 
@@ -64,6 +66,8 @@ Mentor review rules:
 Only Core/Admin can read raw submissions and aggregated results. Candidate-facing endpoints must not expose scores, notes, reviewer identity or aggregates.
 
 Submissions snapshot reviewer/target identity and each answer's question prompt/type so retained evaluation history remains interpretable when candidate or form/question records change. Re-submitting the same reviewer/target/form while the period is Open edits the existing submission rather than creating a duplicate.
+
+Evaluation submission is limited to ten attempts per reviewer in each fixed one-minute window. The limit applies to both peer and mentor reviewers, regardless of transport.
 
 ## Final decision
 Core/Admin selects candidates in bulk and chooses PASS/FAIL.
@@ -93,8 +97,8 @@ Audit privileged mutations at minimum: member create/update/import, link/unlink/
 
 Audit should capture: actor type/id, action, entity type/id where available, timestamp, correlation/request id, and JSON before/after or structured metadata without secrets.
 
-# Planned Module — Events & Attendance
-Although implementation is deferred, phase-1 architecture MUST preserve this module boundary and must not bake event concepts into Member or Discord entities.
+# Events & Attendance Module
+Event lifecycle, event-local positions, registration management and manual attendance are implemented in the Events module. The module boundary remains explicit, and Event must not be baked into Member or Discord entities.
 
 ## Authorization
 Every active Member may view published events and their own registration/attendance history. Only Core/Admin may create, edit, cancel, publish, manage positions, approve/reject registrations, directly assign members, and check members in. Every Core can manage every event; `CreatedByMemberId` is audit metadata, not an ownership boundary.
@@ -109,7 +113,7 @@ Each `EventPosition` has its own capacity and eligibility. Phase-one eligibility
 
 A normal Member may request a position only when eligible and capacity is still available. Registration never auto-accepts: it is submitted as Pending and Core/Admin decides. Core/Admin may directly assign any active Member to any position, bypassing the Department requirement. Direct assignment still obeys the event's multiple-position policy; capacity bypass must not be assumed unless a future requirement explicitly allows it.
 
-Once a position has reached capacity, do not accept new registration requests and do not create a waitlist.
+`Pending`, `Approved` and `Assigned` registrations all reserve capacity. Once their total reaches capacity, do not accept a new registration request or assignment and do not create a waitlist. Rejection releases the reserved capacity.
 
 ## Registration
 Registration represents a Member asking to staff a specific EventPosition. Approval/assignment is separate from the request. Preserve who approved/rejected/assigned and when. A Member cancelling their own request/assignment is allowed only when event lifecycle/policy permits; do not invent automatic reassignment.
@@ -117,7 +121,7 @@ Registration represents a Member asking to staff a specific EventPosition. Appro
 ## Attendance / check-in
 Attendance is event-level, not position-level. `EventAttendance` is a historical fact that a Member appeared at the event. Initial check-in is manual only and can be performed by Core/Admin. Core/Admin may check in any active Member even if the Member never registered or was never assigned to a position.
 
-Only one effective attendance record per `(EventId, MemberId)` is allowed. Store `CheckedInAt` and `CheckedInByMemberId`. No checkout, QR, absence, excuse, or required-participation semantics in the current scope. Attendance history must remain available for Member activity reporting and should survive Member deactivation.
+Only one effective attendance record per `(EventId, MemberId)` is allowed. Store `CheckedInAt` and `CheckedInByMemberId`. Check-in is permitted while the Event is `InProgress` and after it is `Completed`, so Core/Admin can add omitted historical records; a repeated check-in returns the existing record and must not duplicate attendance or audit. No checkout, QR, absence, excuse, or required-participation semantics in the current scope. Attendance history must remain available for Member activity reporting and should survive Member deactivation.
 
 ## Lifecycle
 Keep lifecycle explicit and small: `Draft -> Published -> RegistrationClosed -> InProgress -> Completed`, with `Cancelled` as a terminal alternative. Only Core/Admin may transition lifecycle. Published events are visible to Members. Registration availability is determined by lifecycle plus position capacity.

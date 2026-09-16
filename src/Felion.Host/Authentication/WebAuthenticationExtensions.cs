@@ -28,7 +28,7 @@ public static class WebAuthenticationExtensions
                 options.Cookie.Name = "Felion.Authentication";
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Lax;
-                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
                 options.ExpireTimeSpan = TimeSpan.FromHours(8);
                 options.SlidingExpiration = true;
                 options.Events.OnValidatePrincipal = ValidateCookiePrincipalAsync;

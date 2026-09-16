@@ -1,4 +1,5 @@
 using Felion.Application.Discord;
+using Felion.Application.Hardening;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ComponentInteractions;
@@ -72,5 +73,22 @@ public sealed class VerificationModalModule(
         {
             return VerificationInteractionResponses.Error(exception.Message);
         }
+        catch (RateLimitExceededException exception)
+        {
+            return VerificationInteractionResponses.Error(
+                $"Too many link attempts. Try again in {FormatRetryAfter(exception.RetryAfter)}.");
+        }
+    }
+
+    private static string FormatRetryAfter(TimeSpan? retryAfter)
+    {
+        if (retryAfter is null || retryAfter <= TimeSpan.Zero)
+        {
+            return "a few minutes";
+        }
+
+        return retryAfter.Value.TotalMinutes >= 1
+            ? $"{Math.Ceiling(retryAfter.Value.TotalMinutes)} minute(s)"
+            : $"{Math.Ceiling(retryAfter.Value.TotalSeconds)} second(s)";
     }
 }

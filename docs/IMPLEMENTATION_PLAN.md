@@ -27,13 +27,13 @@ Evaluation periods, configurable peer/mentor forms, Score/Text questions, open/c
 ## Milestone 7 — Decisions
 Bulk pass/fail command/API, promotion to Member, failure retention policy, Discord kick/role sync jobs, idempotency and audit. Add conflict/retry tests.
 
-## Milestone 8 — Hardening
-Integration tests with PostgreSQL (Testcontainers if suitable), authorization matrix tests, rate limiting for link/evaluation endpoints, structured logs, health checks, import limits, security review and deployment docs.
+## Milestone 9 — Hardening
+Integration tests with PostgreSQL (Testcontainers if suitable), authorization matrix tests, rate limiting for link/evaluation endpoints, structured logs, health checks, import limits, security review and deployment docs. Link/evaluation rate limits and cookie/HTTPS/response-header hardening are complete; remaining work is ingress/upload hardening and live integration coverage.
 
 ## Explicitly deferred
-Events, registrations, check-in, attendance analytics, public website UI.
+Registration, check-in, attendance analytics and public website UI.
 
-## Future milestone — Events & Attendance
+## Milestone 8 — Events & Attendance
 1. Add Events domain/application boundary and lifecycle with Core/Admin-only management.
 2. Add `EventPosition` with capacity and optional `RequiredDepartmentId`; no generic rule engine.
 3. Add Member registration to a position as `Pending`, Core/Admin approval/rejection, and direct assignment with Department-rule bypass.

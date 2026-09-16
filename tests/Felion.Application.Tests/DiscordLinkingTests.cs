@@ -1,4 +1,5 @@
 using Felion.Application.Discord;
+using Felion.Application.Hardening;
 using Felion.Domain.Audit;
 using Felion.Domain.Identity;
 
@@ -17,7 +18,7 @@ public sealed class DiscordLinkingTests
                 "SV001",
                 "Student One")]
         };
-        var service = new DiscordLinkingService(store);
+        var service = new DiscordLinkingService(store, new TestRateLimitGate());
 
         var result = await service.LinkAsync(12345, " sv001 ", "correlation-1", CancellationToken.None);
 
@@ -33,7 +34,7 @@ public sealed class DiscordLinkingTests
     [Fact]
     public async Task LinkRejectsUnknownStudentId()
     {
-        var service = new DiscordLinkingService(new FakeDiscordLinkStore());
+        var service = new DiscordLinkingService(new FakeDiscordLinkStore(), new TestRateLimitGate());
 
         await Assert.ThrowsAsync<DiscordLinkSubjectNotFoundException>(() => service.LinkAsync(
             12345,
@@ -53,7 +54,7 @@ public sealed class DiscordLinkingTests
                 new DiscordLinkSubject(Guid.NewGuid(), DiscordIdentitySubjectType.Probation, "SV001", "Candidate One")
             ]
         };
-        var service = new DiscordLinkingService(store);
+        var service = new DiscordLinkingService(store, new TestRateLimitGate());
 
         await Assert.ThrowsAsync<DiscordLinkSubjectAmbiguousException>(() => service.LinkAsync(
             12345,
@@ -71,7 +72,7 @@ public sealed class DiscordLinkingTests
             Subjects = [new DiscordLinkSubject(subjectId, DiscordIdentitySubjectType.Member, "SV001", "Student One")]
         };
         store.Links.Add(DiscordIdentityLink.Create(54321, "SV001", DiscordIdentitySubjectType.Member, subjectId));
-        var service = new DiscordLinkingService(store);
+        var service = new DiscordLinkingService(store, new TestRateLimitGate());
 
         await Assert.ThrowsAsync<DiscordLinkConflictException>(() => service.LinkAsync(
             12345,
@@ -94,7 +95,7 @@ public sealed class DiscordLinkingTests
             "SV001",
             DiscordIdentitySubjectType.Member,
             existingSubjectId));
-        var service = new DiscordLinkingService(store);
+        var service = new DiscordLinkingService(store, new TestRateLimitGate());
 
         await Assert.ThrowsAsync<DiscordLinkConflictException>(() => service.LinkAsync(
             12345,
@@ -117,12 +118,32 @@ public sealed class DiscordLinkingTests
             Subjects = [new DiscordLinkSubject(subjectId, DiscordIdentitySubjectType.Member, "SV001", "Student One")]
         };
         store.Links.Add(existingLink);
-        var service = new DiscordLinkingService(store);
+        var service = new DiscordLinkingService(store, new TestRateLimitGate());
 
         var result = await service.LinkAsync(12345, "SV001", "correlation-6", CancellationToken.None);
 
         Assert.Equal(existingLink.LinkedAt, result.LinkedAt);
         Assert.False(result.SyncQueued);
+        Assert.Empty(store.AuditLogs);
+        Assert.Empty(store.SyncJobs);
+    }
+
+    [Fact]
+    public async Task LinkRejectsRequestsWhenTheDiscordUserRateLimitIsReached()
+    {
+        var store = new FakeDiscordLinkStore();
+        var rateLimitGate = new TestRateLimitGate(isAcquired: false, retryAfter: TimeSpan.FromMinutes(10));
+        var service = new DiscordLinkingService(store, rateLimitGate);
+
+        var exception = await Assert.ThrowsAsync<RateLimitExceededException>(() => service.LinkAsync(
+            12345,
+            "SV001",
+            "correlation-rate-limit",
+            CancellationToken.None));
+
+        Assert.Equal(RateLimitOperation.DiscordLink, exception.Operation);
+        Assert.Equal(TimeSpan.FromMinutes(10), exception.RetryAfter);
+        Assert.Single(rateLimitGate.Attempts);
         Assert.Empty(store.AuditLogs);
         Assert.Empty(store.SyncJobs);
     }

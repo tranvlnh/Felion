@@ -3,10 +3,11 @@ using Felion.Application.Identity;
 namespace Felion.Host.Authentication;
 
 public sealed class TemporaryActorMiddleware(
-    RequestDelegate next,
-    IWebIdentityService identityService)
+    RequestDelegate next)
 {
-    public async Task InvokeAsync(HttpContext httpContext)
+    public async Task InvokeAsync(
+        HttpContext httpContext,
+        IWebIdentityService identityService)
     {
         if (httpContext.User.Identity?.IsAuthenticated != true
             && Guid.TryParse(

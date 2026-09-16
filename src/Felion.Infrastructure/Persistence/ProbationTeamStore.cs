@@ -158,19 +158,32 @@ internal sealed class ProbationTeamStore(FelionDbContext dbContext) : IProbation
         var candidateAssignments = await dbContext.ProbationCandidates
             .AsNoTracking()
             .Where(candidate => candidate.TeamId.HasValue && teamIds.Contains(candidate.TeamId.Value))
-            .Select(candidate => new { candidate.TeamId, candidate.Id })
+            .Select(candidate => new
+            {
+                candidate.TeamId,
+                candidate.Id,
+                candidate.StudentId,
+                candidate.FullName
+            })
             .ToListAsync(cancellationToken);
-        var mentors = await dbContext.TeamMentors
-            .AsNoTracking()
-            .Where(mentor => teamIds.Contains(mentor.TeamId))
-            .Select(mentor => new { mentor.TeamId, mentor.MemberId })
+        var mentors = await (
+            from mentor in dbContext.TeamMentors.AsNoTracking()
+            join member in dbContext.Members.AsNoTracking() on mentor.MemberId equals member.Id
+            where teamIds.Contains(mentor.TeamId)
+            select new
+            {
+                mentor.TeamId,
+                mentor.MemberId,
+                member.StudentId,
+                member.FullName
+            })
             .ToListAsync(cancellationToken);
 
         return teams.Select(team => new ProbationTeamView(
             team.Id,
             team.Name,
             team.IsActive,
-            candidateAssignments
+                candidateAssignments
                 .Where(assignment => assignment.TeamId == team.Id)
                 .Select(assignment => assignment.Id)
                 .ToArray(),
@@ -179,7 +192,23 @@ internal sealed class ProbationTeamStore(FelionDbContext dbContext) : IProbation
                 .Select(mentor => mentor.MemberId)
                 .ToArray(),
             team.CreatedAt,
-            team.UpdatedAt)).ToArray();
+            team.UpdatedAt,
+            candidateAssignments
+                .Where(assignment => assignment.TeamId == team.Id)
+                .OrderBy(assignment => assignment.StudentId)
+                .Select(assignment => new ProbationTeamCandidateSummary(
+                    assignment.Id,
+                    assignment.StudentId,
+                    assignment.FullName))
+                .ToArray(),
+            mentors
+                .Where(mentor => mentor.TeamId == team.Id)
+                .OrderBy(mentor => mentor.StudentId)
+                .Select(mentor => new ProbationTeamMentorSummary(
+                    mentor.MemberId,
+                    mentor.StudentId,
+                    mentor.FullName))
+                .ToArray())).ToArray();
     }
 
     private async Task SaveChangesAsync(CancellationToken cancellationToken)

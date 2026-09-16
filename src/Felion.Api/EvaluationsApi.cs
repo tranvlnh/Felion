@@ -1,3 +1,4 @@
+using Felion.Application.Hardening;
 using Felion.Application.Identity;
 using Felion.Application.Probation;
 using Felion.Domain.Evaluation;
@@ -34,7 +35,8 @@ internal static class EvaluationsApi
             .WithTags("Probation Evaluations");
         evaluations
             .MapPost("/mentor", SubmitMentorAsync)
-            .RequireAuthorization(FelionAuthorizationPolicies.ActiveMember);
+            .RequireAuthorization(FelionAuthorizationPolicies.ActiveMember)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
         evaluations
             .MapGet("/results", ListResultsAsync)
             .RequireAuthorization(FelionAuthorizationPolicies.CoreOrAdmin);
@@ -220,6 +222,10 @@ internal static class EvaluationsApi
                     cancellationToken);
                 return Results.Ok(receipt);
             }
+            catch (RateLimitExceededException exception)
+            {
+                return ToRateLimitProblem(httpContext, exception);
+            }
             catch (Exception exception) when (exception is EvaluationFormNotFoundException
                 or EvaluationPeriodNotFoundException
                 or ProbationCandidateNotFoundException
@@ -274,6 +280,19 @@ internal static class EvaluationsApi
                 return ToProblem(exception);
             }
         }
+    }
+
+    private static IResult ToRateLimitProblem(
+        HttpContext httpContext,
+        RateLimitExceededException exception)
+    {
+        var retryAfter = exception.RetryAfter is { } duration && duration > TimeSpan.Zero
+            ? Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds))
+            : 60;
+        httpContext.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return Results.Problem(
+            statusCode: StatusCodes.Status429TooManyRequests,
+            detail: exception.Message);
     }
 
     private static bool TryGetAuthenticatedActor(HttpContext httpContext, out Guid actorMemberId)

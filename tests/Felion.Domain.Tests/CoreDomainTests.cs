@@ -75,6 +75,25 @@ public sealed class CoreDomainTests
     }
 
     [Fact]
+    public void ActiveProbationCandidateCanUpdateProfile()
+    {
+        var candidate = ProbationCandidate.Create(
+            "SV001",
+            "Original Name",
+            RegularDepartmentId,
+            GenerationId);
+        var departmentId = Guid.NewGuid();
+        var generationId = Guid.NewGuid();
+
+        candidate.UpdateProfile("sv002", "Updated Name", departmentId, generationId);
+
+        Assert.Equal("SV002", candidate.StudentId);
+        Assert.Equal("Updated Name", candidate.FullName);
+        Assert.Equal(departmentId, candidate.DepartmentId);
+        Assert.Equal(generationId, candidate.GenerationId);
+    }
+
+    [Fact]
     public void DiscordLinkRejectsNonPositiveSnowflakesAndNormalizesStudentId()
     {
         var link = DiscordIdentityLink.Create(

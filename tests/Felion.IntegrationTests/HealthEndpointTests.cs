@@ -26,6 +26,18 @@ public sealed class HealthEndpointTests : IClassFixture<HealthEndpointTests.Test
     }
 
     [Fact]
+    public async Task ResponsesIncludeApiSecurityHeaders()
+    {
+        using var response = await _client.GetAsync("/health/live");
+
+        Assert.Equal("default-src 'none'; base-uri 'none'; frame-ancestors 'none'", response.Headers.GetValues("Content-Security-Policy").Single());
+        Assert.Equal("camera=(), geolocation=(), microphone=()", response.Headers.GetValues("Permissions-Policy").Single());
+        Assert.Equal("no-referrer", response.Headers.GetValues("Referrer-Policy").Single());
+        Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.Equal("DENY", response.Headers.GetValues("X-Frame-Options").Single());
+    }
+
+    [Fact]
     public async Task MissingEndpointReturnsProblemDetailsWithCorrelationId()
     {
         var suppliedCorrelationId = Guid.NewGuid();
@@ -46,6 +58,20 @@ public sealed class HealthEndpointTests : IClassFixture<HealthEndpointTests.Test
         using var response = await _client.GetAsync("/api/v1/members");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ProbationDashboardStaticShellIsServedWithLocalAssetCsp()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/admin/probation/index.html");
+        request.Headers.Accept.ParseAdd("text/html");
+        using var response = await _client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Probation Admin", body, StringComparison.Ordinal);
+        Assert.Contains("script-src 'self'", response.Headers.GetValues("Content-Security-Policy").Single(), StringComparison.Ordinal);
+        Assert.Contains("no-store", response.Headers.GetValues("Cache-Control").Single(), StringComparison.Ordinal);
     }
 
     [Fact]
