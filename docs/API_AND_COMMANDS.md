@@ -47,6 +47,8 @@ Suggested application commands:
 
 Permissions must be resolved from linked DB Member position, not merely Discord role possession. Discord roles are presentation/access synchronization, not the source of truth for application authorization.
 
+Member CRUD and imports require an active Core/Admin actor. Until Google Workspace authentication is implemented, Development and Testing accept the temporary `X-Felion-Actor-Member-Id` header; production rejects this temporary transport and will use the later authenticated principal. The import file is create-only and all-or-nothing. Required headers are `StudentId`, `FullName`, `ClubEmail`, `Department`, `Generation` and `Position`; Department accepts ID/slug/name and Generation accepts ID/code/name. Import responses contain `Committed`, `ImportedRows` and row-level `Errors`.
+
 # Planned Events API / bot surface
 These are contracts to preserve architecture; do not implement until the Events milestone is requested.
 

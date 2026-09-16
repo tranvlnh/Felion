@@ -56,3 +56,6 @@ Felion.Application ────> Felion.Domain
 ```
 
 `Felion.Domain` must not depend on ASP.NET Core, EF Core, NetCord, PostgreSQL, or Infrastructure.
+
+## ADR-014 — Member import semantics before web authentication
+Member import is create-only and validates the entire CSV/XLSX file before committing. A normalized duplicate StudentId or ClubEmail is a row-level error; no existing Member is updated and any error prevents all rows from being persisted. Until Google Workspace authentication is implemented, Development and Testing use the temporary `X-Felion-Actor-Member-Id` header, while production rejects that temporary transport.

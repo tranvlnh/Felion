@@ -9,14 +9,14 @@ Validate the existing skeleton and dependency direction without reorganizing it.
 ## Milestone 1 — Persistence + core domain
 Implement Department, Generation, Member, ProbationCandidate, DiscordIdentityLink, AuditLog and migrations. Add unique constraints and normalization. Seed only configuration/reference data, never real secrets.
 
-## Milestone 2 — Discord linking and role sync
+## Milestone 2 — Member admin + imports
+Implement Member CRUD, create-only CSV/XLSX import with validate-before-commit behavior, row-level reports, temporary development authorization and audit coverage.
+
+## Milestone 3 — Discord linking and role sync
 Host NetCord in the same application. Implement verification button/modal, link use case, role mapping, role creation, role synchronization and privileged Discord commands. Add retryable DiscordSyncJob for side effects.
 
-## Milestone 3 — Google Workspace authentication
+## Milestone 4 — Google Workspace authentication
 Configure Google auth, resolve returned email to active Member, issue application principal with MemberId/Position claims, implement policies and `/me`. Reject unknown/inactive members even with valid Workspace-domain account.
-
-## Milestone 4 — Member admin + imports
-CRUD, CSV import with validate-before-commit behavior, optional XLSX, unlink/relink, bulk role sync and audit.
 
 ## Milestone 5 — Probation teams
 Candidate CRUD/import, team CRUD, mentor many-to-many assignment, team role mapping/sync.

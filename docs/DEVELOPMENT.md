@@ -7,11 +7,15 @@
 
 ## Configuration
 
-Copy `appsettings.example.json` or configure environment variables from `.env.example`.
+Use `src/Felion.Host/appsettings.json` as the local configuration template, or configure values through environment variables and .NET user-secrets.
 
 Secrets must be supplied through environment variables or .NET user-secrets. Never commit a Discord token, Google client secret, or database password.
 
+Development and Testing use single-line human-readable console logs. Other environments use structured JSON console logs for centralized log ingestion.
+
 The Discord Gateway is disabled when `Discord:Token` is empty. When a token is configured, `Discord:GuildId` must contain the single positive guild snowflake used by Felion.
+
+Until Google Workspace authentication is implemented, Member management endpoints can be exercised only in Development or Testing with `X-Felion-Actor-Member-Id` set to an active Core/Admin Member ID. This header is intentionally rejected in other environments and is not an authentication mechanism for production.
 
 ## Verification commands
 

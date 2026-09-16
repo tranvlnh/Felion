@@ -1,3 +1,5 @@
+using Felion.Application.Members;
+using Felion.Infrastructure.MemberImports;
 using Felion.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -23,13 +25,21 @@ public static class DependencyInjection
         IConfiguration configuration,
         IHealthChecksBuilder healthChecks)
     {
+        services.AddScoped<IMemberStore, MemberStore>();
+        services.AddScoped<IMemberManagementService, MemberManagementService>();
+        services.AddSingleton<IMemberImportReader, MemberImportReader>();
+
         var connectionString = configuration.GetConnectionString("Postgres");
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             return services;
         }
 
-        services.AddDbContext<FelionDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddDbContext<FelionDbContext>(options =>
+            options
+                .UseNpgsql(
+                    connectionString,
+                    npgsql => npgsql.MigrationsAssembly(typeof(FelionDbContext).Assembly.FullName)));
         healthChecks.AddDbContextCheck<FelionDbContext>("postgres", tags: ["ready"]);
 
         return services;

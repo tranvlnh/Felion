@@ -1,3 +1,4 @@
+using Felion.Api;
 using Felion.Bot;
 using Felion.Host.Middleware;
 using Felion.Infrastructure;
@@ -7,11 +8,23 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
-builder.Logging.AddJsonConsole(options =>
+if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"))
 {
-    options.IncludeScopes = true;
-    options.TimestampFormat = "O";
-});
+    builder.Logging.AddSimpleConsole(options =>
+    {
+        options.IncludeScopes = true;
+        options.SingleLine = true;
+        options.TimestampFormat = "HH:mm:ss.fff ";
+    });
+}
+else
+{
+    builder.Logging.AddJsonConsole(options =>
+    {
+        options.IncludeScopes = true;
+        options.TimestampFormat = "O";
+    });
+}
 
 builder.Services.AddProblemDetails(options =>
 {
@@ -61,6 +74,8 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready", StringComparer.Ordinal)
 });
+
+app.MapFelionApi(app.Environment);
 
 app.Run();
 

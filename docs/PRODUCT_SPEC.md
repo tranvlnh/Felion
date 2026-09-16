@@ -13,6 +13,8 @@ Create a Discord-integrated club administration backend. The first release focus
 ## Member lifecycle
 Admin creates members manually or imports CSV/Excel. Required logical data: StudentId, FullName, ClubEmail, Department, Generation, Position. A member is active/inactive independently of Position.
 
+Member management is available to active Core/Admin members. Import is create-only: a normalized StudentId or ClubEmail that already exists is a row error and never updates the existing Member. The complete file is validated before persistence; any row error prevents all rows from being imported. CSV and XLSX use the headers StudentId, FullName, ClubEmail, Department, Generation and Position. Department accepts its ID, slug or name; Generation accepts its ID, code or name.
+
 Website sign-in uses Google Workspace. After Google authenticates the email, the application must find an active Member with the same normalized ClubEmail. Domain membership alone grants nothing.
 
 ## Discord linking

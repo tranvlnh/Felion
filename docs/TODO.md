@@ -20,19 +20,19 @@
 - [x] Add CI restore/format/build/test workflow
 
 ## Milestone 1 — Core domain & persistence
-- [ ] Department + reserved `Core` department invariant
-- [ ] Generation
-- [ ] Member + Position/Status
-- [ ] ProbationCandidate
-- [ ] DiscordIdentityLink uniqueness
-- [ ] AuditLog
-- [ ] EF Core mappings/migrations
+- [x] Department + reserved `Core` department invariant
+- [x] Generation
+- [x] Member + Position/Status
+- [x] ProbationCandidate
+- [x] DiscordIdentityLink uniqueness
+- [x] AuditLog
+- [x] EF Core mappings/migrations
 
 ## Milestone 2 — Member import & management
-- [ ] Member CRUD API
-- [ ] CSV import
-- [ ] Excel import
-- [ ] Import validation/report
+- [x] Member CRUD API
+- [x] CSV import
+- [x] Excel import
+- [x] Import validation/report
 
 ## Milestone 3 — Discord linking & roles
 - [ ] Verify button/modal
@@ -86,7 +86,7 @@
 ## Cross-cutting
 - [ ] Audit privileged mutations
 - [ ] Authorization tests
-- [ ] Domain invariant tests
+- [x] Domain invariant tests
 - [ ] PostgreSQL integration tests
 - [ ] API integration tests
-- [ ] Keep specs/status/TODO/decisions synchronized
+- [x] Keep specs/status/TODO/decisions synchronized for completed Member management slice

@@ -39,6 +39,14 @@ public sealed class HealthEndpointTests : IClassFixture<HealthEndpointTests.Test
         Assert.Contains(suppliedCorrelationId.ToString("N"), responseBody, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task MemberManagementRequiresTemporaryActorHeader()
+    {
+        using var response = await _client.GetAsync("/api/v1/members");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     public sealed class TestApplicationFactory : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
