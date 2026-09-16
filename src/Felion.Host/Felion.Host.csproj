@@ -10,4 +10,10 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Felion.Api\Felion.Api.csproj" />
+    <ProjectReference Include="..\Felion.Bot\Felion.Bot.csproj" />
+    <ProjectReference Include="..\Felion.Infrastructure\Felion.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>
