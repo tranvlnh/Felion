@@ -8,7 +8,7 @@ public sealed class FelionDbContextFactory : IDesignTimeDbContextFactory<FelionD
     public FelionDbContext CreateDbContext(string[] args)
     {
         var connectionString = Environment.GetEnvironmentVariable("FELION_DESIGN_TIME_CONNECTION")
-            ?? "Host=localhost;Port=5432;Database=felion;Username=felion;Password=design-time-only";
+            ?? "Host=localhost;Port=5432;Database=felion;Username=postgres;Password=";
 
         var options = new DbContextOptionsBuilder<FelionDbContext>()
             .UseNpgsql(

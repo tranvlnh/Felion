@@ -63,6 +63,8 @@ Mentor review rules:
 
 Only Core/Admin can read raw submissions and aggregated results. Candidate-facing endpoints must not expose scores, notes, reviewer identity or aggregates.
 
+Submissions snapshot reviewer/target identity and each answer's question prompt/type so retained evaluation history remains interpretable when candidate or form/question records change. Re-submitting the same reviewer/target/form while the period is Open edits the existing submission rather than creating a duplicate.
+
 ## Final decision
 Core/Admin selects candidates in bulk and chooses PASS/FAIL.
 

@@ -33,6 +33,7 @@ public static class MembersApi
 
         DiscordRoleMappingsApi.Map(group);
         ProbationTeamsApi.Map(group);
+        EvaluationsApi.Map(group);
         AuthenticationApi.Map(endpoints);
 
         return endpoints;

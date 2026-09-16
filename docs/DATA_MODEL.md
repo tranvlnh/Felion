@@ -72,11 +72,11 @@ Allow separate peer and mentor forms.
 Check constraints ensure Score settings only apply to Score and text settings only to Text.
 
 ### EvaluationSubmission
-`Id, FormId, PeriodId, ReviewerType, ReviewerMemberId?, ReviewerCandidateId?, TargetCandidateId?, TargetStudentIdSnapshot, TargetNameSnapshot, SubmittedAt, UpdatedAt`
-Use nullable reviewer FKs according to reviewer type and snapshots so retained evaluation remains understandable after candidate deletion. Add a unique constraint equivalent to `(FormId, Reviewer identity, TargetCandidateId)` while target exists; application validation handles archived/deleted edge cases.
+`Id, FormId, PeriodId, ReviewerType, ReviewerMemberId?, ReviewerCandidateId?, ReviewerStudentIdSnapshot, ReviewerNameSnapshot, TargetCandidateId?, TargetStudentIdSnapshot, TargetNameSnapshot, SubmittedAt, UpdatedAt`
+Use nullable reviewer/target FKs according to reviewer type and snapshots so retained evaluation remains understandable after candidate deletion. Add partial unique constraints equivalent to `(FormId, ReviewerCandidateId, TargetCandidateId)` and `(FormId, ReviewerMemberId, TargetCandidateId)` while target exists; application validation handles archived/deleted edge cases.
 
 ### EvaluationAnswer
-`Id, SubmissionId, QuestionId?, QuestionPromptSnapshot, QuestionTypeSnapshot, ScoreValue?, TextValue?`
+`Id, SubmissionId, QuestionId?, QuestionPromptSnapshot, QuestionTypeSnapshot, ScoreValue?, TextValue?, CreatedAt`
 Snapshot question prompt/type to preserve history if forms are edited/deleted.
 
 ## AuditLog

@@ -58,12 +58,12 @@
 - [x] Multi-mentor assignment
 
 ## Milestone 6 — Evaluation
-- [ ] EvaluationPeriod lifecycle
-- [ ] Configurable Score/Text form
-- [ ] Peer evaluation same-team rules
-- [ ] Mentor evaluation rules
-- [ ] Core/Admin-only results
-- [ ] Immutable/history-safe snapshots
+- [x] EvaluationPeriod lifecycle
+- [x] Configurable Score/Text form
+- [x] Peer evaluation same-team rules
+- [x] Mentor evaluation rules
+- [x] Core/Admin-only results
+- [x] Immutable/history-safe snapshots
 
 ## Milestone 7 — Probation decisions
 - [ ] Bulk PASS/FAIL

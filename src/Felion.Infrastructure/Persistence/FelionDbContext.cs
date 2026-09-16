@@ -1,4 +1,5 @@
 using Felion.Domain.Audit;
+using Felion.Domain.Evaluation;
 using Felion.Domain.Identity;
 using Felion.Domain.Members;
 using Felion.Domain.Probation;
@@ -27,6 +28,16 @@ public sealed class FelionDbContext(DbContextOptions<FelionDbContext> options) :
     public DbSet<DiscordSyncJob> DiscordSyncJobs => Set<DiscordSyncJob>();
 
     public DbSet<DiscordRoleMapping> DiscordRoleMappings => Set<DiscordRoleMapping>();
+
+    public DbSet<EvaluationPeriod> EvaluationPeriods => Set<EvaluationPeriod>();
+
+    public DbSet<EvaluationForm> EvaluationForms => Set<EvaluationForm>();
+
+    public DbSet<EvaluationQuestion> EvaluationQuestions => Set<EvaluationQuestion>();
+
+    public DbSet<EvaluationSubmission> EvaluationSubmissions => Set<EvaluationSubmission>();
+
+    public DbSet<EvaluationAnswer> EvaluationAnswers => Set<EvaluationAnswer>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

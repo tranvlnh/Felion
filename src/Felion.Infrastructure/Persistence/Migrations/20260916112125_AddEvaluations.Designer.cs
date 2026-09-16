@@ -3,6 +3,7 @@ using System;
 using Felion.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Felion.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(FelionDbContext))]
-    partial class FelionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260916112125_AddEvaluations")]
+    partial class AddEvaluations
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -95,58 +98,6 @@ namespace Felion.Infrastructure.Persistence.Migrations
                     b.ToTable("audit_logs", null, t =>
                         {
                             t.HasCheckConstraint("ck_audit_logs_actor", "(actor_type = 'WebMember' AND actor_member_id IS NOT NULL AND actor_discord_user_id IS NULL) OR (actor_type = 'DiscordMember' AND actor_member_id IS NULL AND actor_discord_user_id IS NOT NULL) OR (actor_type = 'System' AND actor_member_id IS NULL AND actor_discord_user_id IS NULL)");
-                        });
-                });
-
-            modelBuilder.Entity("Felion.Domain.Evaluation.EvaluationAnswer", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid?>("QuestionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("question_id");
-
-                    b.Property<string>("QuestionPromptSnapshot")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("question_prompt_snapshot");
-
-                    b.Property<string>("QuestionTypeSnapshot")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("question_type_snapshot");
-
-                    b.Property<decimal?>("ScoreValue")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
-                        .HasColumnName("score_value");
-
-                    b.Property<Guid>("SubmissionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("submission_id");
-
-                    b.Property<string>("TextValue")
-                        .HasColumnType("text")
-                        .HasColumnName("text_value");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("QuestionId");
-
-                    b.HasIndex("SubmissionId");
-
-                    b.ToTable("evaluation_answers", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_evaluation_answers_value", "(question_type_snapshot = 'Score' AND text_value IS NULL) OR (question_type_snapshot = 'Text' AND score_value IS NULL)");
                         });
                 });
 
@@ -306,96 +257,6 @@ namespace Felion.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_evaluation_questions_configuration", "(type = 'Score' AND score_min IS NOT NULL AND score_max IS NOT NULL AND score_min <= score_max AND text_max_length IS NULL) OR (type = 'Text' AND score_min IS NULL AND score_max IS NULL AND text_max_length IS NOT NULL AND text_max_length > 0)");
 
                             t.HasCheckConstraint("ck_evaluation_questions_order", "order_number > 0");
-                        });
-                });
-
-            modelBuilder.Entity("Felion.Domain.Evaluation.EvaluationSubmission", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("FormId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("form_id");
-
-                    b.Property<Guid>("PeriodId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("period_id");
-
-                    b.Property<Guid?>("ReviewerCandidateId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("reviewer_candidate_id");
-
-                    b.Property<Guid?>("ReviewerMemberId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("reviewer_member_id");
-
-                    b.Property<string>("ReviewerNameSnapshot")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("reviewer_name_snapshot");
-
-                    b.Property<string>("ReviewerStudentIdSnapshot")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("reviewer_student_id_snapshot");
-
-                    b.Property<string>("ReviewerType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("reviewer_type");
-
-                    b.Property<DateTimeOffset>("SubmittedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("submitted_at");
-
-                    b.Property<Guid?>("TargetCandidateId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("target_candidate_id");
-
-                    b.Property<string>("TargetNameSnapshot")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("target_name_snapshot");
-
-                    b.Property<string>("TargetStudentIdSnapshot")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("target_student_id_snapshot");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .IsConcurrencyToken()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ReviewerCandidateId");
-
-                    b.HasIndex("ReviewerMemberId");
-
-                    b.HasIndex("TargetCandidateId");
-
-                    b.HasIndex("PeriodId", "FormId");
-
-                    b.HasIndex("FormId", "ReviewerCandidateId", "TargetCandidateId")
-                        .IsUnique()
-                        .HasFilter("reviewer_candidate_id IS NOT NULL AND target_candidate_id IS NOT NULL");
-
-                    b.HasIndex("FormId", "ReviewerMemberId", "TargetCandidateId")
-                        .IsUnique()
-                        .HasFilter("reviewer_member_id IS NOT NULL AND target_candidate_id IS NOT NULL");
-
-                    b.ToTable("evaluation_submissions", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_evaluation_submissions_reviewer", "(reviewer_type = 'Peer' AND reviewer_candidate_id IS NOT NULL AND reviewer_member_id IS NULL) OR (reviewer_type = 'Mentor' AND reviewer_member_id IS NOT NULL AND reviewer_candidate_id IS NULL)");
                         });
                 });
 
@@ -835,20 +696,6 @@ namespace Felion.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
                 });
 
-            modelBuilder.Entity("Felion.Domain.Evaluation.EvaluationAnswer", b =>
-                {
-                    b.HasOne("Felion.Domain.Evaluation.EvaluationQuestion", null)
-                        .WithMany()
-                        .HasForeignKey("QuestionId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Felion.Domain.Evaluation.EvaluationSubmission", null)
-                        .WithMany()
-                        .HasForeignKey("SubmissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("Felion.Domain.Evaluation.EvaluationForm", b =>
                 {
                     b.HasOne("Felion.Domain.Evaluation.EvaluationPeriod", null)
@@ -865,36 +712,6 @@ namespace Felion.Infrastructure.Persistence.Migrations
                         .HasForeignKey("FormId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("Felion.Domain.Evaluation.EvaluationSubmission", b =>
-                {
-                    b.HasOne("Felion.Domain.Evaluation.EvaluationForm", null)
-                        .WithMany()
-                        .HasForeignKey("FormId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Felion.Domain.Evaluation.EvaluationPeriod", null)
-                        .WithMany()
-                        .HasForeignKey("PeriodId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Felion.Domain.Probation.ProbationCandidate", null)
-                        .WithMany()
-                        .HasForeignKey("ReviewerCandidateId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Felion.Domain.Members.Member", null)
-                        .WithMany()
-                        .HasForeignKey("ReviewerMemberId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Felion.Domain.Probation.ProbationCandidate", null)
-                        .WithMany()
-                        .HasForeignKey("TargetCandidateId")
-                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Felion.Domain.Members.Member", b =>

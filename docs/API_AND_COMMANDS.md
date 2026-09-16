@@ -60,6 +60,8 @@ Discord role mapping management is Admin-only. `PUT /api/v1/discord/role-mapping
 
 Probation team management is Core/Admin-only. Team deactivation is a soft delete through `PATCH /api/v1/probation/teams/{teamId}` with `IsActive=false`; candidate assignment is limited to one active team, and mentors must be active Members.
 
+Evaluation period and form management is Core/Admin-only. A period transitions `Draft -> Open -> Closed`; only `Open` accepts evaluation submissions. Forms specify `Peer` or `Mentor` reviewer type and contain at least one ordered `Score` or `Text` question. Score questions use `ScoreMin`/`ScoreMax` (defaulting to `Evaluation:DefaultScoreMin`/`Evaluation:DefaultScoreMax`), while Text questions use `TextMaxLength` (defaulting to `Evaluation:DefaultTextMaxLength`). Question order is unique within a form. Period/form mutations are audited. `POST /api/v1/probation/evaluations/mentor` accepts an active Member's mentor submission and returns only a receipt; peer submission remains available through the shared application contract because probation candidates have no web access. `GET /api/v1/probation/evaluations/results` is Core/Admin-only and is the only current API surface that returns raw answers and reviewer/target identity snapshots. Re-submission while Open edits the existing reviewer/target/form submission.
+
 `POST /api/v1/discord/roles` is Admin-only and creates a role in the configured guild. When the Discord adapter is configured, role mapping upserts verify the role belongs to that guild and store the role name returned by Discord; the synchronization worker consumes retryable `DiscordSyncJob` rows and only mutates roles managed by Felion.
 
 # Planned Events API / bot surface

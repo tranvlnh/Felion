@@ -1,3 +1,4 @@
+using Felion.Domain.Evaluation;
 using Felion.Domain.Identity;
 using Felion.Domain.Members;
 using Felion.Domain.Probation;
@@ -27,6 +28,23 @@ public sealed class PersistenceModelTests
         AssertUniqueIndex<DiscordIdentityLink>(context, nameof(DiscordIdentityLink.SubjectId));
 
         AssertUniqueIndex<DiscordRoleMapping>(context, nameof(DiscordRoleMapping.Kind), nameof(DiscordRoleMapping.SubjectKey));
+        AssertUniqueIndex<EvaluationQuestion>(context, nameof(EvaluationQuestion.FormId), nameof(EvaluationQuestion.Order));
+        AssertUniqueIndex<EvaluationSubmission>(
+            context,
+            nameof(EvaluationSubmission.FormId),
+            nameof(EvaluationSubmission.ReviewerCandidateId),
+            nameof(EvaluationSubmission.TargetCandidateId));
+        AssertUniqueIndex<EvaluationSubmission>(
+            context,
+            nameof(EvaluationSubmission.FormId),
+            nameof(EvaluationSubmission.ReviewerMemberId),
+            nameof(EvaluationSubmission.TargetCandidateId));
+
+        var evaluationPeriod = context.Model.FindEntityType(typeof(EvaluationPeriod));
+        Assert.NotNull(evaluationPeriod);
+        Assert.Contains(evaluationPeriod!.GetIndexes(), index =>
+            index.Properties.Count == 1
+            && index.Properties[0].Name == nameof(EvaluationPeriod.Status));
 
         var teamMentor = context.Model.FindEntityType(typeof(TeamMentor));
         Assert.NotNull(teamMentor);

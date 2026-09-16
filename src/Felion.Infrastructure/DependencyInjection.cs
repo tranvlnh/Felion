@@ -35,6 +35,9 @@ public static class DependencyInjection
         services.AddScoped<IMemberManagementService, MemberManagementService>();
         services.AddScoped<IProbationTeamStore, ProbationTeamStore>();
         services.AddScoped<IProbationTeamManagementService, ProbationTeamManagementService>();
+        services.AddScoped<IEvaluationStore, EvaluationStore>();
+        services.AddScoped<IEvaluationManagementService, EvaluationManagementService>();
+        services.AddSingleton<IEvaluationDefaultsProvider, EvaluationDefaultsProvider>();
         services.AddScoped<IDiscordLinkStore, DiscordLinkStore>();
         services.AddScoped<IDiscordLinkingService, DiscordLinkingService>();
         services.AddScoped<IDiscordLinkManagementStore, DiscordLinkManagementStore>();
