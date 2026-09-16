@@ -35,25 +35,27 @@
 - [x] Import validation/report
 
 ## Milestone 3 — Discord linking & roles
-- [ ] Verify button/modal
-- [ ] StudentId lookup/link
-- [ ] Duplicate-link protection
-- [ ] Role mapping management
-- [ ] Role creation
-- [ ] Position/Department/Generation role sync
-- [ ] Unlink/relink/force sync
+- [x] Verify button/modal
+- [x] StudentId lookup/link via Discord transport
+- [x] StudentId lookup/link application use case
+- [x] Duplicate-link protection
+- [x] Transactional link audit and DiscordSyncJob enqueue
+- [x] Role mapping management for existing guild role IDs
+- [x] Role creation
+- [x] Position/Department/Generation/Probation/ProbationTeam role sync
+- [x] Unlink/relink/force sync
 
 ## Milestone 4 — Web identity & authorization
-- [ ] Google Workspace OAuth
-- [ ] Active Member lookup
-- [ ] Admin/Core/Member policies
-- [ ] Probation web denial
+- [x] Google Workspace OAuth
+- [x] Active Member lookup
+- [x] Admin/Core/Member policies
+- [x] Probation web denial
 
 ## Milestone 5 — Probation teams
-- [ ] Team CRUD
-- [ ] Team Discord role mapping
-- [ ] Candidate assignment
-- [ ] Multi-mentor assignment
+- [x] Team CRUD
+- [x] Team Discord role mapping (existing `ProbationTeam` mapping and sync path)
+- [x] Candidate assignment
+- [x] Multi-mentor assignment
 
 ## Milestone 6 — Evaluation
 - [ ] EvaluationPeriod lifecycle
@@ -85,7 +87,7 @@
 
 ## Cross-cutting
 - [ ] Audit privileged mutations
-- [ ] Authorization tests
+- [x] Authorization tests
 - [x] Domain invariant tests
 - [ ] PostgreSQL integration tests
 - [ ] API integration tests

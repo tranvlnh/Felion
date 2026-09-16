@@ -48,10 +48,12 @@ This is the recommended design; Member/ProbationCandidate need not duplicate Dis
 `Id, Name, Code, IsActive`
 
 ### ProbationTeam
-`Id, Name, IsActive`
+`Id, Name, IsActive, CreatedAt, UpdatedAt`
 
 ### TeamMentor
 `TeamId, MemberId` composite unique key. Validate Member.Status=Active.
+
+Team and mentor foreign keys use restrict semantics so historical audit and evaluation data are not removed by team/member changes.
 
 ### DiscordRoleMapping
 `Id, Kind(Position|Probation|Department|Generation|ProbationTeam), Key/SubjectId, DiscordRoleId, RoleNameSnapshot, UpdatedAt`
@@ -82,7 +84,7 @@ Snapshot question prompt/type to preserve history if forms are edited/deleted.
 No cascade delete from domain entities into AuditLog.
 
 ## DiscordSyncJob (recommended)
-`Id, SubjectType, SubjectId, Operation, PayloadJson, Status(Pending|Running|Succeeded|Failed), Attempts, LastError?, CreatedAt, UpdatedAt`
+`Id, SubjectType, SubjectId, Operation(SynchronizeRoles|ClearManagedRoles), PayloadJson, Status(Pending|Running|Succeeded|Failed), Attempts, LastError?, CreatedAt, UpdatedAt`
 Used to retry role changes/kicks after DB decisions.
 
 # Planned Events & Attendance model

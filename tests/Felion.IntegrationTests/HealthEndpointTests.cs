@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -43,6 +44,16 @@ public sealed class HealthEndpointTests : IClassFixture<HealthEndpointTests.Test
     public async Task MemberManagementRequiresTemporaryActorHeader()
     {
         using var response = await _client.GetAsync("/api/v1/members");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DiscordRoleCreationRequiresTemporaryActorHeader()
+    {
+        using var response = await _client.PostAsJsonAsync(
+            "/api/v1/discord/roles",
+            new { Name = "Felion" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }

@@ -25,6 +25,24 @@ public sealed class PersistenceModelTests
         AssertUniqueIndex<DiscordIdentityLink>(context, nameof(DiscordIdentityLink.DiscordUserId));
         AssertUniqueIndex<DiscordIdentityLink>(context, nameof(DiscordIdentityLink.StudentId));
         AssertUniqueIndex<DiscordIdentityLink>(context, nameof(DiscordIdentityLink.SubjectId));
+
+        AssertUniqueIndex<DiscordRoleMapping>(context, nameof(DiscordRoleMapping.Kind), nameof(DiscordRoleMapping.SubjectKey));
+
+        var teamMentor = context.Model.FindEntityType(typeof(TeamMentor));
+        Assert.NotNull(teamMentor);
+        Assert.Equal(
+            [nameof(TeamMentor.TeamId), nameof(TeamMentor.MemberId)],
+            teamMentor!.FindPrimaryKey()!.Properties.Select(property => property.Name));
+        Assert.Contains(teamMentor.GetIndexes(), index =>
+            index.Properties.Count == 1
+            && index.Properties[0].Name == nameof(TeamMentor.MemberId));
+
+        var syncJob = context.Model.FindEntityType(typeof(DiscordSyncJob));
+        Assert.NotNull(syncJob);
+        Assert.Contains(syncJob!.GetIndexes(), index =>
+            index.Properties.Count == 2
+            && index.Properties[0].Name == nameof(DiscordSyncJob.Status)
+            && index.Properties[1].Name == nameof(DiscordSyncJob.CreatedAt));
     }
 
     [Fact]
@@ -44,13 +62,13 @@ public sealed class PersistenceModelTests
         Assert.Equal(true, seed[nameof(Department.IsCore)]);
     }
 
-    private static void AssertUniqueIndex<TEntity>(FelionDbContext context, string propertyName)
+    private static void AssertUniqueIndex<TEntity>(FelionDbContext context, params string[] propertyNames)
         where TEntity : class
     {
         var entityType = context.Model.FindEntityType(typeof(TEntity));
         var index = entityType?.GetIndexes().SingleOrDefault(candidate =>
-            candidate.Properties.Count == 1
-            && candidate.Properties[0].Name == propertyName);
+            candidate.Properties.Count == propertyNames.Length
+            && candidate.Properties.Select(property => property.Name).SequenceEqual(propertyNames));
 
         Assert.NotNull(index);
         Assert.True(index.IsUnique);

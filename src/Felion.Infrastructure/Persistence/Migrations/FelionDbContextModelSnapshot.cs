@@ -146,6 +146,119 @@ namespace Felion.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Felion.Domain.Identity.DiscordRoleMapping", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<long>("DiscordRoleId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("discord_role_id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("RoleNameSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("role_name_snapshot");
+
+                    b.Property<string>("SubjectKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("subject_key");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Kind", "SubjectKey")
+                        .IsUnique();
+
+                    b.ToTable("discord_role_mappings", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_discord_role_mappings_kind", "kind IN ('Position', 'Probation', 'Department', 'Generation', 'ProbationTeam')");
+                        });
+                });
+
+            modelBuilder.Entity("Felion.Domain.Identity.DiscordSyncJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("last_error");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("operation");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload_json");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_id");
+
+                    b.Property<string>("SubjectType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("subject_type");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("SubjectType", "SubjectId", "Operation", "Status");
+
+                    b.ToTable("discord_sync_jobs", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_discord_sync_jobs_attempts", "attempts >= 0");
+
+                            t.HasCheckConstraint("ck_discord_sync_jobs_operation", "operation IN ('SynchronizeRoles', 'ClearManagedRoles')");
+
+                            t.HasCheckConstraint("ck_discord_sync_jobs_status", "status IN ('Pending', 'Running', 'Succeeded', 'Failed')");
+
+                            t.HasCheckConstraint("ck_discord_sync_jobs_subject_type", "subject_type IN ('Member', 'Probation')");
+                        });
+                });
+
             modelBuilder.Entity("Felion.Domain.Members.Department", b =>
                 {
                     b.Property<Guid>("Id")
@@ -344,6 +457,7 @@ namespace Felion.Infrastructure.Persistence.Migrations
                         .HasColumnName("team_id");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
+                        .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
@@ -362,6 +476,54 @@ namespace Felion.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_probation_candidates_status", "status IN ('Active', 'Passed', 'Failed', 'Archived')");
                         });
+                });
+
+            modelBuilder.Entity("Felion.Domain.Probation.ProbationTeam", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("probation_teams", (string)null);
+                });
+
+            modelBuilder.Entity("Felion.Domain.Probation.TeamMentor", b =>
+                {
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("team_id");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.HasKey("TeamId", "MemberId");
+
+                    b.HasIndex("MemberId");
+
+                    b.ToTable("team_mentors", (string)null);
                 });
 
             modelBuilder.Entity("Felion.Domain.Audit.AuditLog", b =>
@@ -398,6 +560,26 @@ namespace Felion.Infrastructure.Persistence.Migrations
                     b.HasOne("Felion.Domain.Members.Generation", null)
                         .WithMany()
                         .HasForeignKey("GenerationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Felion.Domain.Probation.ProbationTeam", null)
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Felion.Domain.Probation.TeamMentor", b =>
+                {
+                    b.HasOne("Felion.Domain.Members.Member", null)
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Felion.Domain.Probation.ProbationTeam", null)
+                        .WithMany()
+                        .HasForeignKey("TeamId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

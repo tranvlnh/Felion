@@ -24,7 +24,7 @@ public sealed class ProbationCandidateConfiguration : IEntityTypeConfiguration<P
         builder.Property(candidate => candidate.TeamId).HasColumnName("team_id");
         builder.Property(candidate => candidate.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(candidate => candidate.CreatedAt).HasColumnName("created_at").IsRequired();
-        builder.Property(candidate => candidate.UpdatedAt).HasColumnName("updated_at").IsRequired();
+        builder.Property(candidate => candidate.UpdatedAt).HasColumnName("updated_at").IsRequired().IsConcurrencyToken();
 
         builder.HasIndex(candidate => candidate.StudentId).IsUnique();
         builder.HasIndex(candidate => candidate.DepartmentId);
@@ -38,6 +38,10 @@ public sealed class ProbationCandidateConfiguration : IEntityTypeConfiguration<P
         builder.HasOne<Generation>()
             .WithMany()
             .HasForeignKey(candidate => candidate.GenerationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<ProbationTeam>()
+            .WithMany()
+            .HasForeignKey(candidate => candidate.TeamId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

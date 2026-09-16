@@ -1,5 +1,6 @@
 using Felion.Api;
 using Felion.Bot;
+using Felion.Host.Authentication;
 using Felion.Host.Middleware;
 using Felion.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -41,6 +42,7 @@ builder.Services.AddProblemDetails(options =>
 });
 
 builder.Services.AddOpenApi();
+builder.Services.AddFelionWebAuthentication(builder.Configuration);
 
 var healthChecks = builder.Services
     .AddHealthChecks()
@@ -51,6 +53,11 @@ builder.Services.AddFelionBot(builder.Configuration, healthChecks);
 
 var app = builder.Build();
 
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Discord:Token"]))
+{
+    app.AddFelionBotModules();
+}
+
 app.UseExceptionHandler();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseStatusCodePages();
@@ -59,6 +66,14 @@ if (!app.Environment.IsEnvironment("Testing"))
 {
     app.UseHttpsRedirection();
 }
+
+app.UseAuthentication();
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
+{
+    app.UseMiddleware<TemporaryActorMiddleware>();
+}
+
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
@@ -75,7 +90,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = check => check.Tags.Contains("ready", StringComparer.Ordinal)
 });
 
-app.MapFelionApi(app.Environment);
+app.MapFelionApi();
 
 app.Run();
 

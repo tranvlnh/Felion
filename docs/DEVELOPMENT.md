@@ -15,7 +15,14 @@ Development and Testing use single-line human-readable console logs. Other envir
 
 The Discord Gateway is disabled when `Discord:Token` is empty. When a token is configured, `Discord:GuildId` must contain the single positive guild snowflake used by Felion.
 
-Until Google Workspace authentication is implemented, Member management endpoints can be exercised only in Development or Testing with `X-Felion-Actor-Member-Id` set to an active Core/Admin Member ID. This header is intentionally rejected in other environments and is not an authentication mechanism for production.
+Google Workspace authentication reads `Authentication:Google:ClientId` and `Authentication:Google:ClientSecret` from environment variables or user-secrets. `Authentication:Google:WorkspaceDomain` is an optional domain restriction/hint; it never grants access by itself. The OAuth callback must resolve the normalized Google email to an active `Member` before issuing a Felion cookie. Configure local secrets with:
+
+```powershell
+dotnet user-secrets set "Authentication:Google:ClientId" "<client-id>" --project src/Felion.Host
+dotnet user-secrets set "Authentication:Google:ClientSecret" "<client-secret>" --project src/Felion.Host
+```
+
+Use `GET /api/v1/auth/login` to start the flow, `GET /api/v1/auth/me` to inspect the current application identity, and `POST /api/v1/auth/logout` to clear the session. In Development and Testing only, `X-Felion-Actor-Member-Id` remains a compatibility header; it is resolved against an active Member and is rejected outside those environments.
 
 ## Verification commands
 

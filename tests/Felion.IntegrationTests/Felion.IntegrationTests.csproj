@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Felion.Bot\Felion.Bot.csproj" />
     <ProjectReference Include="..\..\src\Felion.Infrastructure\Felion.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Felion.Host\Felion.Host.csproj" />
   </ItemGroup>

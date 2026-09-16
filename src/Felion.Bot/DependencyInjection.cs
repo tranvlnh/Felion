@@ -1,8 +1,14 @@
+using Felion.Application.Discord;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Hosting;
+using NetCord;
 using NetCord.Gateway;
 using NetCord.Hosting.Gateway;
+using NetCord.Hosting.Services;
+using NetCord.Hosting.Services.ComponentInteractions;
+using NetCord.Services.ComponentInteractions;
 
 namespace Felion.Bot;
 
@@ -36,6 +42,13 @@ public static class DependencyInjection
                 "Discord:GuildId must be a positive snowflake when Discord:Token is configured.");
         }
 
+        services.AddSingleton(new ConfiguredDiscordGuild(parsedGuildId));
+        services.AddSingleton<IDiscordRoleGateway, NetCordDiscordRoleGateway>();
+        services.AddHostedService<DiscordSyncWorker>();
+        services
+            .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>()
+            .AddComponentInteractions<ModalInteraction, ModalInteractionContext>();
+
         services.AddDiscordGateway(options =>
         {
             options.Token = token;
@@ -44,5 +57,11 @@ public static class DependencyInjection
         healthChecks.AddCheck<DiscordGatewayHealthCheck>("discord-gateway", tags: ["ready"]);
 
         return services;
+    }
+
+    public static IHost AddFelionBotModules(this IHost host)
+    {
+        host.AddModules(typeof(VerificationButtonModule).Assembly);
+        return host;
     }
 }

@@ -66,4 +66,15 @@ public sealed class DiscordIdentityLink
             subjectId,
             (linkedAt ?? DateTimeOffset.UtcNow).ToUniversalTime());
     }
+
+    public void Relink(long discordUserId, DateTimeOffset? linkedAt = null)
+    {
+        if (discordUserId <= 0)
+        {
+            throw new DomainException("Discord user ID must be a positive signed snowflake.");
+        }
+
+        DiscordUserId = discordUserId;
+        LinkedAt = (linkedAt ?? DateTimeOffset.UtcNow).ToUniversalTime();
+    }
 }

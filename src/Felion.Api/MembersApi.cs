@@ -1,3 +1,4 @@
+using Felion.Application.Identity;
 using Felion.Application.Members;
 using Felion.Domain.Members;
 using Microsoft.AspNetCore.Builder;
@@ -9,22 +10,30 @@ namespace Felion.Api;
 
 public static class MembersApi
 {
-    public const string TemporaryActorHeaderName = "X-Felion-Actor-Member-Id";
+    public const string TemporaryActorHeaderName = WebIdentityHeaders.TemporaryActorMemberId;
 
-    public static IEndpointRouteBuilder MapFelionApi(
-        this IEndpointRouteBuilder endpoints,
-        IHostEnvironment environment)
+    public static IEndpointRouteBuilder MapFelionApi(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1").WithTags("Members");
-        var management = group.MapGroup("/members");
+        var management = group
+            .MapGroup("/members")
+            .RequireAuthorization(FelionAuthorizationPolicies.CoreOrAdmin);
+
+        DiscordLinkManagementApi.Map(management);
 
         management.MapGet("", ListMembersAsync);
         management.MapGet("/{memberId:guid}", GetMemberAsync);
         management.MapPost("", CreateMemberAsync);
         management.MapPatch("/{memberId:guid}", UpdateMemberAsync);
 
-        var imports = group.MapGroup("/imports");
+        var imports = group
+            .MapGroup("/imports")
+            .RequireAuthorization(FelionAuthorizationPolicies.CoreOrAdmin);
         imports.MapPost("/members", ImportMembersAsync);
+
+        DiscordRoleMappingsApi.Map(group);
+        ProbationTeamsApi.Map(group);
+        AuthenticationApi.Map(endpoints);
 
         return endpoints;
 
@@ -36,7 +45,7 @@ public static class MembersApi
             MemberStatus? status = null,
             CancellationToken cancellationToken = default)
         {
-            if (!TryGetTemporaryActor(httpContext, out var actorMemberId))
+            if (!TryGetAuthenticatedActor(httpContext, out var actorMemberId))
             {
                 return Results.Unauthorized();
             }
@@ -60,7 +69,7 @@ public static class MembersApi
             IMemberManagementService service,
             CancellationToken cancellationToken = default)
         {
-            if (!TryGetTemporaryActor(httpContext, out var actorMemberId))
+            if (!TryGetAuthenticatedActor(httpContext, out var actorMemberId))
             {
                 return Results.Unauthorized();
             }
@@ -81,7 +90,7 @@ public static class MembersApi
             IMemberManagementService service,
             CancellationToken cancellationToken = default)
         {
-            if (!TryGetTemporaryActor(httpContext, out var actorMemberId))
+            if (!TryGetAuthenticatedActor(httpContext, out var actorMemberId))
             {
                 return Results.Unauthorized();
             }
@@ -124,7 +133,7 @@ public static class MembersApi
             IMemberManagementService service,
             CancellationToken cancellationToken = default)
         {
-            if (!TryGetTemporaryActor(httpContext, out var actorMemberId))
+            if (!TryGetAuthenticatedActor(httpContext, out var actorMemberId))
             {
                 return Results.Unauthorized();
             }
@@ -190,7 +199,7 @@ public static class MembersApi
             IFormFile? file,
             CancellationToken cancellationToken = default)
         {
-            if (!TryGetTemporaryActor(httpContext, out var actorMemberId))
+            if (!TryGetAuthenticatedActor(httpContext, out var actorMemberId))
             {
                 return Results.Unauthorized();
             }
@@ -221,18 +230,9 @@ public static class MembersApi
             }
         }
 
-        bool TryGetTemporaryActor(HttpContext httpContext, out Guid actorMemberId)
+        static bool TryGetAuthenticatedActor(HttpContext httpContext, out Guid actorMemberId)
         {
-            actorMemberId = Guid.Empty;
-            if (!environment.IsDevelopment() && !environment.IsEnvironment("Testing"))
-            {
-                return false;
-            }
-
-            return Guid.TryParse(
-                httpContext.Request.Headers[TemporaryActorHeaderName].FirstOrDefault(),
-                out actorMemberId)
-                && actorMemberId != Guid.Empty;
+            return WebIdentityPrincipal.TryGetMemberId(httpContext.User, out actorMemberId);
         }
 
         static string GetCorrelationId(HttpContext httpContext)

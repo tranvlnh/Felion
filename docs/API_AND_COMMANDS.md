@@ -3,15 +3,20 @@
 This is a planning contract, not generated OpenAPI. Codex should keep actual OpenAPI aligned.
 
 ## API v1
-- `GET /api/v1/me`
+- `GET /api/v1/auth/login` — start Google Workspace OAuth; optional local `returnUrl`
+- `GET /api/v1/auth/me` — current active Member identity
+- `POST /api/v1/auth/logout` — clear the Felion cookie session
 - `GET/POST /api/v1/members`
 - `GET/PATCH /api/v1/members/{id}`
 - `POST /api/v1/members/{id}/unlink-discord`
+- `POST /api/v1/members/{id}/relink-discord`
 - `POST /api/v1/members/{id}/sync-discord-roles`
 - `POST /api/v1/imports/members` (multipart CSV; optional XLSX)
 - `GET/POST /api/v1/probation/candidates`
 - `POST /api/v1/probation/candidates/import`
 - `GET/POST/PATCH /api/v1/probation/teams`
+- `GET /api/v1/probation/teams/{teamId}`
+- `PUT/DELETE /api/v1/probation/teams/{teamId}/candidates/{candidateId}`
 - `PUT/DELETE /api/v1/probation/teams/{teamId}/mentors/{memberId}`
 - `GET/POST /api/v1/probation/evaluation-periods`
 - `POST /api/v1/probation/evaluation-periods/{id}/open`
@@ -30,6 +35,8 @@ This is a planning contract, not generated OpenAPI. Codex should keep actual Ope
 Verification should be component-first:
 `#verify message -> [Link account] -> Modal(StudentId) -> ephemeral success/error`.
 
+The current Bot adapter provides the verification message component payload and registers the button/modal handlers when `Discord:Token` and the configured `Discord:GuildId` are present. The linking handler delegates to the application use case; it does not authorize from Discord roles.
+
 Suggested application commands:
 - `/member info [user]`
 - `/member unlink <user>`
@@ -47,7 +54,13 @@ Suggested application commands:
 
 Permissions must be resolved from linked DB Member position, not merely Discord role possession. Discord roles are presentation/access synchronization, not the source of truth for application authorization.
 
-Member CRUD and imports require an active Core/Admin actor. Until Google Workspace authentication is implemented, Development and Testing accept the temporary `X-Felion-Actor-Member-Id` header; production rejects this temporary transport and will use the later authenticated principal. The import file is create-only and all-or-nothing. Required headers are `StudentId`, `FullName`, `ClubEmail`, `Department`, `Generation` and `Position`; Department accepts ID/slug/name and Generation accepts ID/code/name. Import responses contain `Committed`, `ImportedRows` and row-level `Errors`.
+Google login issues an application cookie only when the normalized Google email matches an active `Member.ClubEmail`. Matching `WorkspaceDomain` alone never authorizes access, and probation candidates have no web principal. Member CRUD/import and Discord link management require `CoreOrAdmin`; Discord role mapping/creation requires `AdminOnly`. Development and Testing additionally accept `X-Felion-Actor-Member-Id` as a compatibility header after active-Member lookup; production rejects it. The import file is create-only and all-or-nothing. Required headers are `StudentId`, `FullName`, `ClubEmail`, `Department`, `Generation` and `Position`; Department accepts ID/slug/name and Generation accepts ID/code/name. Import responses contain `Committed`, `ImportedRows` and row-level `Errors`.
+
+Discord role mapping management is Admin-only. `PUT /api/v1/discord/role-mappings` maps an existing positive Discord role ID using canonical keys: `Admin|Core|Member` for `Position`, `Probation` for the probation base role, and a non-empty GUID for `Department`, `Generation` or `ProbationTeam`.
+
+Probation team management is Core/Admin-only. Team deactivation is a soft delete through `PATCH /api/v1/probation/teams/{teamId}` with `IsActive=false`; candidate assignment is limited to one active team, and mentors must be active Members.
+
+`POST /api/v1/discord/roles` is Admin-only and creates a role in the configured guild. When the Discord adapter is configured, role mapping upserts verify the role belongs to that guild and store the role name returned by Discord; the synchronization worker consumes retryable `DiscordSyncJob` rows and only mutates roles managed by Felion.
 
 # Planned Events API / bot surface
 These are contracts to preserve architecture; do not implement until the Events milestone is requested.

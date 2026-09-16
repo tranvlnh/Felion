@@ -124,4 +124,47 @@ public sealed class CoreDomainTests
             "correlation-1",
             "not-json"));
     }
+
+    [Fact]
+    public void DiscordSyncJobTransitionsAreExplicitAndRetryable()
+    {
+        var job = DiscordSyncJob.Create(
+            DiscordIdentitySubjectType.Member,
+            Guid.NewGuid(),
+            DiscordSyncOperation.SynchronizeRoles,
+            "{\"subjectId\":\"test\"}");
+
+        job.MarkRunning();
+        job.MarkFailed("Discord role synchronization failed.");
+        job.MarkRunning();
+        job.MarkSucceeded();
+
+        Assert.Equal(DiscordSyncJobStatus.Succeeded, job.Status);
+        Assert.Equal(2, job.Attempts);
+        Assert.Null(job.LastError);
+    }
+
+    [Fact]
+    public void DiscordRoleMappingCanonicalizesLogicalSubjectKeys()
+    {
+        var position = DiscordRoleMapping.Create(
+            DiscordRoleMappingKind.Position,
+            " member ",
+            123456789,
+            "Members");
+        var departmentId = Guid.NewGuid();
+        var department = DiscordRoleMapping.Create(
+            DiscordRoleMappingKind.Department,
+            departmentId.ToString("D").ToUpperInvariant(),
+            987654321,
+            "Technical");
+
+        Assert.Equal("Member", position.SubjectKey);
+        Assert.Equal(departmentId.ToString("D"), department.SubjectKey);
+        Assert.Throws<DomainException>(() => DiscordRoleMapping.Create(
+            DiscordRoleMappingKind.Probation,
+            "Candidate",
+            123456789,
+            "Probation"));
+    }
 }

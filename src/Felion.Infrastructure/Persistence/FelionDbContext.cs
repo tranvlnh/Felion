@@ -16,9 +16,17 @@ public sealed class FelionDbContext(DbContextOptions<FelionDbContext> options) :
 
     public DbSet<ProbationCandidate> ProbationCandidates => Set<ProbationCandidate>();
 
+    public DbSet<ProbationTeam> ProbationTeams => Set<ProbationTeam>();
+
+    public DbSet<TeamMentor> TeamMentors => Set<TeamMentor>();
+
     public DbSet<DiscordIdentityLink> DiscordIdentityLinks => Set<DiscordIdentityLink>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    public DbSet<DiscordSyncJob> DiscordSyncJobs => Set<DiscordSyncJob>();
+
+    public DbSet<DiscordRoleMapping> DiscordRoleMappings => Set<DiscordRoleMapping>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

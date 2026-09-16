@@ -1,3 +1,4 @@
+using Felion.Application.Identity;
 using Felion.Application.Members;
 using Felion.Domain.Audit;
 using Felion.Domain.Members;
@@ -6,8 +7,38 @@ using Npgsql;
 
 namespace Felion.Infrastructure.Persistence;
 
-internal sealed class MemberStore(FelionDbContext dbContext) : IMemberStore
+internal sealed class MemberStore(FelionDbContext dbContext) : IMemberStore, IWebIdentityDirectory
 {
+    public Task<WebMemberIdentity?> FindActiveByIdAsync(
+        Guid memberId,
+        CancellationToken cancellationToken)
+    {
+        return dbContext.Members
+            .AsNoTracking()
+            .Where(member => member.Id == memberId && member.Status == MemberStatus.Active)
+            .Select(member => new WebMemberIdentity(
+                member.Id,
+                member.FullName,
+                member.ClubEmail,
+                member.Position))
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<WebMemberIdentity?> FindActiveByClubEmailAsync(
+        string clubEmail,
+        CancellationToken cancellationToken)
+    {
+        return dbContext.Members
+            .AsNoTracking()
+            .Where(member => member.Status == MemberStatus.Active && member.ClubEmail == clubEmail)
+            .Select(member => new WebMemberIdentity(
+                member.Id,
+                member.FullName,
+                member.ClubEmail,
+                member.Position))
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<Member?> FindByIdAsync(
         Guid memberId,
         bool track,

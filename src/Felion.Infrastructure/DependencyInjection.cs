@@ -1,4 +1,7 @@
+using Felion.Application.Discord;
+using Felion.Application.Identity;
 using Felion.Application.Members;
+using Felion.Application.Probation;
 using Felion.Infrastructure.MemberImports;
 using Felion.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -25,8 +28,23 @@ public static class DependencyInjection
         IConfiguration configuration,
         IHealthChecksBuilder healthChecks)
     {
-        services.AddScoped<IMemberStore, MemberStore>();
+        services.AddScoped<MemberStore>();
+        services.AddScoped<IMemberStore>(services => services.GetRequiredService<MemberStore>());
+        services.AddScoped<IWebIdentityDirectory>(services => services.GetRequiredService<MemberStore>());
+        services.AddScoped<IWebIdentityService, WebIdentityService>();
         services.AddScoped<IMemberManagementService, MemberManagementService>();
+        services.AddScoped<IProbationTeamStore, ProbationTeamStore>();
+        services.AddScoped<IProbationTeamManagementService, ProbationTeamManagementService>();
+        services.AddScoped<IDiscordLinkStore, DiscordLinkStore>();
+        services.AddScoped<IDiscordLinkingService, DiscordLinkingService>();
+        services.AddScoped<IDiscordLinkManagementStore, DiscordLinkManagementStore>();
+        services.AddScoped<IDiscordLinkManagementService, DiscordLinkManagementService>();
+        services.AddScoped<IDiscordRoleMappingStore, DiscordRoleMappingStore>();
+        services.AddScoped<IDiscordRoleMappingService, DiscordRoleMappingService>();
+        services.AddScoped<IDiscordRoleManagementStore, DiscordRoleManagementStore>();
+        services.AddScoped<IDiscordRoleManagementService, DiscordRoleManagementService>();
+        services.AddScoped<IDiscordSyncJobStore, DiscordSyncJobStore>();
+        services.AddScoped<IDiscordSyncProcessor, DiscordSyncProcessor>();
         services.AddSingleton<IMemberImportReader, MemberImportReader>();
 
         var connectionString = configuration.GetConnectionString("Postgres");
