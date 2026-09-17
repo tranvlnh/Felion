@@ -42,6 +42,8 @@ const elements = {
   roleAssignmentForm: document.querySelector("#role-assignment-form"),
   roleAssignmentSubject: document.querySelector("#role-assignment-subject"),
   roleAssignmentOptions: document.querySelector("#role-assignment-options"),
+  memberDialog: document.querySelector("#member-dialog"),
+  memberForm: document.querySelector("#member-form"),
   confirmDialog: document.querySelector("#confirm-dialog")
 };
 
@@ -118,6 +120,8 @@ function populateReferences() {
   teams.forEach(team => teamFilter.add(new Option(`${team.name}${team.isActive ? "" : " (inactive)"}`, team.id)));
   populateSelect("#candidate-department", departments, "Chọn Department");
   populateSelect("#candidate-generation", generations, "Chọn Generation");
+  populateSelect("#member-department", departments, "Chọn Department");
+  populateSelect("#member-generation", generations, "Chọn Generation");
 }
 
 function candidateQuery() {
@@ -357,6 +361,11 @@ document.querySelector("#refresh-button").addEventListener("click", async () => 
 });
 document.querySelector("#add-candidate-button").addEventListener("click", () => openCandidateForm());
 document.querySelector("#add-team-button").addEventListener("click", () => openTeamForm());
+document.querySelector("#add-member-button").addEventListener("click", () => {
+  elements.memberForm.reset();
+  document.querySelector("#member-position").value = "Member";
+  elements.memberDialog.showModal();
+});
 elements.candidateFilters.addEventListener("submit", async event => { event.preventDefault(); state.page = 1; try { await loadCandidates(); } catch (error) { setMessage(error.message, "error"); } });
 document.querySelector("#clear-filters-button").addEventListener("click", async () => { elements.candidateFilters.reset(); state.page = 1; await loadCandidates(); });
 elements.roleAssignmentFilters.addEventListener("submit", event => { event.preventDefault(); renderRoleAssignments(); });
@@ -445,6 +454,23 @@ elements.roleAssignmentForm.addEventListener("submit", async event => {
     elements.roleAssignmentDialog.close();
     renderRoleAssignments();
     setMessage("Đã cập nhật Discord role riêng. Nếu đã link, hệ thống đã xếp hàng sync role.");
+  } catch (error) { setMessage(error.message, "error"); }
+});
+elements.memberForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  const payload = {
+    studentId: selectedValue("#member-student-id"),
+    fullName: selectedValue("#member-full-name"),
+    clubEmail: selectedValue("#member-club-email"),
+    departmentId: selectedValue("#member-department"),
+    generationId: selectedValue("#member-generation"),
+    position: selectedValue("#member-position")
+  };
+  try {
+    await api("/members", { method: "POST", body: JSON.stringify(payload) });
+    elements.memberDialog.close();
+    setMessage("Đã thêm member. Người này có thể link Discord bằng MSSV.");
+    await loadRoleAssignments();
   } catch (error) { setMessage(error.message, "error"); }
 });
 document.querySelector("#mentor-search-form").addEventListener("submit", async event => {

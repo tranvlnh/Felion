@@ -96,6 +96,7 @@
           <h2>Members &amp; Discord roles</h2>
           <p class="muted">Admin chọn role riêng cho Member hoặc Candidate. Người dùng vẫn link bằng MSSV trên Discord như bình thường.</p>
         </div>
+        <button id="add-member-button" class="button primary" type="button">Thêm member</button>
       </div>
       <form id="role-assignment-filters" class="filters compact-filters">
         <label>Tìm kiếm
@@ -184,6 +185,24 @@
       <div id="role-assignment-options" class="role-options"></div>
       <p class="form-note">Danh sách này thay thế toàn bộ role riêng hiện tại. Role tự động theo Position/Department/Generation/Team vẫn được giữ độc lập.</p>
       <footer><button class="button ghost" type="button" data-close="role-assignment-dialog">Hủy</button><button class="button primary" type="submit">Lưu role</button></footer>
+    </form>
+  </dialog>
+
+  <dialog id="member-dialog" class="dialog wide">
+    <form id="member-form" method="dialog">
+      <header><h2>Thêm member</h2></header>
+      <label>MSSV<input id="member-student-id" required maxlength="50" autocomplete="off"></label>
+      <label>Họ và tên<input id="member-full-name" required maxlength="200" autocomplete="name"></label>
+      <label>Club Workspace email<input id="member-club-email" type="email" required maxlength="320" autocomplete="email"></label>
+      <label>Department<select id="member-department" required></select></label>
+      <label>Generation<select id="member-generation" required></select></label>
+      <label>Position<select id="member-position" required>
+        <option value="Member">Member</option>
+        <option value="Core">Core</option>
+        <option value="Admin">Admin</option>
+      </select></label>
+      <p class="form-note">Member mới chưa link Discord. Sau khi vào guild, người này nhập MSSV trong Discord để link và nhận role tự động cùng role riêng.</p>
+      <footer><button class="button ghost" type="button" data-close="member-dialog">Hủy</button><button class="button primary" type="submit">Lưu</button></footer>
     </form>
   </dialog>
 
