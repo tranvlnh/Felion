@@ -9,7 +9,7 @@ public sealed partial class DiscordSyncWorker(
     IServiceScopeFactory scopeFactory,
     ILogger<DiscordSyncWorker> logger) : BackgroundService
 {
-    private static readonly TimeSpan IdleDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan IdleDelay = TimeSpan.FromSeconds(30);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
