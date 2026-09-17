@@ -1,9 +1,11 @@
 using System.Text.Json;
+using Felion.Application.Discord;
 using Felion.Application.Hardening;
 using Felion.Application.Members;
 using Felion.Domain.Audit;
 using Felion.Domain.Common;
 using Felion.Domain.Evaluation;
+using Felion.Domain.Identity;
 using Felion.Domain.Members;
 using Felion.Domain.Probation;
 
@@ -12,93 +14,44 @@ namespace Felion.Application.Probation;
 public sealed class EvaluationManagementService(
     IEvaluationStore store,
     IMemberStore memberStore,
-    IEvaluationDefaultsProvider defaultsProvider,
-    IProbationTeamStore? probationTeamStore,
+    IProbationTeamStore teamStore,
+    IProbationCandidateStore candidateStore,
+    IDiscordLinkStore linkStore,
     IRateLimitGate rateLimitGate) : IEvaluationManagementService
 {
-    public async Task<IReadOnlyList<EvaluationPeriodDto>> ListPeriodsAsync(
-        Guid actorMemberId,
-        CancellationToken cancellationToken)
-    {
-        await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
-        return (await store.ListPeriodsAsync(cancellationToken)).Select(ToDto).ToArray();
-    }
-
     public async Task<EvaluationPeriodDto> CreatePeriodAsync(
         Guid actorMemberId,
         CreateEvaluationPeriodCommand command,
         string correlationId,
+        long? actorDiscordUserId,
         CancellationToken cancellationToken)
     {
-        await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
-
+        await EnsureAdminAsync(actorMemberId, cancellationToken);
         EvaluationPeriod period;
         try
         {
-            period = EvaluationPeriod.Create(command.Name, command.StartsAt, command.EndsAt);
+            period = EvaluationPeriod.Create(command.Name);
         }
         catch (DomainException exception)
         {
             throw new EvaluationValidationException(exception.Message);
         }
 
-        var audit = CreateAudit(
-            actorMemberId,
-            "EvaluationPeriodCreated",
-            period.Id,
-            correlationId,
-            after: Snapshot(period));
-        await store.AddPeriodAsync(period, audit, cancellationToken);
-        return ToDto(new EvaluationPeriodView(
-            period.Id,
-            period.Name,
-            period.StartsAt,
-            period.EndsAt,
-            period.Status,
-            [],
-            period.CreatedAt,
-            period.UpdatedAt));
-    }
-
-    public async Task<EvaluationPeriodDto> OpenPeriodAsync(
-        Guid actorMemberId,
-        Guid periodId,
-        string correlationId,
-        CancellationToken cancellationToken)
-    {
-        await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
-        var period = await store.FindPeriodAsync(periodId, track: true, cancellationToken)
-            ?? throw new EvaluationPeriodNotFoundException(periodId);
-        var before = Snapshot(period);
-        try
-        {
-            period.Open();
-        }
-        catch (DomainException exception)
-        {
-            throw new EvaluationValidationException(exception.Message);
-        }
-
-        await store.UpdatePeriodAsync(
+        await store.AddPeriodAsync(
             period,
-            CreateAudit(
-                actorMemberId,
-                "EvaluationPeriodOpened",
-                period.Id,
-                correlationId,
-                before,
-                Snapshot(period)),
+            CreateAudit(actorMemberId, actorDiscordUserId, "EvaluationPeriodCreated", period.Id, correlationId, after: Snapshot(period)),
             cancellationToken);
-        return await GetPeriodAsync(period.Id, cancellationToken);
+        return ToDto(period);
     }
 
     public async Task<EvaluationPeriodDto> ClosePeriodAsync(
         Guid actorMemberId,
         Guid periodId,
         string correlationId,
+        long? actorDiscordUserId,
         CancellationToken cancellationToken)
     {
-        await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
+        await EnsureAdminAsync(actorMemberId, cancellationToken);
         var period = await store.FindPeriodAsync(periodId, track: true, cancellationToken)
             ?? throw new EvaluationPeriodNotFoundException(periodId);
         var before = Snapshot(period);
@@ -111,304 +64,230 @@ public sealed class EvaluationManagementService(
             throw new EvaluationValidationException(exception.Message);
         }
 
-        await store.UpdatePeriodAsync(
+        await store.ClosePeriodAsync(
             period,
             CreateAudit(
                 actorMemberId,
+                actorDiscordUserId,
                 "EvaluationPeriodClosed",
                 period.Id,
                 correlationId,
                 before,
                 Snapshot(period)),
             cancellationToken);
-        return await GetPeriodAsync(period.Id, cancellationToken);
+        return ToDto(period);
     }
 
-    public async Task<EvaluationFormDto> CreateFormAsync(
+    public async Task<IReadOnlyList<EvaluationPeriodDto>> ListPeriodsAsync(
         Guid actorMemberId,
-        CreateEvaluationFormCommand command,
-        string correlationId,
         CancellationToken cancellationToken)
     {
-        await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
-        _ = await store.FindPeriodAsync(command.PeriodId, track: false, cancellationToken)
-            ?? throw new EvaluationPeriodNotFoundException(command.PeriodId);
-
-        EvaluationForm form;
-        try
-        {
-            form = EvaluationForm.Create(command.PeriodId, command.Name, command.ReviewerType);
-        }
-        catch (DomainException exception)
-        {
-            throw new EvaluationValidationException(exception.Message);
-        }
-
-        var questions = CreateQuestions(form.Id, command.Questions);
-        var audit = CreateAudit(
-            actorMemberId,
-            "EvaluationFormCreated",
-            form.Id,
-            correlationId,
-            after: Snapshot(form, questions));
-        await store.AddFormAsync(form, questions, audit, cancellationToken);
-        return ToDto(new EvaluationFormView(
-            form.Id,
-            form.PeriodId,
-            form.Name,
-            form.ReviewerType,
-            form.IsActive,
-            questions.Select(ToView).OrderBy(question => question.Order).ToArray(),
-            form.CreatedAt,
-            form.UpdatedAt));
-    }
-
-    public async Task<EvaluationFormDto> UpdateFormAsync(
-        Guid actorMemberId,
-        Guid formId,
-        UpdateEvaluationFormCommand command,
-        string correlationId,
-        CancellationToken cancellationToken)
-    {
-        await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
-        if (command.Name is null && command.IsActive is null && command.Questions is null)
-        {
-            throw new EvaluationValidationException("At least one evaluation form field must be provided.");
-        }
-
-        var form = await store.FindFormAsync(formId, track: true, cancellationToken)
-            ?? throw new EvaluationFormNotFoundException(formId);
-        var existingQuestions = (await store.ListQuestionsAsync(formId, track: true, cancellationToken)).ToArray();
-        var before = Snapshot(form, existingQuestions);
-        IReadOnlyList<EvaluationQuestion> addedQuestions = [];
-        IReadOnlyList<EvaluationQuestion> removedQuestions = [];
-
-        try
-        {
-            form.Update(command.Name, command.IsActive);
-            if (command.Questions is not null)
-            {
-                (addedQuestions, removedQuestions) = UpdateQuestions(form.Id, existingQuestions, command.Questions);
-            }
-        }
-        catch (DomainException exception)
-        {
-            throw new EvaluationValidationException(exception.Message);
-        }
-
-        var afterQuestions = existingQuestions
-            .Except(removedQuestions)
-            .Concat(addedQuestions)
-            .OrderBy(question => question.Order)
+        await EnsureCoreOrAdminAsync(actorMemberId, cancellationToken);
+        return (await store.ListPeriodsAsync(cancellationToken))
+            .Select(ToDto)
             .ToArray();
-        await store.UpdateFormAsync(
-            form,
-            addedQuestions,
-            removedQuestions,
-            CreateAudit(
-                actorMemberId,
-                "EvaluationFormUpdated",
-                form.Id,
-                correlationId,
-                before,
-                Snapshot(form, afterQuestions)),
-            cancellationToken);
-
-        return ToDto(new EvaluationFormView(
-            form.Id,
-            form.PeriodId,
-            form.Name,
-            form.ReviewerType,
-            form.IsActive,
-            afterQuestions.Select(ToView).ToArray(),
-            form.CreatedAt,
-            form.UpdatedAt));
     }
 
-    public Task<EvaluationSubmissionReceiptDto> SubmitPeerEvaluationAsync(
-        Guid reviewerCandidateId,
-        SubmitEvaluationCommand command,
-        CancellationToken cancellationToken)
+    public async Task<EvaluationPeriodDto?> GetCurrentPeriodAsync(CancellationToken cancellationToken)
     {
-        return SubmitAsync(
-            EvaluationReviewerType.Peer,
-            reviewerCandidateId,
-            command,
-            cancellationToken);
+        var period = (await store.ListPeriodsAsync(cancellationToken))
+            .Where(candidate => candidate.Status == EvaluationPeriodStatus.Open)
+            .OrderByDescending(candidate => candidate.OpenedAt)
+            .FirstOrDefault();
+        return period is null ? null : ToDto(period);
     }
 
-    public Task<EvaluationSubmissionReceiptDto> SubmitMentorEvaluationAsync(
-        Guid reviewerMemberId,
-        SubmitEvaluationCommand command,
-        CancellationToken cancellationToken)
+    public async Task<EvaluationStatusDto?> GetCurrentStatusAsync(CancellationToken cancellationToken)
     {
-        return SubmitAsync(
-            EvaluationReviewerType.Mentor,
-            reviewerMemberId,
-            command,
-            cancellationToken);
+        var period = (await store.ListPeriodsAsync(cancellationToken))
+            .Where(candidate => candidate.Status == EvaluationPeriodStatus.Open)
+            .OrderByDescending(candidate => candidate.OpenedAt)
+            .FirstOrDefault();
+        return period is null
+            ? null
+            : new EvaluationStatusDto(ToDto(period), await BuildProgressAsync(period.Id, cancellationToken));
     }
 
-    public async Task<IReadOnlyList<EvaluationSubmissionDto>> ListResultsAsync(
+    public async Task<EvaluationStatusDto> GetStatusAsync(
         Guid actorMemberId,
         Guid? periodId,
-        Guid? formId,
         CancellationToken cancellationToken)
     {
-        await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
-        var submissions = await store.ListSubmissionViewsAsync(periodId, formId, cancellationToken);
-        return submissions.Select(ToDto).ToArray();
+        await EnsureCoreOrAdminAsync(actorMemberId, cancellationToken);
+        var period = await ResolvePeriodForReadAsync(periodId, cancellationToken);
+        var progress = await BuildProgressAsync(period.Id, cancellationToken);
+        return new EvaluationStatusDto(ToDto(period), progress);
     }
 
-    private async Task<EvaluationSubmissionReceiptDto> SubmitAsync(
-        EvaluationReviewerType reviewerType,
-        Guid reviewerId,
-        SubmitEvaluationCommand command,
+    public async Task<EvaluationStatusDto> GetStatusByNameAsync(
+        Guid actorMemberId,
+        string periodName,
         CancellationToken cancellationToken)
     {
-        if (reviewerId == Guid.Empty)
+        await EnsureCoreOrAdminAsync(actorMemberId, cancellationToken);
+        var periodId = await ResolvePeriodIdByNameAsync(periodName, cancellationToken);
+        return await GetStatusAsync(actorMemberId, periodId, cancellationToken);
+    }
+
+    public async Task<EvaluationTargetListDto> GetPeerTargetsAsync(
+        long discordUserId,
+        Guid? periodId,
+        CancellationToken cancellationToken)
+    {
+        var reviewer = await RequireCandidateIdentityAsync(discordUserId, cancellationToken);
+        var period = await ResolveOpenPeriodAsync(periodId, cancellationToken);
+        if (reviewer.TeamId is null)
         {
-            throw new EvaluationSubmissionValidationException("Reviewer is required.");
+            throw new EvaluationParticipantAccessDeniedException(
+                "Bạn phải thuộc một probation team để đánh giá peer.");
         }
 
-        var rateLimit = await rateLimitGate.TryAcquireAsync(
-            RateLimitOperation.EvaluationSubmission,
-            $"{reviewerType}:{reviewerId:N}",
-            cancellationToken);
-        if (!rateLimit.IsAcquired)
+        var team = await teamStore.FindViewAsync(reviewer.TeamId.Value, cancellationToken)
+            ?? throw new EvaluationParticipantAccessDeniedException("Probation team của bạn không tồn tại.");
+        var targets = new List<EvaluationTargetDto>();
+        foreach (var candidate in await LoadActiveCandidatesAsync(team, cancellationToken))
         {
-            throw new RateLimitExceededException(RateLimitOperation.EvaluationSubmission, rateLimit.RetryAfter);
+            if (candidate.Id == reviewer.Id)
+            {
+                continue;
+            }
+
+            var existing = await store.FindPeerEvaluationAsync(
+                period.Id,
+                reviewer.Id,
+                candidate.Id,
+                track: false,
+                cancellationToken);
+            targets.Add(new EvaluationTargetDto(
+                candidate.Id,
+                candidate.StudentId,
+                candidate.FullName,
+                existing is not null));
         }
 
-        var form = await store.FindFormAsync(command.FormId, track: false, cancellationToken)
-            ?? throw new EvaluationFormNotFoundException(command.FormId);
-        var period = await store.FindPeriodAsync(form.PeriodId, track: false, cancellationToken)
-            ?? throw new EvaluationPeriodNotFoundException(form.PeriodId);
-        if (period.Status != EvaluationPeriodStatus.Open)
+        return new EvaluationTargetListDto(
+            ToDto(period),
+            [new EvaluationTeamTargetDto(team.Id, team.Name, targets)]);
+    }
+
+    public async Task<EvaluationTargetListDto> GetMentorTargetsAsync(
+        long discordUserId,
+        Guid? periodId,
+        CancellationToken cancellationToken)
+    {
+        var mentor = await RequireMemberIdentityAsync(discordUserId, cancellationToken);
+        var period = await ResolveOpenPeriodAsync(periodId, cancellationToken);
+        var teams = await teamStore.ListAsync(cancellationToken);
+        var result = new List<EvaluationTeamTargetDto>();
+        foreach (var team in teams.Where(team => team.MentorMemberIds.Contains(mentor.Id)))
         {
-            throw new EvaluationSubmissionValidationException("Only an open evaluation period accepts submissions.");
+            var targets = new List<EvaluationTargetDto>();
+            foreach (var candidate in await LoadActiveCandidatesAsync(team, cancellationToken))
+            {
+                var existing = await store.FindMentorEvaluationAsync(
+                    period.Id,
+                    mentor.Id,
+                    candidate.Id,
+                    track: false,
+                    cancellationToken);
+                targets.Add(new EvaluationTargetDto(
+                    candidate.Id,
+                    candidate.StudentId,
+                    candidate.FullName,
+                    existing is not null));
+            }
+
+            result.Add(new EvaluationTeamTargetDto(team.Id, team.Name, targets));
         }
 
-        if (!form.IsActive)
+        if (result.Count == 0)
         {
-            throw new EvaluationSubmissionValidationException("Only an active evaluation form accepts submissions.");
+            throw new EvaluationParticipantAccessDeniedException(
+                "Bạn chưa được gán làm mentor của probation team nào.");
         }
 
-        if (form.ReviewerType != reviewerType)
-        {
-            throw new EvaluationSubmissionValidationException(
-                $"This form accepts {form.ReviewerType} evaluations only.");
-        }
+        return new EvaluationTargetListDto(ToDto(period), result);
+    }
 
-        var probationStore = probationTeamStore
-            ?? throw new EvaluationSubmissionValidationException("Probation evaluation storage is unavailable.");
-        var target = await probationStore.FindCandidateAsync(
-            command.TargetCandidateId,
+    public async Task<PeerEvaluationSubmissionDto?> GetPeerEvaluationAsync(
+        long discordUserId,
+        Guid periodId,
+        Guid targetCandidateId,
+        CancellationToken cancellationToken)
+    {
+        var reviewer = await RequireCandidateIdentityAsync(discordUserId, cancellationToken);
+        var period = await ResolveOpenPeriodAsync(periodId, cancellationToken);
+        await EnsurePeerTargetAsync(reviewer, targetCandidateId, cancellationToken);
+        var evaluation = await store.FindPeerEvaluationAsync(
+            period.Id,
+            reviewer.Id,
+            targetCandidateId,
             track: false,
-            cancellationToken)
-            ?? throw new ProbationCandidateNotFoundException(command.TargetCandidateId);
-        if (target.Status != ProbationCandidateStatus.Active)
-        {
-            throw new EvaluationSubmissionValidationException("Only an active target candidate can be evaluated.");
-        }
+            cancellationToken);
+        return evaluation is null ? null : ToDto(evaluation);
+    }
 
-        string reviewerStudentId;
-        string reviewerName;
-        Guid? reviewerMemberId;
-        Guid? reviewerCandidateId;
-        switch (reviewerType)
-        {
-            case EvaluationReviewerType.Peer:
-                {
-                    var reviewer = await probationStore.FindCandidateAsync(
-                        reviewerId,
-                        track: false,
-                        cancellationToken)
-                        ?? throw new ProbationCandidateNotFoundException(reviewerId);
-                    if (reviewer.Status != ProbationCandidateStatus.Active)
-                    {
-                        throw new EvaluationSubmissionValidationException("Only an active candidate can submit a peer evaluation.");
-                    }
+    public async Task<MentorEvaluationSubmissionDto?> GetMentorEvaluationAsync(
+        long discordUserId,
+        Guid periodId,
+        Guid targetCandidateId,
+        CancellationToken cancellationToken)
+    {
+        var mentor = await RequireMemberIdentityAsync(discordUserId, cancellationToken);
+        var period = await ResolveOpenPeriodAsync(periodId, cancellationToken);
+        await EnsureMentorTargetAsync(mentor, targetCandidateId, cancellationToken);
+        var evaluation = await store.FindMentorEvaluationAsync(
+            period.Id,
+            mentor.Id,
+            targetCandidateId,
+            track: false,
+            cancellationToken);
+        return evaluation is null ? null : ToDto(evaluation);
+    }
 
-                    if (reviewer.Id == target.Id)
-                    {
-                        throw new EvaluationSubmissionValidationException("A candidate cannot evaluate themselves.");
-                    }
-
-                    if (reviewer.TeamId is null || reviewer.TeamId != target.TeamId)
-                    {
-                        throw new EvaluationSubmissionValidationException(
-                            "A peer evaluation must target another active candidate in the same team.");
-                    }
-
-                    reviewerStudentId = reviewer.StudentId;
-                    reviewerName = reviewer.FullName;
-                    reviewerMemberId = null;
-                    reviewerCandidateId = reviewer.Id;
-                    break;
-                }
-            case EvaluationReviewerType.Mentor:
-                {
-                    var reviewer = await memberStore.FindByIdAsync(
-                        reviewerId,
-                        track: false,
-                        cancellationToken)
-                        ?? throw new EvaluationSubmissionValidationException("Mentor member was not found.");
-                    if (reviewer.Status != MemberStatus.Active)
-                    {
-                        throw new EvaluationSubmissionValidationException("Only an active Member can submit a mentor evaluation.");
-                    }
-
-                    if (target.TeamId is null
-                        || await probationStore.FindMentorAsync(
-                            target.TeamId.Value,
-                            reviewer.Id,
-                            track: false,
-                            cancellationToken) is null)
-                    {
-                        throw new EvaluationSubmissionValidationException(
-                            "A mentor may evaluate candidates only in teams they mentor.");
-                    }
-
-                    reviewerStudentId = reviewer.StudentId;
-                    reviewerName = reviewer.FullName;
-                    reviewerMemberId = reviewer.Id;
-                    reviewerCandidateId = null;
-                    break;
-                }
-            default:
-                throw new EvaluationSubmissionValidationException("Unknown evaluation reviewer type.");
-        }
-
-        var existing = await store.FindSubmissionAsync(
-            form.Id,
-            reviewerMemberId,
-            reviewerCandidateId,
+    public async Task<EvaluationSubmissionReceiptDto> SubmitPeerEvaluationAsync(
+        long discordUserId,
+        SubmitPeerEvaluationCommand command,
+        string correlationId,
+        CancellationToken cancellationToken)
+    {
+        await EnsureRateLimitAsync("Peer", discordUserId, cancellationToken);
+        var reviewer = await RequireCandidateIdentityAsync(discordUserId, cancellationToken);
+        var period = await ResolveOpenPeriodAsync(command.PeriodId, cancellationToken);
+        var target = await EnsurePeerTargetAsync(reviewer, command.TargetCandidateId, cancellationToken);
+        var existing = await store.FindPeerEvaluationAsync(
+            period.Id,
+            reviewer.Id,
             target.Id,
             track: true,
             cancellationToken);
-        EvaluationSubmission submission;
+        var wasUpdate = existing is not null;
+        PeerEvaluation evaluation;
         try
         {
-            submission = existing ?? EvaluationSubmission.Create(
-                form.Id,
-                period.Id,
-                reviewerType,
-                reviewerMemberId,
-                reviewerCandidateId,
-                reviewerStudentId,
-                reviewerName,
-                target.Id,
-                target.StudentId,
-                target.FullName);
-            if (existing is not null)
+            if (existing is null)
             {
-                submission.UpdateSnapshots(
+                evaluation = PeerEvaluation.Create(
+                    period.Id,
+                    reviewer.Id,
                     target.Id,
-                    reviewerStudentId,
-                    reviewerName,
+                    reviewer.StudentId,
+                    reviewer.FullName,
                     target.StudentId,
-                    target.FullName);
+                    target.FullName,
+                    command.Contribution,
+                    command.Communication,
+                    command.Attitude,
+                    command.Note);
+            }
+            else
+            {
+                evaluation = existing;
+                evaluation.Update(
+                    command.Contribution,
+                    command.Communication,
+                    command.Attitude,
+                    command.Note);
             }
         }
         catch (DomainException exception)
@@ -416,218 +295,567 @@ public sealed class EvaluationManagementService(
             throw new EvaluationSubmissionValidationException(exception.Message);
         }
 
-        var questions = await store.ListQuestionsAsync(form.Id, track: false, cancellationToken);
-        var answers = CreateAnswers(submission.Id, questions, command.Answers);
-        await store.SaveSubmissionAsync(submission, answers, existing is null, cancellationToken);
-        return new EvaluationSubmissionReceiptDto(
-            submission.Id,
-            submission.SubmittedAt,
-            submission.UpdatedAt);
+        await store.SavePeerEvaluationAsync(
+            evaluation,
+            CreateEvaluationAudit(
+                discordUserId,
+                wasUpdate ? "PeerEvaluationUpdated" : "PeerEvaluationSubmitted",
+                evaluation.Id,
+                correlationId,
+                period.Id,
+                target.Id,
+                evaluation.Contribution,
+                evaluation.Communication,
+                evaluation.Attitude),
+            isNew: !wasUpdate,
+            cancellationToken);
+        return new EvaluationSubmissionReceiptDto(evaluation.Id, wasUpdate, evaluation.CreatedAt, evaluation.UpdatedAt);
     }
 
-    private static EvaluationAnswer[] CreateAnswers(
-        Guid submissionId,
-        IReadOnlyList<EvaluationQuestion> questions,
-        IReadOnlyList<EvaluationAnswerCommand> commands)
-    {
-        var questionsById = questions.ToDictionary(question => question.Id);
-        var commandsById = new Dictionary<Guid, EvaluationAnswerCommand>();
-        foreach (var command in commands ?? [])
-        {
-            if (!commandsById.TryAdd(command.QuestionId, command))
-            {
-                throw new EvaluationSubmissionValidationException(
-                    $"Question '{command.QuestionId}' was answered more than once.");
-            }
-
-            if (!questionsById.ContainsKey(command.QuestionId))
-            {
-                throw new EvaluationSubmissionValidationException(
-                    $"Question '{command.QuestionId}' was not found in this form.");
-            }
-        }
-
-        foreach (var question in questions)
-        {
-            if (!question.IsRequired || HasValue(commandsById.GetValueOrDefault(question.Id)))
-            {
-                continue;
-            }
-
-            throw new EvaluationSubmissionValidationException(
-                $"Required question '{question.Id}' must be answered.");
-        }
-
-        var answers = new List<EvaluationAnswer>(commandsById.Count);
-        foreach (var command in commandsById.Values)
-        {
-            if (!HasValue(command))
-            {
-                continue;
-            }
-
-            try
-            {
-                answers.Add(EvaluationAnswer.Create(
-                    submissionId,
-                    questionsById[command.QuestionId],
-                    command.ScoreValue,
-                    command.TextValue));
-            }
-            catch (DomainException exception)
-            {
-                throw new EvaluationSubmissionValidationException(exception.Message);
-            }
-        }
-
-        return answers.ToArray();
-    }
-
-    private static bool HasValue(EvaluationAnswerCommand? command)
-    {
-        return command is not null
-            && (command.ScoreValue is not null || !string.IsNullOrWhiteSpace(command.TextValue));
-    }
-
-    private async Task EnsureAuthorizedActorAsync(
-        Guid actorMemberId,
+    public async Task<EvaluationSubmissionReceiptDto> SubmitMentorEvaluationAsync(
+        long discordUserId,
+        SubmitMentorEvaluationCommand command,
+        string correlationId,
         CancellationToken cancellationToken)
     {
+        await EnsureRateLimitAsync("Mentor", discordUserId, cancellationToken);
+        var mentor = await RequireMemberIdentityAsync(discordUserId, cancellationToken);
+        var period = await ResolveOpenPeriodAsync(command.PeriodId, cancellationToken);
+        var target = await EnsureMentorTargetAsync(mentor, command.TargetCandidateId, cancellationToken);
+        var existing = await store.FindMentorEvaluationAsync(
+            period.Id,
+            mentor.Id,
+            target.Id,
+            track: true,
+            cancellationToken);
+        var wasUpdate = existing is not null;
+        MentorEvaluation evaluation;
+        try
+        {
+            if (existing is null)
+            {
+                evaluation = MentorEvaluation.Create(
+                    period.Id,
+                    mentor.Id,
+                    target.Id,
+                    mentor.StudentId,
+                    mentor.FullName,
+                    target.StudentId,
+                    target.FullName,
+                    command.Attendance,
+                    command.TaskCompletion,
+                    command.LearningInitiative,
+                    command.Note);
+            }
+            else
+            {
+                evaluation = existing;
+                evaluation.Update(
+                    command.Attendance,
+                    command.TaskCompletion,
+                    command.LearningInitiative,
+                    command.Note);
+            }
+        }
+        catch (DomainException exception)
+        {
+            throw new EvaluationSubmissionValidationException(exception.Message);
+        }
+
+        await store.SaveMentorEvaluationAsync(
+            evaluation,
+            CreateEvaluationAudit(
+                discordUserId,
+                wasUpdate ? "MentorEvaluationUpdated" : "MentorEvaluationSubmitted",
+                evaluation.Id,
+                correlationId,
+                period.Id,
+                target.Id,
+                evaluation.Attendance,
+                evaluation.TaskCompletion,
+                evaluation.LearningInitiative),
+            isNew: !wasUpdate,
+            cancellationToken);
+        return new EvaluationSubmissionReceiptDto(evaluation.Id, wasUpdate, evaluation.CreatedAt, evaluation.UpdatedAt);
+    }
+
+    public async Task<EvaluationDetailDto> ViewAsync(
+        Guid actorMemberId,
+        Guid candidateId,
+        Guid? periodId,
+        CancellationToken cancellationToken)
+    {
+        await EnsureCoreOrAdminAsync(actorMemberId, cancellationToken);
+        var period = await ResolvePeriodForReadAsync(periodId, cancellationToken);
+        var peer = await store.ListPeerEvaluationsAsync(period.Id, candidateId, cancellationToken);
+        var mentor = await store.ListMentorEvaluationsAsync(period.Id, candidateId, cancellationToken);
+        var candidateView = await candidateStore.FindViewAsync(candidateId, cancellationToken);
+        if (candidateView is null && peer.Count == 0 && mentor.Count == 0)
+        {
+            throw new ProbationCandidateNotFoundException(candidateId);
+        }
+
+        var candidateStudentId = candidateView?.Candidate.StudentId
+            ?? peer.Select(evaluation => evaluation.TargetStudentIdSnapshot)
+                .Concat(mentor.Select(evaluation => evaluation.TargetStudentIdSnapshot))
+                .FirstOrDefault()
+            ?? string.Empty;
+        var candidateName = candidateView?.Candidate.FullName
+            ?? peer.Select(evaluation => evaluation.TargetNameSnapshot)
+                .Concat(mentor.Select(evaluation => evaluation.TargetNameSnapshot))
+                .FirstOrDefault()
+            ?? "Archived or deleted candidate";
+        var team = candidateView?.Team;
+        var summary = new EvaluationCandidateSummaryDto(
+            candidateId,
+            candidateStudentId,
+            candidateName,
+            team?.Id ?? Guid.Empty,
+            team?.Name ?? "Archived or deleted team",
+            AggregatePeer(peer),
+            AggregateMentor(mentor));
+        return new EvaluationDetailDto(
+            ToDto(period),
+            summary,
+            peer.Select(ToDto).ToArray(),
+            mentor.Select(ToDto).ToArray());
+    }
+
+    public async Task<EvaluationDetailDto> ViewByPeriodNameAsync(
+        Guid actorMemberId,
+        Guid candidateId,
+        string? periodName,
+        CancellationToken cancellationToken)
+    {
+        await EnsureCoreOrAdminAsync(actorMemberId, cancellationToken);
+        var periodId = string.IsNullOrWhiteSpace(periodName)
+            ? (Guid?)null
+            : await ResolvePeriodIdByNameAsync(periodName, cancellationToken);
+        return await ViewAsync(actorMemberId, candidateId, periodId, cancellationToken);
+    }
+
+    public async Task<EvaluationSummaryDto> SummaryAsync(
+        Guid actorMemberId,
+        Guid periodId,
+        Guid? teamId,
+        CancellationToken cancellationToken)
+    {
+        await EnsureCoreOrAdminAsync(actorMemberId, cancellationToken);
+        var period = await ResolvePeriodForReadAsync(periodId, cancellationToken);
+        var teams = await LoadActiveTeamsAsync(cancellationToken);
+        if (teamId is not null)
+        {
+            teams = teams.Where(team => team.Id == teamId.Value).ToArray();
+            if (teams.Count == 0)
+            {
+                throw new ProbationTeamNotFoundException(teamId.Value);
+            }
+        }
+
+        var peer = await store.ListPeerEvaluationsAsync(period.Id, null, cancellationToken);
+        var mentor = await store.ListMentorEvaluationsAsync(period.Id, null, cancellationToken);
+        var candidates = teams
+            .SelectMany(team => team.Candidates.Select(candidate => new EvaluationCandidateSummaryDto(
+                candidate.Id,
+                candidate.StudentId,
+                candidate.FullName,
+                team.Id,
+                team.Name,
+                AggregatePeer(peer.Where(evaluation => evaluation.TargetCandidateId == candidate.Id)),
+                AggregateMentor(mentor.Where(evaluation => evaluation.TargetCandidateId == candidate.Id)))))
+            .ToList();
+        var knownCandidateIds = candidates.Select(candidate => candidate.CandidateId).ToHashSet();
+        var historicalTargetIds = peer.Select(evaluation => evaluation.TargetCandidateId)
+            .Concat(mentor.Select(evaluation => evaluation.TargetCandidateId))
+            .Distinct();
+        foreach (var targetId in historicalTargetIds)
+        {
+            if (knownCandidateIds.Contains(targetId) || teamId is not null)
+            {
+                continue;
+            }
+
+            var peerSnapshot = peer.FirstOrDefault(item => item.TargetCandidateId == targetId);
+            var mentorSnapshot = mentor.FirstOrDefault(item => item.TargetCandidateId == targetId);
+            candidates.Add(new EvaluationCandidateSummaryDto(
+                targetId,
+                peerSnapshot?.TargetStudentIdSnapshot ?? mentorSnapshot!.TargetStudentIdSnapshot,
+                peerSnapshot?.TargetNameSnapshot ?? mentorSnapshot!.TargetNameSnapshot,
+                Guid.Empty,
+                "Archived or deleted team",
+                AggregatePeer(peer.Where(item => item.TargetCandidateId == targetId)),
+                AggregateMentor(mentor.Where(item => item.TargetCandidateId == targetId))));
+        }
+        var progress = await BuildProgressAsync(period.Id, cancellationToken, teams);
+        return new EvaluationSummaryDto(
+            ToDto(period),
+            teamId is null ? null : teams.Single().Name,
+            candidates,
+            progress);
+    }
+
+    public async Task<EvaluationSummaryDto> SummaryByNameAsync(
+        Guid actorMemberId,
+        string periodName,
+        string? teamName,
+        CancellationToken cancellationToken)
+    {
+        await EnsureCoreOrAdminAsync(actorMemberId, cancellationToken);
+        var periodId = await ResolvePeriodIdByNameAsync(periodName, cancellationToken);
+        var teamId = string.IsNullOrWhiteSpace(teamName)
+            ? (Guid?)null
+            : await ResolveActiveTeamIdByNameAsync(teamName, cancellationToken);
+        return await SummaryAsync(actorMemberId, periodId, teamId, cancellationToken);
+    }
+
+    private async Task<EvaluationProgressDto> BuildProgressAsync(
+        Guid periodId,
+        CancellationToken cancellationToken,
+        IReadOnlyList<TeamParticipants>? selectedTeams = null)
+    {
+        var teams = selectedTeams ?? await LoadActiveTeamsAsync(cancellationToken);
+        var peer = await store.ListPeerEvaluationsAsync(periodId, null, cancellationToken);
+        var mentor = await store.ListMentorEvaluationsAsync(periodId, null, cancellationToken);
+        var peerKeys = teams
+            .SelectMany(team => team.Candidates.SelectMany(evaluator => team.Candidates
+                .Where(target => target.Id != evaluator.Id)
+                .Select(target => (EvaluatorId: evaluator.Id, TargetId: target.Id, Team: team))))
+            .ToArray();
+        var mentorKeys = teams
+            .SelectMany(team => team.Mentors.SelectMany(reviewer => team.Candidates
+                .Select(target => (ReviewerId: reviewer.Id, TargetId: target.Id, Team: team))))
+            .ToArray();
+        var peerSet = peer.Select(evaluation => (evaluation.EvaluatorCandidateId, evaluation.TargetCandidateId)).ToHashSet();
+        var mentorSet = mentor.Select(evaluation => (evaluation.MentorMemberId, evaluation.TargetCandidateId)).ToHashSet();
+        var teamProgress = teams.Select(team =>
+        {
+            var teamPeer = peerKeys.Where(key => key.Team.Id == team.Id).ToArray();
+            var teamMentor = mentorKeys.Where(key => key.Team.Id == team.Id).ToArray();
+            return new EvaluationTeamProgressDto(
+                team.Id,
+                team.Name,
+                teamPeer.Count(key => peerSet.Contains((key.EvaluatorId, key.TargetId))),
+                teamPeer.Length,
+                teamMentor.Count(key => mentorSet.Contains((key.ReviewerId, key.TargetId))),
+                teamMentor.Length);
+        }).ToArray();
+        var missingPeer = peerKeys
+            .Where(key => !peerSet.Contains((key.EvaluatorId, key.TargetId)))
+            .Select(key => new MissingPeerEvaluationDto(
+                key.Team.Candidates.Single(candidate => candidate.Id == key.EvaluatorId).StudentId,
+                key.Team.Candidates.Single(candidate => candidate.Id == key.EvaluatorId).FullName,
+                key.Team.Candidates.Single(candidate => candidate.Id == key.TargetId).StudentId,
+                key.Team.Candidates.Single(candidate => candidate.Id == key.TargetId).FullName,
+                key.Team.Id,
+                key.Team.Name))
+            .ToArray();
+        var missingMentor = mentorKeys
+            .Where(key => !mentorSet.Contains((key.ReviewerId, key.TargetId)))
+            .Select(key => new MissingMentorEvaluationDto(
+                key.Team.Mentors.Single(mentor => mentor.Id == key.ReviewerId).StudentId,
+                key.Team.Mentors.Single(mentor => mentor.Id == key.ReviewerId).FullName,
+                key.Team.Candidates.Single(candidate => candidate.Id == key.TargetId).StudentId,
+                key.Team.Candidates.Single(candidate => candidate.Id == key.TargetId).FullName,
+                key.Team.Id,
+                key.Team.Name))
+            .ToArray();
+        return new EvaluationProgressDto(
+            teamProgress.Sum(team => team.PeerSubmitted),
+            teamProgress.Sum(team => team.PeerExpected),
+            teamProgress.Sum(team => team.MentorSubmitted),
+            teamProgress.Sum(team => team.MentorExpected),
+            teamProgress,
+            missingPeer,
+            missingMentor);
+    }
+
+    private async Task<IReadOnlyList<TeamParticipants>> LoadActiveTeamsAsync(CancellationToken cancellationToken)
+    {
+        var teams = await teamStore.ListAsync(cancellationToken);
+        var result = new List<TeamParticipants>(teams.Count);
+        foreach (var team in teams)
+        {
+            var candidates = await LoadActiveCandidatesAsync(team, cancellationToken);
+            var mentors = new List<ParticipantMember>();
+            foreach (var mentorId in team.MentorMemberIds)
+            {
+                var mentor = await memberStore.FindByIdAsync(mentorId, track: false, cancellationToken);
+                if (mentor?.Status == MemberStatus.Active)
+                {
+                    mentors.Add(new ParticipantMember(mentor.Id, mentor.StudentId, mentor.FullName));
+                }
+            }
+
+            result.Add(new TeamParticipants(team.Id, team.Name, candidates, mentors));
+        }
+
+        return result;
+    }
+
+    private async Task<IReadOnlyList<ParticipantCandidate>> LoadActiveCandidatesAsync(
+        ProbationTeamView team,
+        CancellationToken cancellationToken)
+    {
+        var candidates = new List<ParticipantCandidate>();
+        foreach (var candidateSummary in team.Candidates ?? [])
+        {
+            var candidate = await teamStore.FindCandidateAsync(
+                candidateSummary.Id,
+                track: false,
+                cancellationToken);
+            if (candidate?.Status == ProbationCandidateStatus.Active)
+            {
+                candidates.Add(new ParticipantCandidate(candidate.Id, candidate.StudentId, candidate.FullName));
+            }
+        }
+
+        return candidates;
+    }
+
+    private async Task<ProbationCandidate> EnsurePeerTargetAsync(
+        ProbationCandidate reviewer,
+        Guid targetCandidateId,
+        CancellationToken cancellationToken)
+    {
+        var target = await teamStore.FindCandidateAsync(targetCandidateId, track: false, cancellationToken)
+            ?? throw new ProbationCandidateNotFoundException(targetCandidateId);
+        if (target.Status != ProbationCandidateStatus.Active)
+        {
+            throw new EvaluationSubmissionValidationException("Chỉ candidate đang active mới được đánh giá.");
+        }
+
+        if (reviewer.Id == target.Id)
+        {
+            throw new EvaluationSubmissionValidationException("Bạn không được tự đánh giá chính mình.");
+        }
+
+        if (reviewer.TeamId is null || reviewer.TeamId != target.TeamId)
+        {
+            throw new EvaluationSubmissionValidationException(
+                "Peer evaluation chỉ được thực hiện giữa candidate cùng team.");
+        }
+
+        return target;
+    }
+
+    private async Task<ProbationCandidate> EnsureMentorTargetAsync(
+        Member mentor,
+        Guid targetCandidateId,
+        CancellationToken cancellationToken)
+    {
+        var target = await teamStore.FindCandidateAsync(targetCandidateId, track: false, cancellationToken)
+            ?? throw new ProbationCandidateNotFoundException(targetCandidateId);
+        if (target.Status != ProbationCandidateStatus.Active)
+        {
+            throw new EvaluationSubmissionValidationException("Chỉ candidate đang active mới được đánh giá.");
+        }
+
+        if (target.TeamId is null
+            || await teamStore.FindMentorAsync(target.TeamId.Value, mentor.Id, track: false, cancellationToken) is null)
+        {
+            throw new EvaluationSubmissionValidationException(
+                "Mentor chỉ được đánh giá candidate thuộc team mình mentor.");
+        }
+
+        return target;
+    }
+
+    private async Task<ProbationCandidate> RequireCandidateIdentityAsync(
+        long discordUserId,
+        CancellationToken cancellationToken)
+    {
+        var link = await RequireIdentityLinkAsync(discordUserId, cancellationToken);
+        if (link.SubjectType != DiscordIdentitySubjectType.Probation)
+        {
+            throw new EvaluationParticipantAccessDeniedException(
+                "Discord account này không được liên kết với probation candidate.");
+        }
+
+        var candidate = await teamStore.FindCandidateAsync(link.SubjectId, track: false, cancellationToken);
+        if (candidate?.Status != ProbationCandidateStatus.Active)
+        {
+            throw new EvaluationParticipantAccessDeniedException(
+                "Chỉ probation candidate đang active mới được peer evaluation.");
+        }
+
+        return candidate;
+    }
+
+    private async Task<Member> RequireMemberIdentityAsync(
+        long discordUserId,
+        CancellationToken cancellationToken)
+    {
+        var link = await RequireIdentityLinkAsync(discordUserId, cancellationToken);
+        if (link.SubjectType != DiscordIdentitySubjectType.Member)
+        {
+            throw new EvaluationParticipantAccessDeniedException(
+                "Discord account này không được liên kết với active Member mentor.");
+        }
+
+        var member = await memberStore.FindByIdAsync(link.SubjectId, track: false, cancellationToken);
+        if (member?.Status != MemberStatus.Active)
+        {
+            throw new EvaluationParticipantAccessDeniedException(
+                "Chỉ Member đang active mới được mentor evaluation.");
+        }
+
+        return member;
+    }
+
+    private async Task<DiscordIdentityLink> RequireIdentityLinkAsync(
+        long discordUserId,
+        CancellationToken cancellationToken)
+    {
+        if (discordUserId <= 0)
+        {
+            throw new EvaluationParticipantAccessDeniedException("Discord user ID không hợp lệ.");
+        }
+
+        return await linkStore.FindByDiscordUserIdAsync(discordUserId, cancellationToken)
+            ?? throw new EvaluationParticipantAccessDeniedException(
+                "Bạn chưa liên kết Discord account với Felion.");
+    }
+
+    private async Task EnsureRateLimitAsync(
+        string reviewerType,
+        long discordUserId,
+        CancellationToken cancellationToken)
+    {
+        var rateLimit = await rateLimitGate.TryAcquireAsync(
+            RateLimitOperation.EvaluationSubmission,
+            $"{reviewerType}:{discordUserId}",
+            cancellationToken);
+        if (!rateLimit.IsAcquired)
+        {
+            throw new RateLimitExceededException(RateLimitOperation.EvaluationSubmission, rateLimit.RetryAfter);
+        }
+    }
+
+    private async Task<EvaluationPeriod> ResolveOpenPeriodAsync(
+        Guid? periodId,
+        CancellationToken cancellationToken)
+    {
+        var period = await ResolvePeriodForReadAsync(periodId, cancellationToken);
+        if (period.Status != EvaluationPeriodStatus.Open)
+        {
+            throw new EvaluationSubmissionValidationException(
+                "Period đã đóng và không nhận submission mới hoặc chỉnh sửa.");
+        }
+
+        return period;
+    }
+
+    private async Task<EvaluationPeriod> ResolvePeriodForReadAsync(
+        Guid? periodId,
+        CancellationToken cancellationToken)
+    {
+        if (periodId is not null)
+        {
+            return await store.FindPeriodAsync(periodId.Value, track: false, cancellationToken)
+                ?? throw new EvaluationPeriodNotFoundException(periodId.Value);
+        }
+
+        var period = (await store.ListPeriodsAsync(cancellationToken))
+            .OrderByDescending(candidate => candidate.Status == EvaluationPeriodStatus.Open)
+            .ThenByDescending(candidate => candidate.CreatedAt)
+            .FirstOrDefault();
+        return period ?? throw new EvaluationPeriodRequiredException();
+    }
+
+    private async Task<Guid> ResolvePeriodIdByNameAsync(
+        string periodName,
+        CancellationToken cancellationToken)
+    {
+        var normalizedName = periodName.Trim();
+        if (normalizedName.Length == 0)
+        {
+            throw new EvaluationPeriodNameNotFoundException(periodName);
+        }
+
+        var matches = (await store.ListPeriodsAsync(cancellationToken))
+            .Where(period => string.Equals(period.Name, normalizedName, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        return matches.Length switch
+        {
+            1 => matches[0].Id,
+            0 => throw new EvaluationPeriodNameNotFoundException(normalizedName),
+            _ => throw new EvaluationPeriodNameAmbiguousException(normalizedName)
+        };
+    }
+
+    private async Task<Guid> ResolveActiveTeamIdByNameAsync(
+        string teamName,
+        CancellationToken cancellationToken)
+    {
+        var normalizedName = teamName.Trim();
+        if (normalizedName.Length == 0)
+        {
+            throw new ProbationTeamNameNotFoundException(teamName);
+        }
+
+        var matches = (await teamStore.ListAsync(cancellationToken))
+            .Where(team => team.IsActive
+                && string.Equals(team.Name, normalizedName, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        return matches.Length switch
+        {
+            1 => matches[0].Id,
+            0 => throw new ProbationTeamNameNotFoundException(normalizedName),
+            _ => throw new ProbationTeamNameAmbiguousException(normalizedName)
+        };
+    }
+
+    private async Task EnsureAdminAsync(Guid actorMemberId, CancellationToken cancellationToken)
+    {
         var actor = await memberStore.FindByIdAsync(actorMemberId, track: false, cancellationToken);
-        if (actor is null
-            || actor.Status != MemberStatus.Active
+        if (actor?.Status != MemberStatus.Active || actor.Position != MemberPosition.Admin)
+        {
+            throw new EvaluationAdminAccessDeniedException();
+        }
+    }
+
+    private async Task EnsureCoreOrAdminAsync(Guid actorMemberId, CancellationToken cancellationToken)
+    {
+        var actor = await memberStore.FindByIdAsync(actorMemberId, track: false, cancellationToken);
+        if (actor?.Status != MemberStatus.Active
             || actor.Position is not (MemberPosition.Admin or MemberPosition.Core))
         {
             throw new EvaluationAccessDeniedException();
         }
     }
 
-    private async Task<EvaluationPeriodDto> GetPeriodAsync(
-        Guid periodId,
-        CancellationToken cancellationToken)
+    private static PeerEvaluationAggregateDto AggregatePeer(IEnumerable<PeerEvaluation> evaluations)
     {
-        var view = await store.FindPeriodViewAsync(periodId, cancellationToken)
-            ?? throw new EvaluationPeriodNotFoundException(periodId);
-        return ToDto(view);
+        var values = evaluations.ToArray();
+        return values.Length == 0
+            ? new PeerEvaluationAggregateDto(null, null, null, 0)
+            : new PeerEvaluationAggregateDto(
+                Average(values.Select(value => value.Contribution)),
+                Average(values.Select(value => value.Communication)),
+                Average(values.Select(value => value.Attitude)),
+                values.Length);
     }
 
-    private EvaluationQuestion[] CreateQuestions(
-        Guid formId,
-        IReadOnlyList<EvaluationQuestionCommand> commands)
+    private static MentorEvaluationAggregateDto AggregateMentor(IEnumerable<MentorEvaluation> evaluations)
     {
-        if (commands is null || commands.Count == 0)
-        {
-            throw new EvaluationValidationException("An evaluation form must contain at least one question.");
-        }
-
-        var questions = commands.Select(command => CreateQuestion(formId, command)).ToArray();
-        EnsureUniqueQuestionOrders(questions.Select(question => question.Order));
-        return questions;
+        var values = evaluations.ToArray();
+        return values.Length == 0
+            ? new MentorEvaluationAggregateDto(null, null, null, 0)
+            : new MentorEvaluationAggregateDto(
+                Average(values.Select(value => value.Attendance)),
+                Average(values.Select(value => value.TaskCompletion)),
+                Average(values.Select(value => value.LearningInitiative)),
+                values.Length);
     }
 
-    private (IReadOnlyList<EvaluationQuestion> Added, IReadOnlyList<EvaluationQuestion> Removed) UpdateQuestions(
-        Guid formId,
-        IReadOnlyList<EvaluationQuestion> existingQuestions,
-        IReadOnlyList<EvaluationQuestionCommand> commands)
+    private static decimal Average(IEnumerable<int> values)
     {
-        if (commands.Count == 0)
-        {
-            throw new EvaluationValidationException("An evaluation form must contain at least one question.");
-        }
-
-        var existingById = existingQuestions.ToDictionary(question => question.Id);
-        var retainedIds = new HashSet<Guid>();
-        var added = new List<EvaluationQuestion>();
-        foreach (var command in commands)
-        {
-            if (command.Id is null)
-            {
-                added.Add(CreateQuestion(formId, command));
-                continue;
-            }
-
-            if (!existingById.TryGetValue(command.Id.Value, out var question))
-            {
-                throw new EvaluationValidationException($"Evaluation question '{command.Id}' was not found in this form.");
-            }
-
-            if (!retainedIds.Add(question.Id))
-            {
-                throw new EvaluationValidationException($"Evaluation question '{question.Id}' was provided more than once.");
-            }
-
-            question.Update(
-                command.Order,
-                command.Prompt,
-                command.Type,
-                command.IsRequired,
-                ResolveScoreMin(command),
-                ResolveScoreMax(command),
-                ResolveTextMaxLength(command));
-        }
-
-        EnsureUniqueQuestionOrders(existingQuestions.Where(question => retainedIds.Contains(question.Id)).Select(question => question.Order)
-            .Concat(added.Select(question => question.Order)));
-        return (added, existingQuestions.Where(question => !retainedIds.Contains(question.Id)).ToArray());
-    }
-
-    private EvaluationQuestion CreateQuestion(Guid formId, EvaluationQuestionCommand command)
-    {
-        try
-        {
-            return EvaluationQuestion.Create(
-                formId,
-                command.Order,
-                command.Prompt,
-                command.Type,
-                command.IsRequired,
-                ResolveScoreMin(command),
-                ResolveScoreMax(command),
-                ResolveTextMaxLength(command));
-        }
-        catch (DomainException exception)
-        {
-            throw new EvaluationValidationException(exception.Message);
-        }
-    }
-
-    private decimal? ResolveScoreMin(EvaluationQuestionCommand command)
-    {
-        return command.Type == EvaluationQuestionType.Score
-            ? command.ScoreMin ?? defaultsProvider.GetDefaults().DefaultScoreMin
-            : null;
-    }
-
-    private decimal? ResolveScoreMax(EvaluationQuestionCommand command)
-    {
-        return command.Type == EvaluationQuestionType.Score
-            ? command.ScoreMax ?? defaultsProvider.GetDefaults().DefaultScoreMax
-            : null;
-    }
-
-    private int? ResolveTextMaxLength(EvaluationQuestionCommand command)
-    {
-        return command.Type == EvaluationQuestionType.Text
-            ? command.TextMaxLength ?? defaultsProvider.GetDefaults().DefaultTextMaxLength
-            : null;
-    }
-
-    private static void EnsureUniqueQuestionOrders(IEnumerable<int> orders)
-    {
-        var values = orders.ToArray();
-        if (values.Any(order => order <= 0))
-        {
-            throw new EvaluationValidationException("Question order must be positive.");
-        }
-
-        if (values.Distinct().Count() != values.Length)
-        {
-            throw new EvaluationValidationException("Question order must be unique within a form.");
-        }
+        return decimal.Round(values.Select(value => (decimal)value).Average(), 2);
     }
 
     private static AuditLog CreateAudit(
         Guid actorMemberId,
+        long? actorDiscordUserId,
         string action,
         Guid entityId,
         string correlationId,
@@ -635,99 +863,43 @@ public sealed class EvaluationManagementService(
         string? after = null)
     {
         return AuditLog.Create(
-            AuditActorType.WebMember,
-            actorMemberId,
-            actorDiscordUserId: null,
+            actorDiscordUserId is null ? AuditActorType.WebMember : AuditActorType.DiscordMember,
+            actorDiscordUserId is null ? actorMemberId : null,
+            actorDiscordUserId,
             action,
-            "Evaluation" + (action.Contains("Form", StringComparison.Ordinal) ? "Form" : "Period"),
+            "EvaluationPeriod",
             entityId,
             correlationId,
             beforeJson: before,
             afterJson: after);
     }
 
-    private static EvaluationPeriodDto ToDto(EvaluationPeriodView period)
+    private static AuditLog CreateEvaluationAudit(
+        long actorDiscordUserId,
+        string action,
+        Guid entityId,
+        string correlationId,
+        Guid periodId,
+        Guid targetCandidateId,
+        int firstScore,
+        int secondScore,
+        int thirdScore)
     {
-        return new EvaluationPeriodDto(
-            period.Id,
-            period.Name,
-            period.StartsAt,
-            period.EndsAt,
-            period.Status,
-            period.Forms.Select(ToDto).ToArray(),
-            period.CreatedAt,
-            period.UpdatedAt);
-    }
-
-    private static EvaluationFormDto ToDto(EvaluationFormView form)
-    {
-        return new EvaluationFormDto(
-            form.Id,
-            form.PeriodId,
-            form.Name,
-            form.ReviewerType,
-            form.IsActive,
-            form.Questions.Select(ToDto).OrderBy(question => question.Order).ToArray(),
-            form.CreatedAt,
-            form.UpdatedAt);
-    }
-
-    private static EvaluationQuestionDto ToDto(EvaluationQuestionView question)
-    {
-        return new EvaluationQuestionDto(
-            question.Id,
-            question.FormId,
-            question.Order,
-            question.Prompt,
-            question.Type,
-            question.IsRequired,
-            question.ScoreMin,
-            question.ScoreMax,
-            question.TextMaxLength,
-            question.CreatedAt,
-            question.UpdatedAt);
-    }
-
-    private static EvaluationQuestionView ToView(EvaluationQuestion question)
-    {
-        return new EvaluationQuestionView(
-            question.Id,
-            question.FormId,
-            question.Order,
-            question.Prompt,
-            question.Type,
-            question.IsRequired,
-            question.ScoreMin,
-            question.ScoreMax,
-            question.TextMaxLength,
-            question.CreatedAt,
-            question.UpdatedAt);
-    }
-
-    private static EvaluationSubmissionDto ToDto(EvaluationSubmissionView submission)
-    {
-        return new EvaluationSubmissionDto(
-            submission.Id,
-            submission.FormId,
-            submission.PeriodId,
-            submission.ReviewerType,
-            submission.ReviewerMemberId,
-            submission.ReviewerCandidateId,
-            submission.ReviewerStudentIdSnapshot,
-            submission.ReviewerNameSnapshot,
-            submission.TargetCandidateId,
-            submission.TargetStudentIdSnapshot,
-            submission.TargetNameSnapshot,
-            submission.SubmittedAt,
-            submission.UpdatedAt,
-            submission.Answers.Select(answer => new EvaluationAnswerDto(
-                answer.Id,
-                answer.QuestionId,
-                answer.QuestionPromptSnapshot,
-                answer.QuestionTypeSnapshot,
-                answer.ScoreValue,
-                answer.TextValue,
-                answer.CreatedAt)).ToArray());
+        var metadata = JsonSerializer.Serialize(new
+        {
+            PeriodId = periodId,
+            TargetCandidateId = targetCandidateId,
+            Scores = new[] { firstScore, secondScore, thirdScore }
+        });
+        return AuditLog.Create(
+            AuditActorType.DiscordMember,
+            actorMemberId: null,
+            actorDiscordUserId: actorDiscordUserId,
+            action,
+            action.StartsWith("Peer", StringComparison.Ordinal) ? "PeerEvaluation" : "MentorEvaluation",
+            entityId,
+            correlationId,
+            metadataJson: metadata);
     }
 
     private static string Snapshot(EvaluationPeriod period)
@@ -736,41 +908,67 @@ public sealed class EvaluationManagementService(
         {
             period.Id,
             period.Name,
-            period.StartsAt,
-            period.EndsAt,
             period.Status,
             period.CreatedAt,
-            period.UpdatedAt
+            period.OpenedAt,
+            period.ClosedAt
         });
     }
 
-    private static string Snapshot(
-        EvaluationForm form,
-        IEnumerable<EvaluationQuestion> questions)
+    private static EvaluationPeriodDto ToDto(EvaluationPeriod period)
     {
-        return JsonSerializer.Serialize(new
-        {
-            form.Id,
-            form.PeriodId,
-            form.Name,
-            form.ReviewerType,
-            form.IsActive,
-            form.CreatedAt,
-            form.UpdatedAt,
-            Questions = questions.Select(question => new
-            {
-                question.Id,
-                question.FormId,
-                question.Order,
-                question.Prompt,
-                question.Type,
-                question.IsRequired,
-                question.ScoreMin,
-                question.ScoreMax,
-                question.TextMaxLength,
-                question.CreatedAt,
-                question.UpdatedAt
-            })
-        });
+        return new EvaluationPeriodDto(
+            period.Id,
+            period.Name,
+            period.CreatedAt,
+            period.OpenedAt,
+            period.ClosedAt,
+            period.Status);
     }
+
+    private static PeerEvaluationSubmissionDto ToDto(PeerEvaluation evaluation)
+    {
+        return new PeerEvaluationSubmissionDto(
+            evaluation.Id,
+            evaluation.EvaluatorCandidateId,
+            evaluation.EvaluatorStudentIdSnapshot,
+            evaluation.EvaluatorNameSnapshot,
+            evaluation.TargetCandidateId,
+            evaluation.TargetStudentIdSnapshot,
+            evaluation.TargetNameSnapshot,
+            evaluation.Contribution,
+            evaluation.Communication,
+            evaluation.Attitude,
+            evaluation.Note,
+            evaluation.CreatedAt,
+            evaluation.UpdatedAt);
+    }
+
+    private static MentorEvaluationSubmissionDto ToDto(MentorEvaluation evaluation)
+    {
+        return new MentorEvaluationSubmissionDto(
+            evaluation.Id,
+            evaluation.MentorMemberId,
+            evaluation.MentorStudentIdSnapshot,
+            evaluation.MentorNameSnapshot,
+            evaluation.TargetCandidateId,
+            evaluation.TargetStudentIdSnapshot,
+            evaluation.TargetNameSnapshot,
+            evaluation.Attendance,
+            evaluation.TaskCompletion,
+            evaluation.LearningInitiative,
+            evaluation.Note,
+            evaluation.CreatedAt,
+            evaluation.UpdatedAt);
+    }
+
+    private sealed record ParticipantCandidate(Guid Id, string StudentId, string FullName);
+
+    private sealed record ParticipantMember(Guid Id, string StudentId, string FullName);
+
+    private sealed record TeamParticipants(
+        Guid Id,
+        string Name,
+        IReadOnlyList<ParticipantCandidate> Candidates,
+        IReadOnlyList<ParticipantMember> Mentors);
 }

@@ -12,6 +12,7 @@ public sealed class RoleAdministrationCommandModule(
     IDiscordRoleMappingService mappingService,
     IDiscordRoleMappingSubjectResolver subjectResolver,
     IDiscordRoleManagementService roleManagementService,
+    IDiscordRoleSynchronizationService roleSynchronizationService,
     ConfiguredDiscordGuild configuredGuild)
     : AdministrationCommandModuleBase(authorizationService, configuredGuild)
 {
@@ -103,6 +104,54 @@ public sealed class RoleAdministrationCommandModule(
             or DiscordRoleMappingAccessDeniedException
             or DiscordRoleMappingValidationException
             or DiscordRoleMappingConflictException
+            or DiscordRoleGatewayException)
+        {
+            return AdministrationCommandResponses.Error(FormatDiscordError(exception));
+        }
+    }
+
+    [SubSlashCommand("sync", "Synchronize roles for all linked active identities")]
+    public async Task<InteractionCallbackProperties> SyncAsync()
+    {
+        if (!IsConfiguredGuild())
+        {
+            return AdministrationCommandResponses.Error(
+                "This command is only available in the configured Felion guild.");
+        }
+
+        if (!TryGetDiscordUserId(out var discordUserId))
+        {
+            return AdministrationCommandResponses.Error("The Discord user ID is not supported.");
+        }
+
+        try
+        {
+            var actor = await AuthorizationService.RequireAdminAsync(
+                discordUserId,
+                CancellationToken.None);
+            var result = await roleSynchronizationService.SynchronizeAllAsync(
+                actor.MemberId,
+                actor.DiscordUserId,
+                CorrelationId(),
+                CancellationToken.None);
+            if (result.Failures.Count > 0)
+            {
+                var failures = string.Join(
+                    "; ",
+                    result.Failures
+                        .Take(5)
+                        .Select(failure =>
+                            $"{failure.SubjectType}:{failure.SubjectId} <@{failure.DiscordUserId}> — {failure.Error}"));
+                var suffix = result.Failures.Count > 5 ? " …" : string.Empty;
+                return AdministrationCommandResponses.Error(
+                    $"⚠️ Đã sync {result.SynchronizedSubjects}/{result.TotalSubjects}. "
+                    + $"Thất bại {result.Failures.Count}: {failures}{suffix}");
+            }
+
+            return AdministrationCommandResponses.Success(
+                $"✅ Đã sync role cho {result.SynchronizedSubjects}/{result.TotalSubjects} identity đang active.");
+        }
+        catch (Exception exception) when (exception is DiscordAuthorizationException
             or DiscordRoleGatewayException)
         {
             return AdministrationCommandResponses.Error(FormatDiscordError(exception));

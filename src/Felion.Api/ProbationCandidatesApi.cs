@@ -1,3 +1,4 @@
+using Felion.Application.Discord;
 using Felion.Application.Identity;
 using Felion.Application.Probation;
 using Felion.Domain.Probation;
@@ -23,6 +24,7 @@ internal static class ProbationCandidatesApi
         candidates.MapPost("", CreateAsync);
         candidates.MapPatch("/{candidateId:guid}", UpdateAsync);
         candidates.MapPut("/{candidateId:guid}/team", ChangeTeamAsync);
+        candidates.MapPost("/{candidateId:guid}/sync-discord-roles", ForceSyncAsync);
 
         static async Task<IResult> ListAsync(
             HttpContext httpContext,
@@ -172,6 +174,21 @@ internal static class ProbationCandidatesApi
                     GetCorrelationId(httpContext),
                     cancellationToken)));
         }
+
+        static async Task<IResult> ForceSyncAsync(
+            Guid candidateId,
+            HttpContext httpContext,
+            IProbationCandidateManagementService service,
+            CancellationToken cancellationToken = default)
+        {
+            return await ExecuteAsync(
+                httpContext,
+                async actorMemberId => Results.Ok(await service.ForceSyncDiscordRolesAsync(
+                    actorMemberId,
+                    candidateId,
+                    GetCorrelationId(httpContext),
+                    cancellationToken)));
+        }
     }
 
     private static async Task<IResult> ExecuteAsync<T>(
@@ -192,7 +209,8 @@ internal static class ProbationCandidatesApi
             or ProbationCandidateNotFoundException
             or ProbationTeamNotFoundException
             or ProbationCandidateValidationException
-            or ProbationCandidateConflictException)
+            or ProbationCandidateConflictException
+            or DiscordRoleGatewayException)
         {
             return ToProblem(exception);
         }
@@ -215,7 +233,8 @@ internal static class ProbationCandidatesApi
             or ProbationCandidateNotFoundException
             or ProbationTeamNotFoundException
             or ProbationCandidateValidationException
-            or ProbationCandidateConflictException)
+            or ProbationCandidateConflictException
+            or DiscordRoleGatewayException)
         {
             return ToProblem(exception);
         }
@@ -239,6 +258,7 @@ internal static class ProbationCandidatesApi
             ProbationCandidateManagementAccessDeniedException => StatusCodes.Status403Forbidden,
             ProbationCandidateNotFoundException or ProbationTeamNotFoundException => StatusCodes.Status404NotFound,
             ProbationCandidateConflictException => StatusCodes.Status409Conflict,
+            DiscordRoleGatewayException => StatusCodes.Status502BadGateway,
             _ => StatusCodes.Status400BadRequest
         };
 

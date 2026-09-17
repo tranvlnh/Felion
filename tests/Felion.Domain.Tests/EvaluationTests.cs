@@ -6,130 +6,73 @@ namespace Felion.Domain.Tests;
 public sealed class EvaluationTests
 {
     [Fact]
-    public void PeriodTransitionsFromDraftToOpenToClosedOnly()
+    public void PeriodStartsOpenAndCanOnlyBeClosedOnce()
     {
-        var period = EvaluationPeriod.Create(" Week 1 ");
+        var now = new DateTimeOffset(2026, 9, 17, 10, 0, 0, TimeSpan.Zero);
+        var period = EvaluationPeriod.Create(" Week 1 ", now);
 
-        Assert.Equal(EvaluationPeriodStatus.Draft, period.Status);
-        period.Open();
+        Assert.Equal("Week 1", period.Name);
         Assert.Equal(EvaluationPeriodStatus.Open, period.Status);
-        period.Close();
+        Assert.Equal(now, period.OpenedAt);
+
+        period.Close(now.AddDays(1));
+
         Assert.Equal(EvaluationPeriodStatus.Closed, period.Status);
-        Assert.Throws<DomainException>(() => period.Open());
-        Assert.Throws<DomainException>(() => period.Close());
+        Assert.Equal(now.AddDays(1), period.ClosedAt);
+        Assert.Throws<DomainException>(() => period.Close(now.AddDays(2)));
     }
 
     [Fact]
-    public void PeriodRejectsAnInvalidSchedule()
+    public void PeerEvaluationEnforcesFixedScoresAndNoSelfReview()
     {
-        var start = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.FromHours(7));
-
-        Assert.Throws<DomainException>(() => EvaluationPeriod.Create(
-            "Week 1",
-            start,
-            start.AddMinutes(-1)));
-    }
-
-    [Fact]
-    public void ScoreAndTextQuestionsRequireMatchingConfiguration()
-    {
-        var formId = Guid.NewGuid();
-
-        var score = EvaluationQuestion.Create(
-            formId,
-            1,
-            "Quality",
-            EvaluationQuestionType.Score,
-            true,
-            1,
-            5,
-            null);
-        var text = EvaluationQuestion.Create(
-            formId,
-            2,
-            "Feedback",
-            EvaluationQuestionType.Text,
-            false,
-            null,
-            null,
-            2000);
-
-        Assert.Equal(5, score.ScoreMax);
-        Assert.Equal(2000, text.TextMaxLength);
-        Assert.Throws<DomainException>(() => EvaluationQuestion.Create(
-            formId,
-            3,
-            "Invalid",
-            EvaluationQuestionType.Score,
-            true,
-            5,
-            1,
-            null));
-        Assert.Throws<DomainException>(() => EvaluationQuestion.Create(
-            formId,
-            3,
-            "Invalid",
-            EvaluationQuestionType.Text,
-            true,
-            1,
-            5,
-            2000));
-    }
-
-    [Fact]
-    public void AnswersValidateValuesAndSnapshotQuestionDefinition()
-    {
-        var question = EvaluationQuestion.Create(
-            Guid.NewGuid(),
-            1,
-            " Quality ",
-            EvaluationQuestionType.Score,
-            true,
-            1,
-            5,
-            null);
-        var submissionId = Guid.NewGuid();
-
-        var answer = EvaluationAnswer.Create(submissionId, question, 4, null);
-
-        Assert.Equal(question.Id, answer.QuestionId);
-        Assert.Equal("Quality", answer.QuestionPromptSnapshot);
-        Assert.Equal(EvaluationQuestionType.Score, answer.QuestionTypeSnapshot);
-        Assert.Equal(4, answer.ScoreValue);
-        Assert.Throws<DomainException>(() => EvaluationAnswer.Create(submissionId, question, 6, null));
-        Assert.Throws<DomainException>(() => EvaluationAnswer.Create(submissionId, question, null, "not a score"));
-    }
-
-    [Fact]
-    public void SubmissionRequiresReviewerMatchingReviewerType()
-    {
-        var formId = Guid.NewGuid();
         var periodId = Guid.NewGuid();
+        var evaluatorId = Guid.NewGuid();
         var targetId = Guid.NewGuid();
-
-        var submission = EvaluationSubmission.Create(
-            formId,
+        var evaluation = PeerEvaluation.Create(
             periodId,
-            EvaluationReviewerType.Peer,
-            null,
-            Guid.NewGuid(),
-            "CANDIDATE001",
-            "Candidate",
+            evaluatorId,
             targetId,
-            "TARGET001",
-            "Target");
+            "P001",
+            "Evaluator",
+            "P002",
+            "Target",
+            4,
+            5,
+            3);
 
-        Assert.Equal(targetId, submission.TargetCandidateId);
-        Assert.Throws<DomainException>(() => EvaluationSubmission.Create(
-            formId,
+        Assert.Equal(4, evaluation.Contribution);
+        evaluation.Update(5, 5, 4, "Good teammate");
+        Assert.Equal("Good teammate", evaluation.Note);
+        Assert.Throws<DomainException>(() => evaluation.Update(0, 5, 4));
+        Assert.Throws<DomainException>(() => PeerEvaluation.Create(
             periodId,
-            EvaluationReviewerType.Peer,
+            evaluatorId,
+            evaluatorId,
+            "P001",
+            "Evaluator",
+            "P001",
+            "Evaluator",
+            4,
+            4,
+            4));
+    }
+
+    [Fact]
+    public void MentorEvaluationEnforcesTenPointScores()
+    {
+        var evaluation = MentorEvaluation.Create(
             Guid.NewGuid(),
-            null,
-            "CANDIDATE001",
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "M001",
+            "Mentor",
+            "P001",
             "Candidate",
-            targetId,
-            "TARGET001",
-            "Target"));
+            10,
+            8,
+            9);
+
+        Assert.Equal(10, evaluation.Attendance);
+        Assert.Throws<DomainException>(() => evaluation.Update(10, 0, 9));
     }
 }

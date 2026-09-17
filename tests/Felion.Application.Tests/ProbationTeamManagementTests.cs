@@ -13,7 +13,7 @@ public sealed class ProbationTeamManagementTests
     public async Task CreateTeamWritesAuditAndReturnsActiveTeam()
     {
         var fixture = CreateFixture();
-        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore);
+        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore, fixture.RoleSynchronizationService);
 
         var result = await service.CreateAsync(
             fixture.Admin.Id,
@@ -27,10 +27,29 @@ public sealed class ProbationTeamManagementTests
     }
 
     [Fact]
-    public async Task UpdateTeamSupportsSoftDeactivationAndWritesAudit()
+    public async Task DiscordTeamMutationWritesDiscordActorAudit()
     {
         var fixture = CreateFixture();
         var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore);
+
+        await service.CreateAsync(
+            fixture.Admin.Id,
+            new CreateProbationTeamCommand("Team Discord"),
+            "discord-component-test",
+            CancellationToken.None,
+            actorDiscordUserId: 123456789);
+
+        var audit = Assert.Single(fixture.TeamStore.AuditLogs);
+        Assert.Equal(AuditActorType.DiscordMember, audit.ActorType);
+        Assert.Null(audit.ActorMemberId);
+        Assert.Equal(123456789, audit.ActorDiscordUserId);
+    }
+
+    [Fact]
+    public async Task UpdateTeamSupportsSoftDeactivationAndWritesAudit()
+    {
+        var fixture = CreateFixture();
+        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore, fixture.RoleSynchronizationService);
 
         var result = await service.UpdateAsync(
             fixture.Admin.Id,
@@ -48,7 +67,7 @@ public sealed class ProbationTeamManagementTests
     public async Task MemberCannotManageProbationTeams()
     {
         var fixture = CreateFixture();
-        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore);
+        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore, fixture.RoleSynchronizationService);
 
         await Assert.ThrowsAsync<ProbationTeamAccessDeniedException>(() => service.ListAsync(
             fixture.RegularMember.Id,
@@ -56,12 +75,12 @@ public sealed class ProbationTeamManagementTests
     }
 
     [Fact]
-    public async Task AssignCandidateWritesAuditAndQueuesRoleSyncWhenLinked()
+    public async Task AssignCandidateWritesAuditAndSynchronizesImmediatelyWhenLinked()
     {
         var fixture = CreateFixture();
         Assert.Null(fixture.Candidate.TeamId);
         fixture.TeamStore.LinkedDiscordUsers[fixture.Candidate.Id] = 123456789;
-        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore);
+        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore, fixture.RoleSynchronizationService);
 
         var result = await service.AssignCandidateAsync(
             fixture.Admin.Id,
@@ -74,9 +93,9 @@ public sealed class ProbationTeamManagementTests
         Assert.Contains(fixture.TeamStore.AuditLogs, audit =>
             audit.Action == "ProbationCandidateAssignedToTeam"
             && audit.EntityId == fixture.Candidate.Id);
-        var job = Assert.Single(fixture.TeamStore.SyncJobs);
-        Assert.Equal(DiscordIdentitySubjectType.Probation, job.SubjectType);
-        Assert.Equal(fixture.Candidate.Id, job.SubjectId);
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Probation, fixture.Candidate.Id),
+            fixture.RoleSynchronizationService.SynchronizedSubjects);
     }
 
     [Fact]
@@ -86,7 +105,7 @@ public sealed class ProbationTeamManagementTests
         var otherTeam = ProbationTeam.Create("Team Beta");
         fixture.TeamStore.Teams.Add(otherTeam);
         fixture.Candidate.AssignToTeam(fixture.Team.Id);
-        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore);
+        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore, fixture.RoleSynchronizationService);
 
         await Assert.ThrowsAsync<ProbationTeamConflictException>(() => service.AssignCandidateAsync(
             fixture.Admin.Id,
@@ -97,12 +116,12 @@ public sealed class ProbationTeamManagementTests
     }
 
     [Fact]
-    public async Task RemoveCandidateWritesAuditAndQueuesRoleSync()
+    public async Task RemoveCandidateWritesAuditAndSynchronizesImmediately()
     {
         var fixture = CreateFixture();
         fixture.Candidate.AssignToTeam(fixture.Team.Id);
         fixture.TeamStore.LinkedDiscordUsers[fixture.Candidate.Id] = 123456789;
-        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore);
+        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore, fixture.RoleSynchronizationService);
 
         var result = await service.RemoveCandidateAsync(
             fixture.Admin.Id,
@@ -113,7 +132,9 @@ public sealed class ProbationTeamManagementTests
 
         Assert.DoesNotContain(fixture.Candidate.Id, result.CandidateIds);
         Assert.Contains(fixture.TeamStore.AuditLogs, audit => audit.Action == "ProbationCandidateRemovedFromTeam");
-        Assert.Single(fixture.TeamStore.SyncJobs);
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Probation, fixture.Candidate.Id),
+            fixture.RoleSynchronizationService.SynchronizedSubjects);
     }
 
     [Fact]
@@ -121,7 +142,7 @@ public sealed class ProbationTeamManagementTests
     {
         var fixture = CreateFixture();
         fixture.RegularMember.Deactivate();
-        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore);
+        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore, fixture.RoleSynchronizationService);
 
         await Assert.ThrowsAsync<ProbationTeamValidationException>(() => service.AssignMentorAsync(
             fixture.Admin.Id,
@@ -137,7 +158,7 @@ public sealed class ProbationTeamManagementTests
         var fixture = CreateFixture();
         var otherTeam = ProbationTeam.Create("Team Beta");
         fixture.TeamStore.Teams.Add(otherTeam);
-        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore);
+        var service = new ProbationTeamManagementService(fixture.TeamStore, fixture.MemberStore, fixture.RoleSynchronizationService);
 
         await service.AssignMentorAsync(
             fixture.Admin.Id,
@@ -192,7 +213,14 @@ public sealed class ProbationTeamManagementTests
         var teamStore = new FakeTeamStore();
         teamStore.Teams.Add(team);
         teamStore.Candidates.Add(candidate);
-        return new Fixture(memberStore, teamStore, admin, regularMember, team, candidate);
+        return new Fixture(
+            memberStore,
+            teamStore,
+            admin,
+            regularMember,
+            team,
+            candidate,
+            new TestDiscordRoleSynchronizationService());
     }
 
     private sealed record Fixture(
@@ -201,7 +229,8 @@ public sealed class ProbationTeamManagementTests
         Member Admin,
         Member RegularMember,
         ProbationTeam Team,
-        ProbationCandidate Candidate);
+        ProbationCandidate Candidate,
+        TestDiscordRoleSynchronizationService RoleSynchronizationService);
 
     private sealed class FakeTeamStore : IProbationTeamStore
     {
@@ -212,8 +241,6 @@ public sealed class ProbationTeamManagementTests
         public List<TeamMentor> Mentors { get; } = [];
 
         public List<AuditLog> AuditLogs { get; } = [];
-
-        public List<DiscordSyncJob> SyncJobs { get; } = [];
 
         public Dictionary<Guid, long> LinkedDiscordUsers { get; } = [];
 
@@ -267,15 +294,9 @@ public sealed class ProbationTeamManagementTests
         public Task SaveCandidateAssignmentAsync(
             ProbationCandidate candidate,
             AuditLog auditLog,
-            DiscordSyncJob? syncJob,
             CancellationToken cancellationToken)
         {
             AuditLogs.Add(auditLog);
-            if (syncJob is not null)
-            {
-                SyncJobs.Add(syncJob);
-            }
-
             return Task.CompletedTask;
         }
 

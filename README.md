@@ -24,13 +24,15 @@ Felion hiện phục vụ một Discord guild duy nhất. Guild ID nằm trong c
 - Bảo vệ uniqueness trên toàn hệ thống: một StudentId chỉ liên kết một Discord user và ngược lại.
 - Mapping role theo các chiều Position, Probation, Department, Generation và ProbationTeam.
 - Admin có thể tạo role mới hoặc map role hiện có trong guild được cấu hình.
-- Admin có thể gán nhiều role riêng cho từng Member hoặc ProbationCandidate; danh sách gán role là replacement-based.
-- PASS chuyển Discord identity và role assignment từ candidate sang Member; FAIL xóa role assignment và xếp hàng thao tác kick.
-- Role sync và kick được lưu dưới dạng retryable job với durable backoff; worker không hot-loop khi Discord lỗi.
+- Admin có thể gán nhiều role riêng cho từng Member hoặc ProbationCandidate; danh sách gán role là replacement-based và dashboard cũng hiển thị các role tự động đang áp dụng.
+- PASS chuyển Discord identity và role assignment từ candidate sang Member rồi đồng bộ role ngay; FAIL xóa role assignment và xếp hàng thao tác kick.
+- Role synchronization chạy ngay từ dữ liệu hiện tại sau khi link StudentId hoặc Admin/Core thay đổi dữ liệu; `/role sync` đồng bộ toàn bộ Member/ProbationCandidate đang active và đã link.
+- Chỉ thao tác kick sau FAIL còn dùng retryable job với durable backoff; worker không hot-loop khi Discord lỗi.
 - Các Discord administration command hiện có:
   - <code>/verification publish</code>
   - <code>/role create</code>
   - <code>/role map</code>
+  - <code>/role sync</code>
   - <code>/department create</code>
   - <code>/generation create</code>
 - Trước khi có Admin liên kết đầu tiên, Discord server Administrator có thể chạy <code>/verification publish</code> để khởi tạo verification message. Ngoại lệ này không cấp quyền Felion khác.
@@ -328,7 +330,7 @@ Reverse proxy phải dùng HTTPS public, route traffic vào port nội bộ củ
 - <code>AllowedHosts</code> phải là hostname production, không dùng <code>*</code> như local default.
 - Không log hoặc expose secret/token.
 
-<code>DiscordSyncJob</code> retry durable qua process restart, nhưng rate limiter hiện giữ state trong memory của một process. Không mở rộng thành nhiều replica nếu chưa thay bằng shared limiter store.
+<code>DiscordSyncJob</code> chỉ retry thao tác kick sau FAIL qua process restart; role synchronization chạy trực tiếp và không đi qua job. Rate limiter hiện giữ state trong memory của một process. Không mở rộng thành nhiều replica nếu chưa thay bằng shared limiter store.
 
 ## Cấu hình chính
 

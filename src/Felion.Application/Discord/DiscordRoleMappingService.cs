@@ -10,7 +10,8 @@ namespace Felion.Application.Discord;
 public sealed class DiscordRoleMappingService(
     IDiscordRoleMappingStore store,
     IMemberStore memberStore,
-    IDiscordRoleGateway? roleGateway = null) : IDiscordRoleMappingService
+    IDiscordRoleGateway? roleGateway = null,
+    IDiscordRoleSynchronizationService? roleSynchronizationService = null) : IDiscordRoleMappingService
 {
     public async Task<IReadOnlyList<DiscordRoleMappingDto>> ListAsync(
         Guid actorMemberId,
@@ -56,6 +57,7 @@ public sealed class DiscordRoleMappingService(
                 track: true,
                 cancellationToken);
             var before = mapping is null ? null : Snapshot(mapping);
+            var previousRoleId = mapping?.DiscordRoleId;
             if (mapping is null)
             {
                 mapping = DiscordRoleMapping.Create(
@@ -80,6 +82,21 @@ public sealed class DiscordRoleMappingService(
                 beforeJson: before,
                 afterJson: Snapshot(mapping));
             await store.UpsertAsync(mapping, audit, cancellationToken);
+            if (roleSynchronizationService is not null)
+            {
+                IReadOnlyCollection<long> additionalManagedRoleIds = previousRoleId is > 0
+                    && previousRoleId != mapping.DiscordRoleId
+                    ? [previousRoleId.Value]
+                    : [];
+                var syncResult = await roleSynchronizationService.SynchronizeAllAsync(
+                    additionalManagedRoleIds,
+                    cancellationToken);
+                if (syncResult.Failures.Count > 0)
+                {
+                    throw new DiscordRoleSynchronizationException(
+                        $"The role mapping was saved, but synchronization failed for {syncResult.Failures.Count} linked subject(s). {syncResult.Failures[0].Error}");
+                }
+            }
         }
         catch (DomainException exception)
         {

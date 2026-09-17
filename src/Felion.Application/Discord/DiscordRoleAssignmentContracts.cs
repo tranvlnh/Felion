@@ -9,6 +9,10 @@ public sealed record DiscordRoleAssignmentDto(
     string DiscordRoleId,
     string RoleNameSnapshot);
 
+public sealed record DiscordRoleProjection(
+    long DiscordRoleId,
+    string RoleNameSnapshot);
+
 public sealed record DiscordRoleAssignmentSubjectView(
     Guid SubjectId,
     DiscordIdentitySubjectType SubjectType,
@@ -18,7 +22,8 @@ public sealed record DiscordRoleAssignmentSubjectView(
     MemberStatus? MemberStatus,
     ProbationCandidateStatus? CandidateStatus,
     long? DiscordUserId,
-    IReadOnlyList<DiscordRoleAssignment> Assignments);
+    IReadOnlyList<DiscordRoleAssignment> Assignments,
+    IReadOnlyList<DiscordRoleProjection> AutomaticRoles);
 
 public sealed record DiscordRoleAssignmentSubjectDto(
     Guid SubjectId,
@@ -29,7 +34,8 @@ public sealed record DiscordRoleAssignmentSubjectDto(
     MemberStatus? MemberStatus,
     ProbationCandidateStatus? CandidateStatus,
     long? DiscordUserId,
-    IReadOnlyList<DiscordRoleAssignmentDto> Assignments);
+    IReadOnlyList<DiscordRoleAssignmentDto> Assignments,
+    IReadOnlyList<DiscordRoleAssignmentDto> AutomaticRoles);
 
 public sealed record DiscordRoleAssignmentDashboard(
     IReadOnlyList<DiscordRoleAssignmentSubjectDto> Subjects);
@@ -58,7 +64,6 @@ public interface IDiscordRoleAssignmentStore
         IReadOnlyCollection<long> expectedRoleIds,
         IReadOnlyCollection<DiscordRoleAssignment> desiredAssignments,
         AuditLog auditLog,
-        DiscordSyncJob? syncJob,
         CancellationToken cancellationToken);
 }
 

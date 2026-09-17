@@ -1,3 +1,4 @@
+using Felion.Application.Discord;
 using Felion.Application.Identity;
 using Felion.Application.Members;
 using Felion.Domain.Members;
@@ -191,7 +192,8 @@ public static class MembersApi
             catch (Exception exception) when (exception is MemberAccessDeniedException
                 or MemberNotFoundException
                 or MemberValidationException
-                or MemberConflictException)
+                or MemberConflictException
+                or DiscordRoleGatewayException)
             {
                 return ToProblem(exception);
             }
@@ -253,6 +255,7 @@ public static class MembersApi
                 MemberAccessDeniedException => StatusCodes.Status403Forbidden,
                 MemberNotFoundException => StatusCodes.Status404NotFound,
                 MemberConflictException => StatusCodes.Status409Conflict,
+                DiscordRoleGatewayException => StatusCodes.Status502BadGateway,
                 _ => StatusCodes.Status400BadRequest
             };
 

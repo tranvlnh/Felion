@@ -13,7 +13,15 @@ public sealed class NetCordDiscordRoleGateway(
         CancellationToken cancellationToken)
     {
         var roles = await GetRolesAsync(cancellationToken);
-        return roles.Select(ToGuildRoleSnapshot).ToArray();
+        var botGuildUser = await GetCurrentGuildUserAsync(cancellationToken);
+        var botPermissions = GetEffectivePermissions(roles, botGuildUser);
+        var botHighestRolePosition = GetHighestRolePosition(roles, botGuildUser);
+
+        return roles
+            .Select(role => ToGuildRoleSnapshot(
+                role,
+                CanAssignRole(role, botPermissions, botHighestRolePosition)))
+            .ToArray();
     }
 
     public async Task<DiscordRoleSnapshot> GetRoleAsync(
@@ -70,7 +78,6 @@ public sealed class NetCordDiscordRoleGateway(
     {
         var roles = await GetRolesAsync(cancellationToken);
         var botGuildUser = await GetCurrentGuildUserAsync(cancellationToken);
-        EnsureRolePermission(roles, botGuildUser);
 
         var managedIds = managedRoleIds.Select(ToSnowflake).ToHashSet();
         var desiredIds = desiredRoleIds.Select(ToSnowflake).ToHashSet();
@@ -79,6 +86,14 @@ public sealed class NetCordDiscordRoleGateway(
             throw new DiscordRoleGatewayException(
                 "The desired Discord roles must be a subset of the managed role mappings.");
         }
+
+        if (managedIds.Count == 0)
+        {
+            return;
+        }
+
+        EnsureRolePermission(roles, botGuildUser);
+        var botPermissions = GetEffectivePermissions(roles, botGuildUser);
 
         var managedRoles = roles
             .Where(role => managedIds.Contains(role.Id))
@@ -89,20 +104,20 @@ public sealed class NetCordDiscordRoleGateway(
                 "At least one configured Discord role does not exist in the configured guild.");
         }
 
-        var botHighestRolePosition = roles
-            .Where(role => botGuildUser.RoleIds.Contains(role.Id))
-            .Select(role => role.RawPosition)
-            .DefaultIfEmpty(0)
-            .Max();
-        foreach (var role in managedRoles.Values)
+        var botHighestRolePosition = GetHighestRolePosition(roles, botGuildUser);
+        var manageableRoleIds = managedRoles.Values
+            .Where(role => role.Id != configuredGuild.Id
+                && CanAssignRole(role, botPermissions, botHighestRolePosition))
+            .Select(role => role.Id)
+            .ToHashSet();
+        var unmanageableDesiredRole = desiredIds
+            .Except(manageableRoleIds)
+            .FirstOrDefault();
+        if (unmanageableDesiredRole != 0)
         {
-            if (role.Id == configuredGuild.Id
-                || role.Managed
-                || role.RawPosition >= botHighestRolePosition)
-            {
-                throw new DiscordRolePermissionException(
-                    "The bot cannot manage one or more configured Discord roles because of role hierarchy or role ownership.");
-            }
+            var role = managedRoles[unmanageableDesiredRole];
+            throw new DiscordRolePermissionException(
+                $"The bot cannot manage Discord role '{role.Name}' at position {role.RawPosition} because of role hierarchy or role ownership.");
         }
 
         GuildUser guildUser;
@@ -136,7 +151,7 @@ public sealed class NetCordDiscordRoleGateway(
             }
 
             foreach (var roleId in currentRoleIds
-                         .Intersect(managedIds)
+                         .Intersect(manageableRoleIds)
                          .Except(desiredIds))
             {
                 await restClient.RemoveGuildUserRoleAsync(
@@ -170,25 +185,74 @@ public sealed class NetCordDiscordRoleGateway(
     {
         try
         {
-            return await restClient.GetCurrentUserGuildUserAsync(
+            var currentUser = await restClient.GetCurrentUserAsync(
+                cancellationToken: cancellationToken);
+            return await restClient.GetGuildUserAsync(
                 configuredGuild.Id,
+                currentUser.Id,
                 cancellationToken: cancellationToken);
         }
-        catch (RestException)
+        catch (RestException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
         {
-            throw new DiscordRoleGatewayException("Discord rejected the bot member lookup request.");
+            throw new DiscordRoleNotFoundException(
+                "The bot is not a member of the configured Discord guild, or Discord:GuildId is incorrect.");
         }
+        catch (RestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new DiscordRolePermissionException(
+                "Discord denied access to the bot member in the configured guild.");
+        }
+        catch (RestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            throw new DiscordRoleGatewayException(
+                "Discord rejected the bot token while reading the bot member.");
+        }
+        catch (RestException exception)
+        {
+            throw new DiscordRoleGatewayException(
+                $"Discord rejected the bot member lookup request (HTTP {(int)exception.StatusCode}).");
+        }
+    }
+
+    private static Permissions GetEffectivePermissions(
+        IReadOnlyList<Role> roles,
+        GuildUser botGuildUser)
+    {
+        var botRoleIds = botGuildUser.RoleIds.ToHashSet();
+        return roles
+            .Where(role => role.Id == botGuildUser.GuildId || botRoleIds.Contains(role.Id))
+            .Select(role => role.Permissions)
+            .Aggregate(default(Permissions), (current, rolePermissions) => current | rolePermissions);
+    }
+
+    private static int GetHighestRolePosition(
+        IReadOnlyList<Role> roles,
+        GuildUser botGuildUser)
+    {
+        var botRoleIds = botGuildUser.RoleIds.ToHashSet();
+        return roles
+            .Where(role => botRoleIds.Contains(role.Id))
+            .Select(role => role.RawPosition)
+            .DefaultIfEmpty(0)
+            .Max();
+    }
+
+    private static bool CanAssignRole(
+        Role role,
+        Permissions botPermissions,
+        int botHighestRolePosition)
+    {
+        return !role.Managed
+            && role.RawPosition < botHighestRolePosition
+            && (botPermissions.HasFlag(Permissions.Administrator)
+                || botPermissions.HasFlag(Permissions.ManageRoles));
     }
 
     private static void EnsureRolePermission(
         IReadOnlyList<Role> roles,
         GuildUser botGuildUser)
     {
-        var botRoleIds = botGuildUser.RoleIds.ToHashSet();
-        var permissions = roles
-            .Where(role => role.Id == botGuildUser.GuildId || botRoleIds.Contains(role.Id))
-            .Select(role => role.Permissions)
-            .Aggregate(default(Permissions), (current, rolePermissions) => current | rolePermissions);
+        var permissions = GetEffectivePermissions(roles, botGuildUser);
 
         if (!permissions.HasFlag(Permissions.Administrator)
             && !permissions.HasFlag(Permissions.ManageRoles))
@@ -209,7 +273,7 @@ public sealed class NetCordDiscordRoleGateway(
         return new DiscordRoleSnapshot((long)role.Id, role.Name);
     }
 
-    private DiscordGuildRoleSnapshot ToGuildRoleSnapshot(Role role)
+    private DiscordGuildRoleSnapshot ToGuildRoleSnapshot(Role role, bool isAssignableByBot)
     {
         if (role.Id > long.MaxValue)
         {
@@ -222,7 +286,8 @@ public sealed class NetCordDiscordRoleGateway(
             role.Name,
             role.Managed,
             role.Id == configuredGuild.Id,
-            role.RawPosition);
+            role.RawPosition,
+            isAssignableByBot);
     }
 
     private static ulong ToSnowflake(long value)

@@ -1,13 +1,15 @@
+using Felion.Application.Discord;
 using Felion.Application.Identity;
 using Felion.Application.Members;
 using Felion.Domain.Audit;
+using Felion.Domain.Identity;
 using Felion.Domain.Members;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
 namespace Felion.Infrastructure.Persistence;
 
-internal sealed class MemberStore(FelionDbContext dbContext) : IMemberStore, IWebIdentityDirectory, IReferenceDataStore
+internal sealed class MemberStore(FelionDbContext dbContext) : IMemberStore, IWebIdentityDirectory, IReferenceDataStore, IDiscordMemberSyncStore
 {
     public Task<WebMemberIdentity?> FindActiveByIdAsync(
         Guid memberId,
@@ -167,6 +169,33 @@ internal sealed class MemberStore(FelionDbContext dbContext) : IMemberStore, IWe
         dbContext.Members.Add(member);
         dbContext.AuditLogs.Add(auditLog);
         return SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<long?> FindDiscordUserIdAsync(
+        Guid memberId,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.DiscordIdentityLinks
+            .AsNoTracking()
+            .Where(link => link.SubjectType == DiscordIdentitySubjectType.Member
+                && link.SubjectId == memberId)
+            .Select(link => (long?)link.DiscordUserId)
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task UpdateMemberAsync(
+        Member member,
+        AuditLog auditLog,
+        CancellationToken cancellationToken)
+    {
+        var identityLink = await dbContext.DiscordIdentityLinks
+            .SingleOrDefaultAsync(link => link.SubjectType == DiscordIdentitySubjectType.Member
+                && link.SubjectId == member.Id, cancellationToken);
+        identityLink?.UpdateStudentId(member.StudentId);
+
+        dbContext.AuditLogs.Add(auditLog);
+
+        await SaveChangesAsync(cancellationToken);
     }
 
     public Task UpdateAsync(Member member, AuditLog auditLog, CancellationToken cancellationToken)

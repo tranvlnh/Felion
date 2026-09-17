@@ -8,7 +8,8 @@ namespace Felion.Application.Discord;
 
 public sealed class DiscordLinkingService(
     IDiscordLinkStore store,
-    IRateLimitGate rateLimitGate) : IDiscordLinkingService
+    IRateLimitGate rateLimitGate,
+    IDiscordRoleSynchronizationService? roleSynchronizationService = null) : IDiscordLinkingService
 {
     private const int MaxStudentIdLength = 50;
 
@@ -84,7 +85,18 @@ public sealed class DiscordLinkingService(
                     "This StudentId is linked to a different identity.");
             }
 
-            return ToResult(subject, existingByStudentId, syncQueued: false);
+            if (roleSynchronizationService is not null)
+            {
+                await roleSynchronizationService.SynchronizeSubjectAsync(
+                    subject.SubjectType,
+                    subject.SubjectId,
+                    cancellationToken);
+            }
+
+            return ToResult(
+                subject,
+                existingByStudentId,
+                rolesSynchronized: roleSynchronizationService is not null);
         }
 
         if (existingByDiscordUserId is not null)
@@ -126,34 +138,32 @@ public sealed class DiscordLinkingService(
                 link.SubjectId,
                 link.LinkedAt
             }));
-        var syncJob = DiscordSyncJob.Create(
-            subject.SubjectType,
-            subject.SubjectId,
-            DiscordSyncOperation.SynchronizeRoles,
-            JsonSerializer.Serialize(new
-            {
-                link.DiscordUserId,
-                link.StudentId,
-                link.SubjectType,
-                link.SubjectId
-            }));
-
         try
         {
-            await store.AddAsync(link, audit, syncJob, cancellationToken);
+            await store.AddAsync(link, audit, cancellationToken);
         }
         catch (DiscordLinkConflictException)
         {
             throw;
         }
 
-        return ToResult(subject, link, syncQueued: true);
+        if (roleSynchronizationService is null)
+        {
+            return ToResult(subject, link, rolesSynchronized: false);
+        }
+
+        await roleSynchronizationService.SynchronizeSubjectAsync(
+            subject.SubjectType,
+            subject.SubjectId,
+            cancellationToken);
+
+        return ToResult(subject, link, rolesSynchronized: true);
     }
 
     private static DiscordLinkResult ToResult(
         DiscordLinkSubject subject,
         DiscordIdentityLink link,
-        bool syncQueued)
+        bool rolesSynchronized)
     {
         return new DiscordLinkResult(
             subject.SubjectId,
@@ -162,6 +172,6 @@ public sealed class DiscordLinkingService(
             subject.DisplayName,
             link.DiscordUserId,
             link.LinkedAt,
-            syncQueued);
+            rolesSynchronized);
     }
 }

@@ -40,14 +40,18 @@
 - [x] StudentId lookup/link via Discord transport
 - [x] StudentId lookup/link application use case
 - [x] Duplicate-link protection
-- [x] Transactional link audit and DiscordSyncJob enqueue
+- [x] Transactional link audit and immediate role synchronization from current data
 - [x] Role mapping management for existing guild role IDs
 - [x] Role creation
 - [x] Admin Discord slash commands for role creation and name-based role mapping
 - [x] Admin Discord slash commands for Department and Generation creation
 - [x] Position/Department/Generation/Probation/ProbationTeam role sync
-- [x] Unlink/relink/force sync
-- [x] Admin-only per-subject Discord role assignments with queued sync and role catalog
+- [x] Unlink/relink/force sync, including immediate sync after linked profile/status changes
+- [x] Admin-only per-subject Discord role assignments with immediate sync and role catalog
+- [x] Filter individual role catalog by bot permission/hierarchy and tolerate no custom bot highest role
+- [x] Show effective automatic roles in the individual-role dashboard without converting them to per-subject assignments
+- [x] Retry synchronization when saving an unchanged assignment set after a previous Discord failure
+- [x] Ignore unrelated unassignable automatic mappings during subject synchronization
 
 ## Milestone 4 — Web identity & authorization
 - [x] Google Workspace OAuth
@@ -60,6 +64,7 @@
 - [x] Team Discord role mapping (existing `ProbationTeam` mapping and sync path)
 - [x] Candidate assignment
 - [x] Multi-mentor assignment
+- [x] Discord `/team` commands and interactive team/role administration embed
 
 ## Priority MVP — Probation Admin Dashboard
 - [x] Static same-origin dashboard at `/admin/probation/`
@@ -73,17 +78,17 @@
 - [x] PostgreSQL regression coverage for candidate list projection ordering
 
 ## Milestone 6 — Evaluation
-- [x] EvaluationPeriod lifecycle
-- [x] Configurable Score/Text form
-- [x] Peer evaluation same-team rules
-- [x] Mentor evaluation rules
-- [x] Core/Admin-only results
-- [x] Immutable/history-safe snapshots
+- [x] Fixed Open/Closed EvaluationPeriod lifecycle with Admin-only create/close
+- [x] Fixed Peer criteria (Contribution, Communication, Attitude; 1..5) and Mentor criteria (Attendance, TaskCompletion, LearningInitiative; 1..10)
+- [x] Peer same-team/no-self and Mentor team-membership rules
+- [x] Separate aggregates, progress and missing-submission queries
+- [x] Discord-first commands, select menus and score/note modals
+- [x] Evaluation persistence migration, validation, authorization and audit coverage
 
 ## Milestone 7 — Probation decisions
 - [x] Bulk PASS/FAIL
 - [x] PASS promotion to Member
-- [x] Discord sync job/retry
+- [x] Immediate Discord role synchronization; durable retry job retained only for FAIL guild kicks
 - [x] FAIL kick
 - [x] MarkInactive/Delete policy
 - [x] Preserve audit/evaluation history
@@ -113,6 +118,6 @@
 - [x] Cookie/HTTPS/HSTS, Kestrel and security response-header hardening
 - [x] One-shot deploy-safe bootstrap command for initial Admin/Generation with system audit
 - [x] Discord command authorization and audit coverage for Admin administration commands
-- [x] Discord sync retry backoff and reduced idle polling
+- [x] FAIL-only Discord kick retry backoff and reduced idle polling
 - [ ] API integration tests
 - [x] Keep specs/status/TODO/decisions synchronized for completed Member management slice

@@ -111,7 +111,8 @@ internal static class DiscordLinkManagementApi
         return exception is DiscordLinkManagementAccessDeniedException
             or DiscordLinkNotFoundException
             or DiscordLinkValidationException
-            or DiscordLinkConflictException;
+            or DiscordLinkConflictException
+            or DiscordRoleGatewayException;
     }
 
     private static IResult ToProblem(Exception exception)
@@ -121,6 +122,7 @@ internal static class DiscordLinkManagementApi
             DiscordLinkManagementAccessDeniedException => StatusCodes.Status403Forbidden,
             DiscordLinkNotFoundException => StatusCodes.Status404NotFound,
             DiscordLinkConflictException => StatusCodes.Status409Conflict,
+            DiscordRoleGatewayException => StatusCodes.Status502BadGateway,
             _ => StatusCodes.Status400BadRequest
         };
 

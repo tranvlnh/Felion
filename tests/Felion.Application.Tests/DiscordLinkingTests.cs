@@ -8,7 +8,7 @@ namespace Felion.Application.Tests;
 public sealed class DiscordLinkingTests
 {
     [Fact]
-    public async Task LinkNormalizesStudentIdAndWritesAuditAndSyncJob()
+    public async Task LinkNormalizesStudentIdAndSynchronizesRolesImmediately()
     {
         var store = new FakeDiscordLinkStore
         {
@@ -18,17 +18,17 @@ public sealed class DiscordLinkingTests
                 "SV001",
                 "Student One")]
         };
-        var service = new DiscordLinkingService(store, new TestRateLimitGate());
+        var roleSynchronizationService = new TestDiscordRoleSynchronizationService();
+        var service = new DiscordLinkingService(store, new TestRateLimitGate(), roleSynchronizationService);
 
         var result = await service.LinkAsync(12345, " sv001 ", "correlation-1", CancellationToken.None);
 
         Assert.Equal("SV001", result.StudentId);
         Assert.Equal(12345, result.DiscordUserId);
-        Assert.True(result.SyncQueued);
+        Assert.True(result.RolesSynchronized);
         Assert.Single(store.Links);
         Assert.Contains(store.AuditLogs, audit => audit.Action == "DiscordIdentityLinked");
-        Assert.Single(store.SyncJobs);
-        Assert.Equal(DiscordSyncJobStatus.Pending, store.SyncJobs[0].Status);
+        Assert.Single(roleSynchronizationService.SynchronizedSubjects);
     }
 
     [Fact]
@@ -118,14 +118,17 @@ public sealed class DiscordLinkingTests
             Subjects = [new DiscordLinkSubject(subjectId, DiscordIdentitySubjectType.Member, "SV001", "Student One")]
         };
         store.Links.Add(existingLink);
-        var service = new DiscordLinkingService(store, new TestRateLimitGate());
+        var roleSynchronizationService = new TestDiscordRoleSynchronizationService();
+        var service = new DiscordLinkingService(store, new TestRateLimitGate(), roleSynchronizationService);
 
         var result = await service.LinkAsync(12345, "SV001", "correlation-6", CancellationToken.None);
 
         Assert.Equal(existingLink.LinkedAt, result.LinkedAt);
-        Assert.False(result.SyncQueued);
+        Assert.True(result.RolesSynchronized);
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Member, subjectId),
+            roleSynchronizationService.SynchronizedSubjects);
         Assert.Empty(store.AuditLogs);
-        Assert.Empty(store.SyncJobs);
     }
 
     [Fact]
@@ -145,7 +148,6 @@ public sealed class DiscordLinkingTests
         Assert.Equal(TimeSpan.FromMinutes(10), exception.RetryAfter);
         Assert.Single(rateLimitGate.Attempts);
         Assert.Empty(store.AuditLogs);
-        Assert.Empty(store.SyncJobs);
     }
 
     private sealed class FakeDiscordLinkStore : IDiscordLinkStore
@@ -155,8 +157,6 @@ public sealed class DiscordLinkingTests
         public List<DiscordIdentityLink> Links { get; } = [];
 
         public List<AuditLog> AuditLogs { get; } = [];
-
-        public List<DiscordSyncJob> SyncJobs { get; } = [];
 
         public Task<IReadOnlyList<DiscordLinkSubject>> FindEligibleSubjectsByStudentIdAsync(
             string normalizedStudentId,
@@ -183,7 +183,6 @@ public sealed class DiscordLinkingTests
         public Task AddAsync(
             DiscordIdentityLink link,
             AuditLog auditLog,
-            DiscordSyncJob syncJob,
             CancellationToken cancellationToken)
         {
             if (Links.Any(existing => existing.StudentId == link.StudentId || existing.DiscordUserId == link.DiscordUserId))
@@ -193,7 +192,6 @@ public sealed class DiscordLinkingTests
 
             Links.Add(link);
             AuditLogs.Add(auditLog);
-            SyncJobs.Add(syncJob);
             return Task.CompletedTask;
         }
     }

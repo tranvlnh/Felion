@@ -20,6 +20,30 @@ public sealed class DiscordAuthorizationTests
         Assert.Equal(123456789, actor.DiscordUserId);
     }
 
+    [Fact]
+    public async Task LinkedActiveCoreIsAuthorizedForManagement()
+    {
+        var context = TestContext.Create(MemberPosition.Core, DiscordIdentitySubjectType.Member);
+        var service = new DiscordAuthorizationService(context.LinkStore, context.MemberStore);
+
+        var actor = await service.RequireCoreOrAdminAsync(123456789, CancellationToken.None);
+
+        Assert.Equal(context.Member.Id, actor.MemberId);
+        Assert.Equal(MemberPosition.Core, actor.Position);
+    }
+
+    [Theory]
+    [InlineData(MemberPosition.Member)]
+    public async Task RegularMemberCannotManageProbationThroughDiscord(MemberPosition position)
+    {
+        var context = TestContext.Create(position, DiscordIdentitySubjectType.Member);
+        var service = new DiscordAuthorizationService(context.LinkStore, context.MemberStore);
+
+        await Assert.ThrowsAsync<DiscordAuthorizationException>(() => service.RequireCoreOrAdminAsync(
+            123456789,
+            CancellationToken.None));
+    }
+
     [Theory]
     [InlineData(MemberPosition.Core, DiscordIdentitySubjectType.Member)]
     [InlineData(MemberPosition.Admin, DiscordIdentitySubjectType.Probation)]
@@ -66,14 +90,16 @@ public sealed class DiscordAuthorizationTests
             MemberPosition position,
             DiscordIdentitySubjectType subjectType)
         {
-            var department = Department.CreateCore();
+            var department = position == MemberPosition.Member
+                ? Department.CreateRegular("Technical", "technical")
+                : Department.CreateCore();
             var generation = Generation.Create("Generation 1", "G1");
             var member = Member.Create(
                 "ADMIN001",
                 "Admin",
                 "admin@example.org",
                 department.Id,
-                isCoreDepartment: true,
+                isCoreDepartment: position != MemberPosition.Member,
                 generation.Id,
                 position);
             var memberStore = new FakeMemberStore();
@@ -112,7 +138,6 @@ public sealed class DiscordAuthorizationTests
         public Task AddAsync(
             DiscordIdentityLink link,
             AuditLog auditLog,
-            Felion.Domain.Identity.DiscordSyncJob syncJob,
             CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 

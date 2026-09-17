@@ -58,12 +58,10 @@ internal sealed class DiscordLinkStore(FelionDbContext dbContext) : IDiscordLink
     public async Task AddAsync(
         DiscordIdentityLink link,
         AuditLog auditLog,
-        DiscordSyncJob syncJob,
         CancellationToken cancellationToken)
     {
         dbContext.DiscordIdentityLinks.Add(link);
         dbContext.AuditLogs.Add(auditLog);
-        dbContext.Set<DiscordSyncJob>().Add(syncJob);
 
         try
         {

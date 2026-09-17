@@ -1,5 +1,7 @@
+using Felion.Application.Discord;
 using Felion.Application.Members;
 using Felion.Domain.Audit;
+using Felion.Domain.Identity;
 using Felion.Domain.Members;
 
 namespace Felion.Application.Tests;
@@ -12,7 +14,7 @@ public sealed class MemberManagementTests
         var store = CreateStore();
         var actor = CreateActor(store);
         actor.Deactivate();
-        var service = new MemberManagementService(store);
+        var service = new MemberManagementService(store, new FakeDiscordMemberSyncStore());
 
         await Assert.ThrowsAsync<MemberAccessDeniedException>(() => service.CreateAsync(
             actor.Id,
@@ -32,7 +34,7 @@ public sealed class MemberManagementTests
     {
         var store = CreateStore();
         var actor = CreateActor(store);
-        var service = new MemberManagementService(store);
+        var service = new MemberManagementService(store, new FakeDiscordMemberSyncStore());
 
         var result = await service.CreateAsync(
             actor.Id,
@@ -56,7 +58,7 @@ public sealed class MemberManagementTests
     {
         var store = CreateStore();
         var actor = CreateActor(store);
-        var service = new MemberManagementService(store);
+        var service = new MemberManagementService(store, new FakeDiscordMemberSyncStore());
         var readResult = new MemberImportReadResult(
         [
             new MemberImportRow(2, "SV002", "Student Two", "two@example.org", store.RegularDepartment.Slug, "G1", "Member"),
@@ -82,7 +84,7 @@ public sealed class MemberManagementTests
     {
         var store = CreateStore();
         var actor = CreateActor(store);
-        var service = new MemberManagementService(store);
+        var service = new MemberManagementService(store, new FakeDiscordMemberSyncStore());
         var readResult = new MemberImportReadResult(
             [new MemberImportRow(2, "SV002", "Student Two", "two@example.org", store.RegularDepartment.Slug, "G1", "Core")],
             []);
@@ -112,7 +114,7 @@ public sealed class MemberManagementTests
             isCoreDepartment: false,
             store.Generations[0].Id,
             MemberPosition.Member));
-        var service = new MemberManagementService(store);
+        var service = new MemberManagementService(store, new FakeDiscordMemberSyncStore());
         var readResult = new MemberImportReadResult(
             [new MemberImportRow(2, "SV002", "Student Two", "two@example.org", store.RegularDepartment.Slug, "G1", "Member")],
             []);
@@ -127,6 +129,37 @@ public sealed class MemberManagementTests
         Assert.False(report.Committed);
         Assert.Contains(report.Errors, error => error.RowNumber == 2 && error.Field == nameof(MemberImportRow.StudentId));
         Assert.Equal(2, store.Members.Count);
+    }
+
+    [Fact]
+    public async Task UpdateLinkedInactiveMemberClearsManagedRolesImmediately()
+    {
+        var store = CreateStore();
+        var actor = CreateActor(store);
+        var member = Member.Create(
+            "MEMBER001",
+            "Member",
+            "member@example.org",
+            store.RegularDepartment.Id,
+            isCoreDepartment: false,
+            store.Generations[0].Id,
+            MemberPosition.Member);
+        store.Members.Add(member);
+        var syncStore = new FakeDiscordMemberSyncStore(123456789);
+        var roleSynchronizationService = new TestDiscordRoleSynchronizationService();
+        var service = new MemberManagementService(store, syncStore, roleSynchronizationService);
+
+        await service.UpdateAsync(
+            actor.Id,
+            member.Id,
+            new UpdateMemberCommand(Status: MemberStatus.Inactive),
+            "member-inactivate",
+            CancellationToken.None);
+
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Member, member.Id),
+            roleSynchronizationService.SynchronizedSubjects);
+        Assert.Contains(syncStore.AuditLogs, audit => audit.Action == "MemberUpdated" && audit.EntityId == member.Id);
     }
 
     private static FakeMemberStore CreateStore()
@@ -255,6 +288,25 @@ public sealed class MemberManagementTests
             {
                 throw new MemberConflictException("Member StudentId or ClubEmail already exists.");
             }
+        }
+    }
+
+    private sealed class FakeDiscordMemberSyncStore(long discordUserId = 0) : IDiscordMemberSyncStore
+    {
+        public List<AuditLog> AuditLogs { get; } = [];
+
+        public Task<long?> FindDiscordUserIdAsync(Guid memberId, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<long?>(discordUserId);
+        }
+
+        public Task UpdateMemberAsync(
+            Member member,
+            AuditLog auditLog,
+            CancellationToken cancellationToken)
+        {
+            AuditLogs.Add(auditLog);
+            return Task.CompletedTask;
         }
     }
 }

@@ -17,7 +17,7 @@ public sealed class DiscordSyncJobConfiguration : IEntityTypeConfiguration<Disco
                     "subject_type IN ('Member', 'Probation')");
                 table.HasCheckConstraint(
                     "ck_discord_sync_jobs_operation",
-                    "operation IN ('SynchronizeRoles', 'ClearManagedRoles', 'KickUser')");
+                    "operation IN ('KickUser')");
                 table.HasCheckConstraint(
                     "ck_discord_sync_jobs_status",
                     "status IN ('Pending', 'Running', 'Succeeded', 'Failed')");

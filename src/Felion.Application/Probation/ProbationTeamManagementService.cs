@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Felion.Application.Discord;
 using Felion.Application.Members;
 using Felion.Domain.Audit;
 using Felion.Domain.Common;
@@ -10,7 +11,8 @@ namespace Felion.Application.Probation;
 
 public sealed class ProbationTeamManagementService(
     IProbationTeamStore store,
-    IMemberStore memberStore) : IProbationTeamManagementService
+    IMemberStore memberStore,
+    IDiscordRoleSynchronizationService? roleSynchronizationService = null) : IProbationTeamManagementService
 {
     public async Task<IReadOnlyList<ProbationTeamDto>> ListAsync(
         Guid actorMemberId,
@@ -34,7 +36,8 @@ public sealed class ProbationTeamManagementService(
         Guid actorMemberId,
         CreateProbationTeamCommand command,
         string correlationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null)
     {
         await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
 
@@ -53,7 +56,8 @@ public sealed class ProbationTeamManagementService(
             "ProbationTeamCreated",
             team.Id,
             correlationId,
-            after: Snapshot(team));
+            after: Snapshot(team),
+            actorDiscordUserId: actorDiscordUserId);
         await store.AddTeamAsync(team, audit, cancellationToken);
         return ToDto(new ProbationTeamView(
             team.Id,
@@ -70,7 +74,8 @@ public sealed class ProbationTeamManagementService(
         Guid teamId,
         UpdateProbationTeamCommand command,
         string correlationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null)
     {
         await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
         if (command.Name is null && command.IsActive is null)
@@ -104,7 +109,8 @@ public sealed class ProbationTeamManagementService(
             team.Id,
             correlationId,
             before,
-            Snapshot(team));
+            Snapshot(team),
+            actorDiscordUserId: actorDiscordUserId);
         await store.UpdateTeamAsync(team, audit, cancellationToken);
         return await GetTeamViewAsync(team.Id, cancellationToken);
     }
@@ -114,7 +120,8 @@ public sealed class ProbationTeamManagementService(
         Guid teamId,
         Guid candidateId,
         string correlationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null)
     {
         await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
         var team = await GetActiveTeamAsync(teamId, cancellationToken);
@@ -145,7 +152,7 @@ public sealed class ProbationTeamManagementService(
             throw new ProbationTeamValidationException(exception.Message);
         }
 
-        var syncJob = await CreateCandidateSyncJobAsync(candidate, cancellationToken);
+        var discordUserId = await store.FindCandidateDiscordUserIdAsync(candidate.Id, cancellationToken);
         var audit = CreateAudit(
             actorMemberId,
             "ProbationCandidateAssignedToTeam",
@@ -153,8 +160,16 @@ public sealed class ProbationTeamManagementService(
             correlationId,
             before,
             Snapshot(candidate),
-            entityType: "ProbationCandidate");
-        await store.SaveCandidateAssignmentAsync(candidate, audit, syncJob, cancellationToken);
+            entityType: "ProbationCandidate",
+            actorDiscordUserId: actorDiscordUserId);
+        await store.SaveCandidateAssignmentAsync(candidate, audit, cancellationToken);
+        if (discordUserId is > 0 && roleSynchronizationService is not null)
+        {
+            await roleSynchronizationService.SynchronizeSubjectAsync(
+                DiscordIdentitySubjectType.Probation,
+                candidate.Id,
+                cancellationToken);
+        }
         return await GetTeamViewAsync(team.Id, cancellationToken);
     }
 
@@ -163,7 +178,8 @@ public sealed class ProbationTeamManagementService(
         Guid teamId,
         Guid candidateId,
         string correlationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null)
     {
         await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
         _ = await GetActiveTeamAsync(teamId, cancellationToken);
@@ -184,7 +200,7 @@ public sealed class ProbationTeamManagementService(
             throw new ProbationTeamValidationException(exception.Message);
         }
 
-        var syncJob = await CreateCandidateSyncJobAsync(candidate, cancellationToken);
+        var discordUserId = await store.FindCandidateDiscordUserIdAsync(candidate.Id, cancellationToken);
         var audit = CreateAudit(
             actorMemberId,
             "ProbationCandidateRemovedFromTeam",
@@ -192,8 +208,16 @@ public sealed class ProbationTeamManagementService(
             correlationId,
             before,
             Snapshot(candidate),
-            entityType: "ProbationCandidate");
-        await store.SaveCandidateAssignmentAsync(candidate, audit, syncJob, cancellationToken);
+            entityType: "ProbationCandidate",
+            actorDiscordUserId: actorDiscordUserId);
+        await store.SaveCandidateAssignmentAsync(candidate, audit, cancellationToken);
+        if (discordUserId is > 0 && roleSynchronizationService is not null)
+        {
+            await roleSynchronizationService.SynchronizeSubjectAsync(
+                DiscordIdentitySubjectType.Probation,
+                candidate.Id,
+                cancellationToken);
+        }
         return await GetTeamViewAsync(teamId, cancellationToken);
     }
 
@@ -202,7 +226,8 @@ public sealed class ProbationTeamManagementService(
         Guid teamId,
         Guid mentorMemberId,
         string correlationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null)
     {
         await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
         _ = await GetActiveTeamAsync(teamId, cancellationToken);
@@ -233,7 +258,8 @@ public sealed class ProbationTeamManagementService(
             "ProbationMentorAssigned",
             teamId,
             correlationId,
-            after: JsonSerializer.Serialize(new { mentor.TeamId, mentor.MemberId }));
+            after: JsonSerializer.Serialize(new { mentor.TeamId, mentor.MemberId }),
+            actorDiscordUserId: actorDiscordUserId);
         await store.AddMentorAsync(mentor, audit, cancellationToken);
         return await GetTeamViewAsync(teamId, cancellationToken);
     }
@@ -243,7 +269,8 @@ public sealed class ProbationTeamManagementService(
         Guid teamId,
         Guid mentorMemberId,
         string correlationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null)
     {
         await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
         _ = await GetActiveTeamAsync(teamId, cancellationToken);
@@ -254,7 +281,8 @@ public sealed class ProbationTeamManagementService(
             "ProbationMentorRemoved",
             teamId,
             correlationId,
-            before: JsonSerializer.Serialize(new { mentor.TeamId, mentor.MemberId }));
+            before: JsonSerializer.Serialize(new { mentor.TeamId, mentor.MemberId }),
+            actorDiscordUserId: actorDiscordUserId);
         await store.RemoveMentorAsync(mentor, audit, cancellationToken);
         return await GetTeamViewAsync(teamId, cancellationToken);
     }
@@ -295,20 +323,6 @@ public sealed class ProbationTeamManagementService(
         return ToDto(view);
     }
 
-    private async Task<DiscordSyncJob?> CreateCandidateSyncJobAsync(
-        ProbationCandidate candidate,
-        CancellationToken cancellationToken)
-    {
-        var discordUserId = await store.FindCandidateDiscordUserIdAsync(candidate.Id, cancellationToken);
-        return discordUserId is > 0
-            ? DiscordSyncJob.Create(
-                DiscordIdentitySubjectType.Probation,
-                candidate.Id,
-                DiscordSyncOperation.SynchronizeRoles,
-                JsonSerializer.Serialize(new { DiscordUserId = discordUserId.Value }))
-            : null;
-    }
-
     private static AuditLog CreateAudit(
         Guid actorMemberId,
         string action,
@@ -316,12 +330,13 @@ public sealed class ProbationTeamManagementService(
         string correlationId,
         string? before = null,
         string? after = null,
-        string entityType = "ProbationTeam")
+        string entityType = "ProbationTeam",
+        long? actorDiscordUserId = null)
     {
         return AuditLog.Create(
-            AuditActorType.WebMember,
-            actorMemberId,
-            actorDiscordUserId: null,
+            actorDiscordUserId is null ? AuditActorType.WebMember : AuditActorType.DiscordMember,
+            actorDiscordUserId is null ? actorMemberId : null,
+            actorDiscordUserId,
             action,
             entityType,
             entityId,

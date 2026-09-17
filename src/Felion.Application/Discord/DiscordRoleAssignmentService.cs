@@ -11,7 +11,8 @@ namespace Felion.Application.Discord;
 public sealed class DiscordRoleAssignmentService(
     IDiscordRoleAssignmentStore store,
     IMemberStore memberStore,
-    IDiscordGuildRoleCatalog? roleCatalog = null) : IDiscordRoleAssignmentService
+    IDiscordGuildRoleCatalog? roleCatalog = null,
+    IDiscordRoleSynchronizationService? roleSynchronizationService = null) : IDiscordRoleAssignmentService
 {
     public async Task<DiscordRoleAssignmentDashboard> ListAsync(
         Guid actorMemberId,
@@ -29,7 +30,7 @@ public sealed class DiscordRoleAssignmentService(
         await EnsureAdminAsync(actorMemberId, cancellationToken);
         var roles = await GetRoleCatalogAsync(cancellationToken);
         return roles
-            .Where(role => !role.IsManaged && !role.IsEveryone)
+            .Where(role => !role.IsManaged && !role.IsEveryone && role.IsAssignableByBot)
             .OrderByDescending(role => role.RawPosition)
             .ThenBy(role => role.Name, StringComparer.OrdinalIgnoreCase)
             .Select(role => new DiscordAssignableRoleDto(
@@ -72,6 +73,12 @@ public sealed class DiscordRoleAssignmentService(
                 throw new DiscordRoleAssignmentValidationException(
                     $"Discord role '{role.Name}' is not assignable by this feature.");
             }
+
+            if (!role.IsAssignableByBot)
+            {
+                throw new DiscordRoleAssignmentValidationException(
+                    $"Discord role '{role.Name}' cannot be assigned by the bot because of its permission or role hierarchy.");
+            }
         }
 
         var desiredAssignments = requestedRoleIds
@@ -94,22 +101,14 @@ public sealed class DiscordRoleAssignmentService(
         var currentAssignments = subject.Assignments;
         if (HaveSameAssignments(currentAssignments, desiredAssignments))
         {
+            await SynchronizeIfLinkedAsync(
+                subject,
+                subjectType,
+                currentAssignments.Select(assignment => assignment.DiscordRoleId).ToArray(),
+                cancellationToken);
             return ToDto(subject with { Assignments = desiredAssignments });
         }
 
-        var syncJob = subject.DiscordUserId is null
-            ? null
-            : DiscordSyncJob.Create(
-                subjectType,
-                subjectId,
-                DiscordSyncOperation.SynchronizeRoles,
-                JsonSerializer.Serialize(new
-                {
-                    DiscordUserId = subject.DiscordUserId.Value,
-                    AdditionalManagedRoleIds = currentAssignments
-                        .Select(assignment => assignment.DiscordRoleId)
-                        .ToArray()
-                }));
         var audit = AuditLog.Create(
             AuditActorType.WebMember,
             actorMemberId,
@@ -127,8 +126,7 @@ public sealed class DiscordRoleAssignmentService(
                 AddedRoleIds = requestedRoleIds.Except(currentAssignments.Select(assignment => assignment.DiscordRoleId)),
                 RemovedRoleIds = currentAssignments
                     .Select(assignment => assignment.DiscordRoleId)
-                    .Except(requestedRoleIds),
-                SyncJobId = syncJob?.Id
+                    .Except(requestedRoleIds)
             }),
             beforeJson: JsonSerializer.Serialize(currentAssignments.Select(ToAuditSnapshot)),
             afterJson: JsonSerializer.Serialize(desiredAssignments.Select(ToAuditSnapshot)));
@@ -139,10 +137,31 @@ public sealed class DiscordRoleAssignmentService(
             currentAssignments.Select(assignment => assignment.DiscordRoleId).ToArray(),
             desiredAssignments,
             audit,
-            syncJob,
+            cancellationToken);
+
+        await SynchronizeIfLinkedAsync(
+            subject,
+            subjectType,
+            currentAssignments.Select(assignment => assignment.DiscordRoleId).ToArray(),
             cancellationToken);
 
         return ToDto(subject with { Assignments = desiredAssignments });
+    }
+
+    private async Task SynchronizeIfLinkedAsync(
+        DiscordRoleAssignmentSubjectView subject,
+        DiscordIdentitySubjectType subjectType,
+        IReadOnlyCollection<long> additionalManagedRoleIds,
+        CancellationToken cancellationToken)
+    {
+        if (subject.DiscordUserId is > 0 && roleSynchronizationService is not null)
+        {
+            await roleSynchronizationService.SynchronizeSubjectAsync(
+                subjectType,
+                subject.SubjectId,
+                additionalManagedRoleIds,
+                cancellationToken);
+        }
     }
 
     private async Task<IReadOnlyList<DiscordGuildRoleSnapshot>> GetRoleCatalogAsync(
@@ -223,6 +242,12 @@ public sealed class DiscordRoleAssignmentService(
                 .Select(assignment => new DiscordRoleAssignmentDto(
                     assignment.DiscordRoleId.ToString(CultureInfo.InvariantCulture),
                     assignment.RoleNameSnapshot))
+                .ToArray(),
+            subject.AutomaticRoles
+                .OrderBy(role => role.RoleNameSnapshot, StringComparer.OrdinalIgnoreCase)
+                .Select(role => new DiscordRoleAssignmentDto(
+                    role.DiscordRoleId.ToString(CultureInfo.InvariantCulture),
+                    role.RoleNameSnapshot))
                 .ToArray());
     }
 

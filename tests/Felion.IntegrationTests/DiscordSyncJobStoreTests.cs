@@ -16,13 +16,13 @@ public sealed class DiscordSyncJobStoreTests
         var readyJob = DiscordSyncJob.Create(
             DiscordIdentitySubjectType.Member,
             Guid.NewGuid(),
-            DiscordSyncOperation.SynchronizeRoles,
+            DiscordSyncOperation.KickUser,
             "{}",
             now.AddMinutes(-1));
         var delayedJob = DiscordSyncJob.Create(
             DiscordIdentitySubjectType.Member,
             Guid.NewGuid(),
-            DiscordSyncOperation.SynchronizeRoles,
+            DiscordSyncOperation.KickUser,
             "{}",
             now);
         delayedJob.MarkRunning(now);

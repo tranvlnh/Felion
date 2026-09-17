@@ -1,3 +1,4 @@
+using Felion.Application.Discord;
 using Felion.Application.Identity;
 using Felion.Application.Probation;
 using Microsoft.AspNetCore.Builder;
@@ -66,6 +67,10 @@ internal static class ProbationDecisionsApi
             catch (ProbationDecisionValidationException exception)
             {
                 return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: exception.Message);
+            }
+            catch (DiscordRoleGatewayException exception)
+            {
+                return Results.Problem(statusCode: StatusCodes.Status502BadGateway, detail: exception.Message);
             }
         }
     }

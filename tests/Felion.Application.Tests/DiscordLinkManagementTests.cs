@@ -9,12 +9,15 @@ namespace Felion.Application.Tests;
 public sealed class DiscordLinkManagementTests
 {
     [Fact]
-    public async Task UnlinkRemovesLinkAuditsAndQueuesManagedRoleCleanup()
+    public async Task UnlinkRemovesLinkAuditsAndClearsManagedRolesImmediately()
     {
         var fixture = CreateFixture();
         var link = DiscordIdentityLink.Create(123456789, "MEM001", DiscordIdentitySubjectType.Member, fixture.Member.Id);
         fixture.Store.Links.Add(link);
-        var service = new DiscordLinkManagementService(fixture.Store, fixture.Store);
+        var service = new DiscordLinkManagementService(
+            fixture.Store,
+            fixture.Store,
+            fixture.RoleSynchronizationService);
 
         var result = await service.UnlinkAsync(
             fixture.Admin.Id,
@@ -25,18 +28,21 @@ public sealed class DiscordLinkManagementTests
         Assert.Equal(123456789, result.DiscordUserId);
         Assert.Empty(fixture.Store.Links);
         Assert.Contains(fixture.Store.AuditLogs, audit => audit.Action == "DiscordIdentityUnlinked");
-        var job = Assert.Single(fixture.Store.SyncJobs);
-        Assert.Equal(DiscordSyncOperation.ClearManagedRoles, job.Operation);
-        Assert.Equal(DiscordSyncJobStatus.Pending, job.Status);
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Member, fixture.Member.Id, 123456789L),
+            fixture.RoleSynchronizationService.ClearedSubjects);
     }
 
     [Fact]
-    public async Task RelinkTransfersIdentityAndQueuesCleanupAndSynchronization()
+    public async Task RelinkTransfersIdentityAndSynchronizesImmediately()
     {
         var fixture = CreateFixture();
         var link = DiscordIdentityLink.Create(123456789, "MEM001", DiscordIdentitySubjectType.Member, fixture.Member.Id);
         fixture.Store.Links.Add(link);
-        var service = new DiscordLinkManagementService(fixture.Store, fixture.Store);
+        var service = new DiscordLinkManagementService(
+            fixture.Store,
+            fixture.Store,
+            fixture.RoleSynchronizationService);
 
         var result = await service.RelinkAsync(
             fixture.Admin.Id,
@@ -48,19 +54,25 @@ public sealed class DiscordLinkManagementTests
         Assert.Equal(123456789, result.PreviousDiscordUserId);
         Assert.Equal(987654321, result.DiscordUserId);
         Assert.Equal(987654321, Assert.Single(fixture.Store.Links).DiscordUserId);
-        Assert.Equal(
-            [DiscordSyncOperation.ClearManagedRoles, DiscordSyncOperation.SynchronizeRoles],
-            fixture.Store.SyncJobs.Select(job => job.Operation));
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Member, fixture.Member.Id, 123456789L),
+            fixture.RoleSynchronizationService.ClearedSubjects);
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Member, fixture.Member.Id),
+            fixture.RoleSynchronizationService.SynchronizedSubjects);
         Assert.Contains(fixture.Store.AuditLogs, audit => audit.Action == "DiscordIdentityRelinked");
     }
 
     [Fact]
-    public async Task ForceSyncQueuesSyncAndAuditForAnActiveMember()
+    public async Task ForceSyncSynchronizesAndAuditsAnActiveMember()
     {
         var fixture = CreateFixture();
         fixture.Store.Links.Add(
             DiscordIdentityLink.Create(123456789, "MEM001", DiscordIdentitySubjectType.Member, fixture.Member.Id));
-        var service = new DiscordLinkManagementService(fixture.Store, fixture.Store);
+        var service = new DiscordLinkManagementService(
+            fixture.Store,
+            fixture.Store,
+            fixture.RoleSynchronizationService);
 
         var result = await service.ForceSyncAsync(
             fixture.Admin.Id,
@@ -68,8 +80,10 @@ public sealed class DiscordLinkManagementTests
             "correlation-force-sync",
             CancellationToken.None);
 
-        Assert.True(result.SyncQueued);
-        Assert.Equal(DiscordSyncOperation.SynchronizeRoles, Assert.Single(fixture.Store.SyncJobs).Operation);
+        Assert.True(result.RolesSynchronized);
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Member, fixture.Member.Id),
+            fixture.RoleSynchronizationService.SynchronizedSubjects);
         Assert.Contains(fixture.Store.AuditLogs, audit => audit.Action == "DiscordRoleSyncRequested");
     }
 
@@ -92,7 +106,10 @@ public sealed class DiscordLinkManagementTests
         var fixture = CreateFixture();
         fixture.Store.Links.Add(
             DiscordIdentityLink.Create(123456789, "MEM001", DiscordIdentitySubjectType.Member, fixture.Member.Id));
-        var service = new DiscordLinkManagementService(fixture.Store, fixture.Store);
+        var service = new DiscordLinkManagementService(
+            fixture.Store,
+            fixture.Store,
+            fixture.RoleSynchronizationService);
 
         var result = await service.ForceSyncAsync(
             fixture.Core.Id,
@@ -100,8 +117,10 @@ public sealed class DiscordLinkManagementTests
             "correlation-core-sync",
             CancellationToken.None);
 
-        Assert.True(result.SyncQueued);
-        Assert.Single(fixture.Store.SyncJobs);
+        Assert.True(result.RolesSynchronized);
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Member, fixture.Member.Id),
+            fixture.RoleSynchronizationService.SynchronizedSubjects);
     }
 
     private static Fixture CreateFixture()
@@ -135,10 +154,15 @@ public sealed class DiscordLinkManagementTests
             store.Generation.Id,
             MemberPosition.Member);
         store.Members.AddRange([store.Admin, store.Core, store.Member]);
-        return new Fixture(store, store.Admin, store.Core, store.Member);
+        return new Fixture(store, store.Admin, store.Core, store.Member, new TestDiscordRoleSynchronizationService());
     }
 
-    private sealed record Fixture(FakeStore Store, Member Admin, Member Core, Member Member);
+    private sealed record Fixture(
+        FakeStore Store,
+        Member Admin,
+        Member Core,
+        Member Member,
+        TestDiscordRoleSynchronizationService RoleSynchronizationService);
 
     private sealed class FakeStore : IMemberStore, IDiscordLinkManagementStore
     {
@@ -147,8 +171,6 @@ public sealed class DiscordLinkManagementTests
         public List<DiscordIdentityLink> Links { get; } = [];
 
         public List<AuditLog> AuditLogs { get; } = [];
-
-        public List<DiscordSyncJob> SyncJobs { get; } = [];
 
         public Department CoreDepartment { get; set; } = null!;
 
@@ -177,25 +199,22 @@ public sealed class DiscordLinkManagementTests
             return Task.FromResult(Links.SingleOrDefault(link => link.DiscordUserId == discordUserId));
         }
 
-        public Task UnlinkAsync(DiscordIdentityLink link, AuditLog auditLog, DiscordSyncJob clearRolesJob, CancellationToken cancellationToken)
+        public Task UnlinkAsync(DiscordIdentityLink link, AuditLog auditLog, CancellationToken cancellationToken)
         {
             Links.Remove(link);
             AuditLogs.Add(auditLog);
-            SyncJobs.Add(clearRolesJob);
             return Task.CompletedTask;
         }
 
-        public Task RelinkAsync(DiscordIdentityLink link, AuditLog auditLog, IReadOnlyCollection<DiscordSyncJob> syncJobs, CancellationToken cancellationToken)
+        public Task RelinkAsync(DiscordIdentityLink link, AuditLog auditLog, CancellationToken cancellationToken)
         {
             AuditLogs.Add(auditLog);
-            SyncJobs.AddRange(syncJobs);
             return Task.CompletedTask;
         }
 
-        public Task EnqueueSyncAsync(AuditLog auditLog, DiscordSyncJob syncJob, CancellationToken cancellationToken)
+        public Task RecordAuditAsync(AuditLog auditLog, CancellationToken cancellationToken)
         {
             AuditLogs.Add(auditLog);
-            SyncJobs.Add(syncJob);
             return Task.CompletedTask;
         }
 

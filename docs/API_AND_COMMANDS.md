@@ -10,24 +10,23 @@ This is a planning contract, not generated OpenAPI. Codex should keep actual Ope
 - `GET/PATCH /api/v1/members/{id}`
 - `POST /api/v1/members/{id}/unlink-discord`
 - `POST /api/v1/members/{id}/relink-discord`
-- `POST /api/v1/members/{id}/sync-discord-roles`
+- `POST /api/v1/members/{id}/sync-discord-roles` (Core/Admin; synchronize roles immediately for an active linked Member)
 - `POST /api/v1/imports/members` (multipart CSV; optional XLSX)
 - `GET/POST /api/v1/probation/candidates`
 - `GET/PATCH /api/v1/probation/candidates/{candidateId}`
 - `PUT /api/v1/probation/candidates/{candidateId}/team`
+- `POST /api/v1/probation/candidates/{candidateId}/sync-discord-roles` (Core/Admin; synchronize roles immediately for a linked active candidate)
 - `GET /api/v1/probation/candidates/reference-data`
 - `GET /api/v1/probation/candidates/mentor-options`
 - `GET/POST/PATCH /api/v1/probation/teams`
 - `GET /api/v1/probation/teams/{teamId}`
 - `PUT/DELETE /api/v1/probation/teams/{teamId}/candidates/{candidateId}`
 - `PUT/DELETE /api/v1/probation/teams/{teamId}/mentors/{memberId}`
-- `GET/POST /api/v1/probation/evaluation-periods`
-- `POST /api/v1/probation/evaluation-periods/{id}/open`
-- `POST /api/v1/probation/evaluation-periods/{id}/close`
-- `POST/PATCH /api/v1/probation/evaluation-forms`
-- `POST /api/v1/probation/evaluations/peer`
-- `POST /api/v1/probation/evaluations/mentor`
-- `GET /api/v1/probation/evaluation-periods/{id}/results` (Core/Admin only)
+- `GET/POST /api/v1/probation/evaluation-periods` (create is Admin-only and opens immediately)
+- `POST /api/v1/probation/evaluation-periods/{id}/close` (Admin-only)
+- `GET /api/v1/probation/evaluations/status` (Core/Admin only)
+- `GET /api/v1/probation/evaluations/summary/{periodId}` (Core/Admin only)
+- `GET /api/v1/probation/evaluations/{candidateId}` (Core/Admin only; raw submissions included)
 - `POST /api/v1/probation/decisions` (bulk pass/fail)
 - `GET/PUT /api/v1/discord/role-mappings`
 - `POST /api/v1/discord/roles` (Admin; create guild role)
@@ -53,19 +52,38 @@ Suggested application commands:
 - `/probation bulk` should generally redirect to web/API unless Discord UX is intentionally designed.
 - `/team create <name>`
 - `/team mentor add|remove ...`
-- `/evaluation open|close <period>`
+- `/evaluation create <name>` (Admin; creates and opens a period)
+- `/evaluation current`
+- `/evaluation status`
+- `/evaluation peer`
+- `/evaluation mentor`
+- `/evaluation view <candidateId> [periodName]` (Core/Admin)
+- `/evaluation summary <periodName> [teamName]` (Core/Admin)
+- `/evaluation close [periodName]` (Admin; confirmation component)
 - `/role map ...`
 - `/role create ...`
-- `/role sync [user]`
+- `/role sync`
 
 Implemented Discord administration commands:
 - `/verification publish` publishes the verification message with the StudentId linking button in the current channel. Before the first link, it also accepts a Discord server Administrator for bootstrap; afterwards it accepts an active linked Felion Admin.
 - `/role create name` creates a role in the configured guild and audits the mutation.
 - `/role map kind subject role` maps an existing guild role. `kind` is `Position`, `Probation`, `Department`, `Generation` or `ProbationTeam`; `subject` is the display name for Department, Generation or ProbationTeam, and remains `Admin|Core|Member` or `Probation` for the fixed dimensions. The application stores the resolved canonical ID internally.
+- `/role sync` synchronizes every active linked Member and ProbationCandidate from current database data; it is useful after changing mappings manually.
 - `/department create name slug` creates a regular Department; `core` remains reserved for the seeded Core Department.
 - `/generation create name code` creates a Generation with an uppercase canonical code.
+- `/team create name` creates a probation team for an active linked Core/Admin.
+- `/team panel` opens the interactive, ephemeral team administration embed.
 
-These commands are registered guild-scoped for `Discord:GuildId`. Role, Department and Generation commands resolve the invoking Discord user through `DiscordIdentityLink` and require an active linked Member with Position `Admin`; Discord role possession alone is not sufficient. `/verification publish` has the documented first-link server-Administrator bootstrap exception. Responses are ephemeral.
+Team Discord administration is available through `/team panel`. The ephemeral embed lets an
+active linked Core/Admin select a team, create or rename/deactivate it, assign/remove active probation candidates,
+and assign/remove active Member mentors. The candidate and mentor selectors use current database data and every
+mutation calls the shared probation application service, so the one-team and active-mentor invariants remain in force.
+Admin users can open `Cấu hình map role` from the same panel, choose a mapping dimension and subject, then select an
+existing guild role through Discord's role menu. The selected role is checked against the bot's assignable role
+catalog before the shared role-mapping use case persists it and synchronizes affected identities. The panel is
+guild-scoped and ephemeral; its component IDs carry only stable IDs/keys and are re-authorized on every interaction.
+
+These commands are registered guild-scoped for `Discord:GuildId`. Role, Department, Generation and role-mapping panel actions resolve the invoking Discord user through `DiscordIdentityLink` and require an active linked Member with Position `Admin`; team commands/panel actions require Position `Core` or `Admin`. Discord role possession alone is not sufficient. `/verification publish` has the documented first-link server-Administrator bootstrap exception. Responses are ephemeral.
 
 Permissions must be resolved from linked DB Member position, not merely Discord role possession. Discord roles are presentation/access synchronization, not the source of truth for application authorization.
 
@@ -75,15 +93,15 @@ Discord role mapping management is Admin-only. `PUT /api/v1/discord/role-mapping
 
 Probation team management is Core/Admin-only. Team deactivation is a soft delete through `PATCH /api/v1/probation/teams/{teamId}` with `IsActive=false`; candidate assignment is limited to one active team, and mentors must be active Members.
 
-Probation candidate management is Core/Admin-only. `GET /api/v1/probation/candidates` supports `page`, `pageSize`, `search` (StudentId/full name), `departmentId`, `generationId`, `teamId`, `hasTeam` and `status` filters. Create/edit accepts StudentId, FullName, DepartmentId and GenerationId; edit is limited to active candidates and never changes status. `PUT /api/v1/probation/candidates/{candidateId}/team` atomically assigns, changes or removes a team with `{ "teamId": "guid|null" }`, writes audit history and enqueues Discord role synchronization when linked. `reference-data` provides dropdown data, and `mentor-options` searches active Members for the team mentor selector. The internal dashboard is available at `/admin/probation/` and reuses the same-origin Google cookie session. Its Admin-only `Members & Discord roles` tab also provides the create-Member form, which calls the existing `POST /api/v1/members` contract; Member creation remains Core/Admin-authorized at the API boundary.
+Probation candidate management is Core/Admin-only. `GET /api/v1/probation/candidates` supports `page`, `pageSize`, `search` (StudentId/full name), `departmentId`, `generationId`, `teamId`, `hasTeam` and `status` filters. Create/edit accepts StudentId, FullName, DepartmentId and GenerationId; edit is limited to active candidates and never changes status. A linked candidate profile edit and `PUT /api/v1/probation/candidates/{candidateId}/team` synchronize roles immediately from current data. `POST /api/v1/probation/candidates/{candidateId}/sync-discord-roles` explicitly performs the same immediate synchronization for an active linked candidate. `reference-data` provides dropdown data, and `mentor-options` searches active Members for the team mentor selector. The internal dashboard is available at `/admin/probation/` and reuses the same-origin Google cookie session. Its Admin-only `Members & Discord roles` tab also provides the create-Member form, which calls the existing `POST /api/v1/members` contract; Member creation remains Core/Admin-authorized at the API boundary.
 
-Evaluation period and form management is Core/Admin-only. A period transitions `Draft -> Open -> Closed`; only `Open` accepts evaluation submissions. Forms specify `Peer` or `Mentor` reviewer type and contain at least one ordered `Score` or `Text` question. Score questions use `ScoreMin`/`ScoreMax` (defaulting to `Evaluation:DefaultScoreMin`/`Evaluation:DefaultScoreMax`), while Text questions use `TextMaxLength` (defaulting to `Evaluation:DefaultTextMaxLength`). Question order is unique within a form. Period/form mutations are audited. `POST /api/v1/probation/evaluations/mentor` accepts an active Member's mentor submission and returns only a receipt; peer submission remains available through the shared application contract because probation candidates have no web access. `GET /api/v1/probation/evaluations/results` is Core/Admin-only and is the only current API surface that returns raw answers and reviewer/target identity snapshots. Re-submission while Open edits the existing reviewer/target/form submission.
+Evaluation uses fixed domain criteria and is Discord-first; there is no web Evaluation Dashboard or form builder. Admin creates/open periods through `/evaluation create`, and Admin closes them through a confirmation component. Discord evaluation commands accept the exact period/team display names (`periodName`/`teamName`, case-insensitive); ambiguous names are rejected. Peer modals collect Contribution, Communication and Attitude (1..5); mentor modals collect Attendance, TaskCompletion and LearningInitiative (1..10). Application authorization enforces same-team, mentor-team, no-self, one-submission and Open-only edit rules. Core/Admin can use the read-only API and `/evaluation view`/`summary`; candidate and mentor participants cannot read raw results.
 
 Discord account linking is limited to five attempts per Discord user per ten-minute fixed window. Peer and mentor evaluation submissions are limited to ten attempts per reviewer per one-minute fixed window. HTTP rate-limit rejection returns `429 Too Many Requests` and a `Retry-After` header; Discord interactions return an ephemeral retry message.
 
-`POST /api/v1/probation/decisions` accepts `{ "items": [{ "candidateId": "...", "decision": "Pass|Fail" }] }` and returns one outcome per candidate. PASS creates a regular Member with a generated email from the candidate's name and `Authentication:Google:WorkspaceDomain`, transfers the identity link and any individual Discord role assignments, then queues role synchronization. FAIL removes individual role assignments, queues an idempotent guild kick and removes the identity link. Retention is configured through `Probation:SuccessPolicy` (`Archive|Delete`) and `Probation:FailurePolicy` (`MarkInactive|Delete`).
+`POST /api/v1/probation/decisions` accepts `{ "items": [{ "candidateId": "...", "decision": "Pass|Fail" }] }` and returns one outcome per candidate. PASS creates a regular Member with a generated email from the candidate's name and `Authentication:Google:WorkspaceDomain`, transfers the identity link and any individual Discord role assignments, then synchronizes the new Member's roles immediately. FAIL removes individual role assignments, queues an idempotent guild kick and removes the identity link. Retention is configured through `Probation:SuccessPolicy` (`Archive|Delete`) and `Probation:FailurePolicy` (`MarkInactive|Delete`).
 
-`POST /api/v1/discord/roles` is Admin-only and creates a role in the configured guild. When the Discord adapter is configured, role mapping upserts verify the role belongs to that guild and store the role name returned by Discord; the synchronization worker consumes retryable `DiscordSyncJob` rows and only mutates roles managed by Felion. Individual role assignments are Admin-only, reject `@everyone` and managed integration roles, and are included in the same queued synchronization union as automatic mappings.
+`POST /api/v1/discord/roles` is Admin-only and creates a role in the configured guild. When the Discord adapter is configured, role mapping upserts verify the role belongs to that guild, store the role name returned by Discord and immediately synchronize every active linked identity from current database data. Member profile/status changes, probation candidate profile/team changes, link/relink operations and individual assignment changes also synchronize immediately through the same role synchronization path. `DiscordSyncJob` is retained only for durable `KickUser` retries after FAIL; role synchronization no longer creates or consumes jobs. Individual role assignments are Admin-only, reject `@everyone`, managed integration roles and roles the bot cannot assign. The role catalog filters out roles at or above the bot's highest role, so a bot without a custom highest role returns an empty assignable catalog instead of a hierarchy error. Individual assignments are included in the same immediate synchronization union as automatic mappings. During synchronization, an unrelated automatic mapping outside the bot's hierarchy is ignored for mutation; a desired role outside the hierarchy still returns a synchronization error. `GET /api/v1/discord/role-assignments` returns individual assignments and applicable automatic roles separately, allowing the dashboard to show all effective roles without persisting automatic mappings as per-person assignments.
 
 # Events API / bot surface
 The Event lifecycle, position, registration, attendance and Member history endpoints below are implemented. Registration cancellation remains planned.

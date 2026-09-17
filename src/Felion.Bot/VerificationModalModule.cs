@@ -46,8 +46,8 @@ public sealed class VerificationModalModule(
                 Context.Interaction.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 CancellationToken.None);
 
-            var syncMessage = result.SyncQueued
-                ? " Discord role synchronization has been queued."
+            var syncMessage = result.RolesSynchronized
+                ? " Discord roles were synchronized immediately."
                 : string.Empty;
 
             return InteractionCallback.Message(
@@ -72,6 +72,11 @@ public sealed class VerificationModalModule(
         catch (DiscordLinkConflictException exception)
         {
             return VerificationInteractionResponses.Error(exception.Message);
+        }
+        catch (DiscordRoleGatewayException exception)
+        {
+            return VerificationInteractionResponses.Error(
+                $"The identity was linked, but Discord roles could not be synchronized: {exception.Message}");
         }
         catch (RateLimitExceededException exception)
         {

@@ -163,13 +163,13 @@ public sealed class CoreDomainTests
     }
 
     [Fact]
-    public void DiscordSyncJobTransitionsAreExplicitAndRetryable()
+    public void DiscordKickJobTransitionsAreExplicitAndRetryable()
     {
         var createdAt = DateTimeOffset.UtcNow.AddMinutes(-1);
         var job = DiscordSyncJob.Create(
             DiscordIdentitySubjectType.Member,
             Guid.NewGuid(),
-            DiscordSyncOperation.SynchronizeRoles,
+            DiscordSyncOperation.KickUser,
             "{\"subjectId\":\"test\"}",
             createdAt);
 

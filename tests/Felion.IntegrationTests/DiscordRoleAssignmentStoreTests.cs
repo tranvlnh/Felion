@@ -34,6 +34,11 @@ public sealed class DiscordRoleAssignmentStoreTests
             member.Id,
             987654321,
             "Custom Role");
+        var departmentRoleMapping = DiscordRoleMapping.Create(
+            DiscordRoleMappingKind.Department,
+            department.Id.ToString("D"),
+            987654322,
+            "Department Role");
 
         await using (var context = database.CreateContext())
         {
@@ -47,6 +52,7 @@ public sealed class DiscordRoleAssignmentStoreTests
                 DiscordIdentitySubjectType.Member,
                 member.Id));
             context.DiscordRoleAssignments.Add(assignment);
+            context.DiscordRoleMappings.Add(departmentRoleMapping);
             await context.SaveChangesAsync();
         }
 
@@ -71,10 +77,78 @@ public sealed class DiscordRoleAssignmentStoreTests
         var memberAssignment = Assert.Single(memberSubject.Assignments);
         Assert.Equal(987654321, memberAssignment.DiscordRoleId);
         Assert.Equal("Custom Role", memberAssignment.RoleNameSnapshot);
+        var automaticRole = Assert.Single(memberSubject.AutomaticRoles);
+        Assert.Equal(987654322, automaticRole.DiscordRoleId);
+        Assert.Equal("Department Role", automaticRole.RoleNameSnapshot);
 
         var candidateSubject = Assert.Single(result, subject => subject.SubjectId == candidate.Id);
         Assert.Equal(DiscordIdentitySubjectType.Probation, candidateSubject.SubjectType);
         Assert.Null(candidateSubject.DiscordUserId);
         Assert.Empty(candidateSubject.Assignments);
+    }
+
+    [PostgreSqlFact]
+    public async Task RoleMappingStoreListsLinkedActiveSubjectsAffectedByMapping()
+    {
+        await using var database = await PostgreSqlTestDatabase.CreateAsync();
+        var department = Department.CreateRegular("Role Mapping Test", "role-mapping-test");
+        var generation = Generation.Create("Role Mapping Test", "ROLE-MAPPING-TEST");
+        var member = Member.Create(
+            "MEMBER-MAPPING-001",
+            "Role Mapping Member",
+            "member-mapping-001@example.org",
+            department.Id,
+            isCoreDepartment: false,
+            generation.Id,
+            MemberPosition.Member);
+        var candidate = ProbationCandidate.Create(
+            "CANDIDATE-MAPPING-001",
+            "Role Mapping Candidate",
+            department.Id,
+            generation.Id);
+        await using (var context = database.CreateContext())
+        {
+            context.Departments.Add(department);
+            context.Generations.Add(generation);
+            context.Members.Add(member);
+            context.ProbationCandidates.Add(candidate);
+            context.DiscordIdentityLinks.AddRange(
+                DiscordIdentityLink.Create(
+                    123456789,
+                    member.StudentId,
+                    DiscordIdentitySubjectType.Member,
+                    member.Id),
+                DiscordIdentityLink.Create(
+                    123456790,
+                    candidate.StudentId,
+                    DiscordIdentitySubjectType.Probation,
+                    candidate.Id));
+            await context.SaveChangesAsync();
+        }
+
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Postgres"] = database.ConnectionString
+            })
+            .Build();
+        services.AddFelionInfrastructure(configuration, services.AddHealthChecks());
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var store = scope.ServiceProvider.GetRequiredService<IDiscordRoleSynchronizationStore>();
+
+        var result = await store.ListLinkedActiveTargetsAsync(CancellationToken.None);
+
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, target =>
+            target.SubjectType == DiscordIdentitySubjectType.Member
+            && target.SubjectId == member.Id
+            && target.DiscordUserId == 123456789);
+        Assert.Contains(result, target =>
+            target.SubjectType == DiscordIdentitySubjectType.Probation
+            && target.SubjectId == candidate.Id
+            && target.DiscordUserId == 123456790);
     }
 }

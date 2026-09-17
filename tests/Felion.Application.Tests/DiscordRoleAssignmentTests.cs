@@ -10,13 +10,14 @@ namespace Felion.Application.Tests;
 public sealed class DiscordRoleAssignmentTests
 {
     [Fact]
-    public async Task AdminCanReplaceAssignmentsAndQueueSyncForLinkedSubject()
+    public async Task AdminCanReplaceAssignmentsAndSynchronizeLinkedSubjectImmediately()
     {
         var fixture = CreateFixture();
         var service = new DiscordRoleAssignmentService(
             fixture.Store,
             fixture.MemberStore,
-            fixture.RoleCatalog);
+            fixture.RoleCatalog,
+            fixture.RoleSynchronizationService);
 
         var result = await service.ReplaceAsync(
             fixture.Admin.Id,
@@ -29,8 +30,9 @@ public sealed class DiscordRoleAssignmentTests
         Assert.Equal(["20"], result.Assignments.Select(assignment => assignment.DiscordRoleId));
         Assert.Equal([10L], fixture.Store.ExpectedRoleIds);
         Assert.Equal([20L], fixture.Store.SavedAssignments.Select(assignment => assignment.DiscordRoleId));
-        Assert.NotNull(fixture.Store.SyncJob);
-        Assert.Contains("AdditionalManagedRoleIds", fixture.Store.SyncJob!.PayloadJson, StringComparison.Ordinal);
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Member, fixture.Subject.SubjectId),
+            fixture.RoleSynchronizationService.SynchronizedSubjects);
         Assert.Contains(fixture.Store.Audits, audit => audit.Action == "DiscordRoleAssignmentsUpdated");
     }
 
@@ -49,6 +51,48 @@ public sealed class DiscordRoleAssignmentTests
     }
 
     [Fact]
+    public async Task ListIncludesAutomaticRolesSeparatelyFromIndividualAssignments()
+    {
+        var fixture = CreateFixture();
+        var subject = fixture.Subject with
+        {
+            AutomaticRoles = [new DiscordRoleProjection(30, "Team role")]
+        };
+        var service = new DiscordRoleAssignmentService(
+            new FakeRoleAssignmentStore(subject),
+            fixture.MemberStore);
+
+        var result = await service.ListAsync(fixture.Admin.Id, CancellationToken.None);
+
+        var listedSubject = Assert.Single(result.Subjects);
+        Assert.Equal(["10"], listedSubject.Assignments.Select(assignment => assignment.DiscordRoleId));
+        Assert.Equal(["30"], listedSubject.AutomaticRoles.Select(role => role.DiscordRoleId));
+    }
+
+    [Fact]
+    public async Task SavingSameAssignmentsRetriesSynchronizationForLinkedSubject()
+    {
+        var fixture = CreateFixture();
+        var service = new DiscordRoleAssignmentService(
+            fixture.Store,
+            fixture.MemberStore,
+            fixture.RoleCatalog,
+            fixture.RoleSynchronizationService);
+
+        await service.ReplaceAsync(
+            fixture.Admin.Id,
+            DiscordIdentitySubjectType.Member,
+            fixture.Subject.SubjectId,
+            new UpdateDiscordRoleAssignmentsCommand([10]),
+            "correlation-retry-sync",
+            CancellationToken.None);
+
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Member, fixture.Subject.SubjectId),
+            fixture.RoleSynchronizationService.SynchronizedSubjects);
+    }
+
+    [Fact]
     public async Task RoleCatalogExcludesEveryoneAndManagedRoles()
     {
         var fixture = CreateFixture();
@@ -60,6 +104,41 @@ public sealed class DiscordRoleAssignmentTests
         var roles = await service.ListRolesAsync(fixture.Admin.Id, CancellationToken.None);
 
         Assert.Equal(["20", "10"], roles.Select(role => role.Id));
+    }
+
+    [Fact]
+    public async Task RoleCatalogExcludesRolesTheBotCannotAssign()
+    {
+        var fixture = CreateFixture();
+        var service = new DiscordRoleAssignmentService(
+            fixture.Store,
+            fixture.MemberStore,
+            new FakeRoleCatalog([
+                new DiscordGuildRoleSnapshot(20, "Too high", IsManaged: false, IsEveryone: false, RawPosition: 20, IsAssignableByBot: false),
+                new DiscordGuildRoleSnapshot(10, "Assignable", IsManaged: false, IsEveryone: false, RawPosition: 10, IsAssignableByBot: true)]));
+
+        var roles = await service.ListRolesAsync(fixture.Admin.Id, CancellationToken.None);
+
+        Assert.Equal(["10"], roles.Select(role => role.Id));
+    }
+
+    [Fact]
+    public async Task ReplaceRejectsRoleTheBotCannotAssign()
+    {
+        var fixture = CreateFixture();
+        var service = new DiscordRoleAssignmentService(
+            fixture.Store,
+            fixture.MemberStore,
+            new FakeRoleCatalog([
+                new DiscordGuildRoleSnapshot(20, "Too high", IsManaged: false, IsEveryone: false, RawPosition: 20, IsAssignableByBot: false)]));
+
+        await Assert.ThrowsAsync<DiscordRoleAssignmentValidationException>(() => service.ReplaceAsync(
+            fixture.Admin.Id,
+            DiscordIdentitySubjectType.Member,
+            fixture.Subject.SubjectId,
+            new UpdateDiscordRoleAssignmentsCommand([20]),
+            "correlation-role-hierarchy",
+            CancellationToken.None));
     }
 
     private static Fixture CreateFixture()
@@ -97,7 +176,8 @@ public sealed class DiscordRoleAssignmentTests
             regularMember.Status,
             CandidateStatus: null,
             DiscordUserId: 123456789,
-            [existingAssignment]);
+            [existingAssignment],
+            AutomaticRoles: []);
         return new Fixture(
             admin,
             regularMember,
@@ -108,7 +188,8 @@ public sealed class DiscordRoleAssignmentTests
                 new DiscordGuildRoleSnapshot(99, "@everyone", IsManaged: false, IsEveryone: true, RawPosition: 0),
                 new DiscordGuildRoleSnapshot(30, "Integration", IsManaged: true, IsEveryone: false, RawPosition: 10),
                 new DiscordGuildRoleSnapshot(20, "New role", IsManaged: false, IsEveryone: false, RawPosition: 20),
-                new DiscordGuildRoleSnapshot(10, "Old role", IsManaged: false, IsEveryone: false, RawPosition: 19)]));
+                new DiscordGuildRoleSnapshot(10, "Old role", IsManaged: false, IsEveryone: false, RawPosition: 19)]),
+            new TestDiscordRoleSynchronizationService());
     }
 
     private sealed record Fixture(
@@ -117,7 +198,8 @@ public sealed class DiscordRoleAssignmentTests
         DiscordRoleAssignmentSubjectView Subject,
         FakeMemberStore MemberStore,
         FakeRoleAssignmentStore Store,
-        FakeRoleCatalog RoleCatalog);
+        FakeRoleCatalog RoleCatalog,
+        TestDiscordRoleSynchronizationService RoleSynchronizationService);
 
     private sealed class FakeRoleAssignmentStore(DiscordRoleAssignmentSubjectView subject)
         : IDiscordRoleAssignmentStore
@@ -129,8 +211,6 @@ public sealed class DiscordRoleAssignmentTests
         public IReadOnlyCollection<DiscordRoleAssignment> SavedAssignments { get; private set; } = [];
 
         public List<AuditLog> Audits { get; } = [];
-
-        public DiscordSyncJob? SyncJob { get; private set; }
 
         public Task<IReadOnlyList<DiscordRoleAssignmentSubjectView>> ListSubjectsAsync(
             CancellationToken cancellationToken)
@@ -149,13 +229,11 @@ public sealed class DiscordRoleAssignmentTests
             IReadOnlyCollection<long> expectedRoleIds,
             IReadOnlyCollection<DiscordRoleAssignment> desiredAssignments,
             AuditLog auditLog,
-            DiscordSyncJob? syncJob,
             CancellationToken cancellationToken)
         {
             ExpectedRoleIds = expectedRoleIds;
             SavedAssignments = desiredAssignments;
             Audits.Add(auditLog);
-            SyncJob = syncJob;
             return Task.CompletedTask;
         }
     }

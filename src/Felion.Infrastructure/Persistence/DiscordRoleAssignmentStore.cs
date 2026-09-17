@@ -28,8 +28,13 @@ internal sealed class DiscordRoleAssignmentStore(FelionDbContext dbContext) : ID
                 member.FullName,
                 member.Position,
                 member.Status,
+                member.DepartmentId,
+                member.GenerationId,
                 DiscordUserId = link == null ? null : (long?)link.DiscordUserId
             })
+            .ToListAsync(cancellationToken);
+        var roleMappings = await dbContext.DiscordRoleMappings
+            .AsNoTracking()
             .ToListAsync(cancellationToken);
         var members = memberRows
             .Select(row => new DiscordRoleAssignmentSubjectView(
@@ -41,7 +46,14 @@ internal sealed class DiscordRoleAssignmentStore(FelionDbContext dbContext) : ID
                 row.Status,
                 CandidateStatus: null,
                 row.DiscordUserId,
-                Assignments: Array.Empty<DiscordRoleAssignment>()))
+                Assignments: Array.Empty<DiscordRoleAssignment>(),
+                AutomaticRoles: GetAutomaticRoles(
+                    DiscordIdentitySubjectType.Member,
+                    row.Position,
+                    row.DepartmentId,
+                    row.GenerationId,
+                    probationTeamId: null,
+                    roleMappings)))
             .ToArray();
 
         var candidateRows = await (
@@ -58,6 +70,9 @@ internal sealed class DiscordRoleAssignmentStore(FelionDbContext dbContext) : ID
                 candidate.StudentId,
                 candidate.FullName,
                 candidate.Status,
+                candidate.DepartmentId,
+                candidate.GenerationId,
+                candidate.TeamId,
                 DiscordUserId = link == null ? null : (long?)link.DiscordUserId
             })
             .ToListAsync(cancellationToken);
@@ -71,7 +86,14 @@ internal sealed class DiscordRoleAssignmentStore(FelionDbContext dbContext) : ID
                 MemberStatus: null,
                 row.Status,
                 row.DiscordUserId,
-                Assignments: Array.Empty<DiscordRoleAssignment>()))
+                Assignments: Array.Empty<DiscordRoleAssignment>(),
+                AutomaticRoles: GetAutomaticRoles(
+                    DiscordIdentitySubjectType.Probation,
+                    null,
+                    row.DepartmentId,
+                    row.GenerationId,
+                    row.TeamId,
+                    roleMappings)))
             .ToArray();
 
         var subjects = members.Concat(candidates).ToArray();
@@ -99,6 +121,39 @@ internal sealed class DiscordRoleAssignmentStore(FelionDbContext dbContext) : ID
             .ToArray();
     }
 
+    private static DiscordRoleProjection[] GetAutomaticRoles(
+        DiscordIdentitySubjectType subjectType,
+        MemberPosition? position,
+        Guid departmentId,
+        Guid generationId,
+        Guid? probationTeamId,
+        IReadOnlyCollection<DiscordRoleMapping> mappings)
+    {
+        var departmentKey = departmentId.ToString("D");
+        var generationKey = generationId.ToString("D");
+        var teamKey = probationTeamId?.ToString("D");
+
+        return mappings
+            .Where(mapping => mapping.Kind switch
+            {
+                DiscordRoleMappingKind.Position => subjectType == DiscordIdentitySubjectType.Member
+                    && position?.ToString() == mapping.SubjectKey,
+                DiscordRoleMappingKind.Probation => subjectType == DiscordIdentitySubjectType.Probation
+                    && mapping.SubjectKey == nameof(DiscordIdentitySubjectType.Probation),
+                DiscordRoleMappingKind.Department => mapping.SubjectKey == departmentKey,
+                DiscordRoleMappingKind.Generation => mapping.SubjectKey == generationKey,
+                DiscordRoleMappingKind.ProbationTeam => subjectType == DiscordIdentitySubjectType.Probation
+                    && mapping.SubjectKey == teamKey,
+                _ => false
+            })
+            .GroupBy(mapping => mapping.DiscordRoleId)
+            .Select(group => new DiscordRoleProjection(
+                group.Key,
+                group.First().RoleNameSnapshot))
+            .OrderBy(role => role.RoleNameSnapshot)
+            .ToArray();
+    }
+
     public async Task<DiscordRoleAssignmentSubjectView?> FindSubjectAsync(
         DiscordIdentitySubjectType subjectType,
         Guid subjectId,
@@ -115,7 +170,6 @@ internal sealed class DiscordRoleAssignmentStore(FelionDbContext dbContext) : ID
         IReadOnlyCollection<long> expectedRoleIds,
         IReadOnlyCollection<DiscordRoleAssignment> desiredAssignments,
         AuditLog auditLog,
-        DiscordSyncJob? syncJob,
         CancellationToken cancellationToken)
     {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
@@ -153,10 +207,6 @@ internal sealed class DiscordRoleAssignmentStore(FelionDbContext dbContext) : ID
             dbContext.DiscordRoleAssignments.RemoveRange(currentAssignments);
             dbContext.DiscordRoleAssignments.AddRange(desiredAssignments);
             dbContext.AuditLogs.Add(auditLog);
-            if (syncJob is not null)
-            {
-                dbContext.DiscordSyncJobs.Add(syncJob);
-            }
 
             await dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);

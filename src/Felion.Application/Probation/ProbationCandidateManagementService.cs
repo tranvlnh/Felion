@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Felion.Application.Discord;
 using Felion.Application.Members;
 using Felion.Domain.Audit;
 using Felion.Domain.Common;
@@ -10,7 +11,8 @@ namespace Felion.Application.Probation;
 
 public sealed class ProbationCandidateManagementService(
     IProbationCandidateStore store,
-    IMemberStore memberStore) : IProbationCandidateManagementService
+    IMemberStore memberStore,
+    IDiscordRoleSynchronizationService? roleSynchronizationService = null) : IProbationCandidateManagementService
 {
     private const int MaxStudentIdLength = 50;
     private const int MaxFullNameLength = 200;
@@ -124,6 +126,13 @@ public sealed class ProbationCandidateManagementService(
             before,
             Snapshot(candidate));
         await store.SaveUpdateAsync(candidate, identityLink, audit, cancellationToken);
+        if (identityLink is not null && roleSynchronizationService is not null)
+        {
+            await roleSynchronizationService.SynchronizeSubjectAsync(
+                DiscordIdentitySubjectType.Probation,
+                candidate.Id,
+                cancellationToken);
+        }
         return ToDto(await GetViewAsync(candidate.Id, cancellationToken));
     }
 
@@ -175,13 +184,6 @@ public sealed class ProbationCandidateManagementService(
         }
 
         var discordUserId = await FindCandidateDiscordUserIdAsync(candidate.Id, cancellationToken);
-        var syncJob = discordUserId is null
-            ? null
-            : DiscordSyncJob.Create(
-                DiscordIdentitySubjectType.Probation,
-                candidate.Id,
-                DiscordSyncOperation.SynchronizeRoles,
-                JsonSerializer.Serialize(new { DiscordUserId = discordUserId.Value }));
         var audit = CreateAudit(
             actorMemberId,
             "ProbationCandidateTeamChanged",
@@ -189,8 +191,59 @@ public sealed class ProbationCandidateManagementService(
             correlationId,
             before,
             Snapshot(candidate));
-        await store.SaveTeamChangeAsync(candidate, audit, syncJob, cancellationToken);
+        await store.SaveTeamChangeAsync(candidate, audit, cancellationToken);
+        if (discordUserId is > 0 && roleSynchronizationService is not null)
+        {
+            await roleSynchronizationService.SynchronizeSubjectAsync(
+                DiscordIdentitySubjectType.Probation,
+                candidate.Id,
+                cancellationToken);
+        }
         return ToDto(await GetViewAsync(candidate.Id, cancellationToken));
+    }
+
+    public async Task<ProbationCandidateDiscordSyncResult> ForceSyncDiscordRolesAsync(
+        Guid actorMemberId,
+        Guid candidateId,
+        string correlationId,
+        CancellationToken cancellationToken)
+    {
+        await EnsureAuthorizedActorAsync(actorMemberId, cancellationToken);
+        var candidate = await store.FindCandidateAsync(candidateId, track: false, cancellationToken)
+            ?? throw new ProbationCandidateNotFoundException(candidateId);
+        if (candidate.Status != ProbationCandidateStatus.Active)
+        {
+            throw new ProbationCandidateValidationException(
+                "Only an active probation candidate can be synchronized.");
+        }
+
+        var link = await store.FindIdentityLinkAsync(candidateId, track: false, cancellationToken)
+            ?? throw new ProbationCandidateValidationException(
+                "The probation candidate does not have a linked Discord identity.");
+        var audit = CreateAudit(
+            actorMemberId,
+            "ProbationCandidateDiscordRoleSyncRequested",
+            candidate.Id,
+            correlationId,
+            after: JsonSerializer.Serialize(new
+            {
+                link.DiscordUserId
+            }));
+
+        await store.RecordAuditAsync(audit, cancellationToken);
+
+        if (roleSynchronizationService is not null)
+        {
+            await roleSynchronizationService.SynchronizeSubjectAsync(
+                DiscordIdentitySubjectType.Probation,
+                candidate.Id,
+                cancellationToken);
+        }
+
+        return new ProbationCandidateDiscordSyncResult(
+            candidate.Id,
+            link.DiscordUserId,
+            RolesSynchronized: roleSynchronizationService is not null);
     }
 
     public async Task<ProbationManagementReferenceData> GetReferenceDataAsync(

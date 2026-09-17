@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Felion.Application.Discord;
 using Felion.Application.Members;
 using Felion.Domain.Audit;
 using Felion.Domain.Common;
@@ -12,7 +13,8 @@ public sealed class ProbationDecisionService(
     IProbationDecisionStore store,
     IMemberStore memberStore,
     IProbationRetentionPolicyProvider retentionPolicyProvider,
-    IWorkspaceEmailGenerator emailGenerator) : IProbationDecisionService
+    IWorkspaceEmailGenerator emailGenerator,
+    IDiscordRoleSynchronizationService? roleSynchronizationService = null) : IProbationDecisionService
 {
     public async Task<IReadOnlyList<ProbationDecisionItemResult>> DecideAsync(
         Guid actorMemberId,
@@ -79,7 +81,7 @@ public sealed class ProbationDecisionService(
                 Succeeded: false,
                 exception.Message,
                 MemberId: null,
-                DiscordSyncQueued: false,
+                DiscordRolesSynchronized: false,
                 KickQueued: false);
         }
     }
@@ -157,13 +159,6 @@ public sealed class ProbationDecisionService(
             candidate.Archive();
         }
 
-        var syncJob = view.IdentityLink is null
-            ? null
-            : DiscordSyncJob.Create(
-                DiscordIdentitySubjectType.Member,
-                member.Id,
-                DiscordSyncOperation.SynchronizeRoles,
-                JsonSerializer.Serialize(new { DiscordUserId = view.IdentityLink.DiscordUserId }));
         view.IdentityLink?.TransferToMember(member.Id);
 
         var audit = AuditLog.Create(
@@ -199,10 +194,17 @@ public sealed class ProbationDecisionService(
             candidate,
             member,
             view.IdentityLink,
-            syncJob,
             audit,
             deleteCandidate,
             cancellationToken);
+
+        if (view.IdentityLink is not null && roleSynchronizationService is not null)
+        {
+            await roleSynchronizationService.SynchronizeSubjectAsync(
+                DiscordIdentitySubjectType.Member,
+                member.Id,
+                cancellationToken);
+        }
 
         return new ProbationDecisionItemResult(
             candidateId,
@@ -210,7 +212,7 @@ public sealed class ProbationDecisionService(
             Succeeded: true,
             Error: null,
             member.Id,
-            DiscordSyncQueued: syncJob is not null,
+            DiscordRolesSynchronized: view.IdentityLink is not null,
             KickQueued: false);
     }
 
@@ -283,7 +285,7 @@ public sealed class ProbationDecisionService(
             Succeeded: true,
             Error: null,
             MemberId: null,
-            DiscordSyncQueued: false,
+            DiscordRolesSynchronized: false,
             KickQueued: kickJob is not null);
     }
 

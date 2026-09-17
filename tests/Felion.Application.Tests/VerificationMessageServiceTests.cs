@@ -200,6 +200,16 @@ public sealed class VerificationMessageServiceTests
             long discordUserId,
             CancellationToken cancellationToken)
             => throw new NotSupportedException();
+
+        public Task<DiscordManagementActor?> FindCoreOrAdminAsync(
+            long discordUserId,
+            CancellationToken cancellationToken)
+            => Task.FromResult<DiscordManagementActor?>(null);
+
+        public Task<DiscordManagementActor> RequireCoreOrAdminAsync(
+            long discordUserId,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
     }
 
     private sealed class FakeMemberStore : IMemberStore

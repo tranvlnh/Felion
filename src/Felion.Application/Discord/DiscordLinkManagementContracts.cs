@@ -1,5 +1,6 @@
 using Felion.Domain.Audit;
 using Felion.Domain.Identity;
+using Felion.Domain.Members;
 
 namespace Felion.Application.Discord;
 
@@ -8,18 +9,30 @@ public sealed record RelinkDiscordCommand(long DiscordUserId);
 public sealed record DiscordUnlinkResult(
     Guid MemberId,
     long DiscordUserId,
-    bool SyncQueued);
+    bool RolesSynchronized);
 
 public sealed record DiscordRelinkResult(
     Guid MemberId,
     long PreviousDiscordUserId,
     long DiscordUserId,
-    bool SyncQueued);
+    bool RolesSynchronized);
 
 public sealed record DiscordForceSyncResult(
     Guid MemberId,
     long DiscordUserId,
-    bool SyncQueued);
+    bool RolesSynchronized);
+
+public interface IDiscordMemberSyncStore
+{
+    public Task<long?> FindDiscordUserIdAsync(
+        Guid memberId,
+        CancellationToken cancellationToken);
+
+    public Task UpdateMemberAsync(
+        Member member,
+        AuditLog auditLog,
+        CancellationToken cancellationToken);
+}
 
 public interface IDiscordLinkManagementStore
 {
@@ -35,18 +48,15 @@ public interface IDiscordLinkManagementStore
     public Task UnlinkAsync(
         DiscordIdentityLink link,
         AuditLog auditLog,
-        DiscordSyncJob clearRolesJob,
         CancellationToken cancellationToken);
 
     public Task RelinkAsync(
         DiscordIdentityLink link,
         AuditLog auditLog,
-        IReadOnlyCollection<DiscordSyncJob> syncJobs,
         CancellationToken cancellationToken);
 
-    public Task EnqueueSyncAsync(
+    public Task RecordAuditAsync(
         AuditLog auditLog,
-        DiscordSyncJob syncJob,
         CancellationToken cancellationToken);
 }
 

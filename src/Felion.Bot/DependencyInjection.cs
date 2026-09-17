@@ -46,6 +46,7 @@ public static class DependencyInjection
 
         services.AddSingleton(new ConfiguredDiscordGuild(parsedGuildId));
         services.AddSingleton<IDiscordRoleGateway, NetCordDiscordRoleGateway>();
+        services.AddScoped<IDiscordRoleSynchronizationService, DiscordRoleSynchronizationService>();
         services.AddSingleton<IDiscordGuildRoleCatalog>(services =>
             (IDiscordGuildRoleCatalog)services.GetRequiredService<IDiscordRoleGateway>());
         services.AddSingleton<IDiscordGuildPermissionGateway, NetCordDiscordGuildPermissionGateway>();
@@ -55,7 +56,9 @@ public static class DependencyInjection
         services.AddHostedService<DiscordCommandRegistrationWorker>();
         services
             .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>()
-            .AddComponentInteractions<ModalInteraction, ModalInteractionContext>();
+            .AddComponentInteractions<ModalInteraction, ModalInteractionContext>()
+            .AddComponentInteractions<StringMenuInteraction, StringMenuInteractionContext>()
+            .AddComponentInteractions<RoleMenuInteraction, RoleMenuInteractionContext>();
         services.AddApplicationCommands(options =>
         {
             options.AutoRegisterCommands = false;

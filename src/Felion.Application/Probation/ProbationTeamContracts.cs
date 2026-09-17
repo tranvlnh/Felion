@@ -1,5 +1,4 @@
 using Felion.Domain.Audit;
-using Felion.Domain.Identity;
 using Felion.Domain.Probation;
 
 namespace Felion.Application.Probation;
@@ -82,7 +81,6 @@ public interface IProbationTeamStore
     public Task SaveCandidateAssignmentAsync(
         ProbationCandidate candidate,
         AuditLog auditLog,
-        DiscordSyncJob? syncJob,
         CancellationToken cancellationToken);
 
     public Task AddMentorAsync(
@@ -111,40 +109,46 @@ public interface IProbationTeamManagementService
         Guid actorMemberId,
         CreateProbationTeamCommand command,
         string correlationId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null);
 
     public Task<ProbationTeamDto> UpdateAsync(
         Guid actorMemberId,
         Guid teamId,
         UpdateProbationTeamCommand command,
         string correlationId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null);
 
     public Task<ProbationTeamDto> AssignCandidateAsync(
         Guid actorMemberId,
         Guid teamId,
         Guid candidateId,
         string correlationId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null);
 
     public Task<ProbationTeamDto> RemoveCandidateAsync(
         Guid actorMemberId,
         Guid teamId,
         Guid candidateId,
         string correlationId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null);
 
     public Task<ProbationTeamDto> AssignMentorAsync(
         Guid actorMemberId,
         Guid teamId,
         Guid mentorMemberId,
         string correlationId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null);
 
     public Task<ProbationTeamDto> RemoveMentorAsync(
         Guid actorMemberId,
         Guid teamId,
         Guid mentorMemberId,
         string correlationId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null);
 }

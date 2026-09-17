@@ -45,6 +45,7 @@ internal sealed class DiscordRoleMappingStore(FelionDbContext dbContext) : IDisc
         }
 
         dbContext.AuditLogs.Add(auditLog);
+
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);

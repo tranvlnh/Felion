@@ -72,6 +72,24 @@ public sealed class ProbationCandidatesApiTests
     }
 
     [Fact]
+    public async Task CandidateForceSyncRequiresCoreOrAdminAndQueuesThroughService()
+    {
+        using var factory = new TestApplicationFactory();
+        using var client = factory.CreateClient();
+        var candidateId = Guid.NewGuid();
+
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"/api/v1/probation/candidates/{candidateId}/sync-discord-roles",
+            factory.Core.MemberId);
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(candidateId, factory.Candidates.LastForceSyncCandidateId);
+    }
+
+    [Fact]
     public async Task IndividualDiscordRoleAssignmentsAreAdminOnly()
     {
         using var factory = new TestApplicationFactory();
@@ -131,6 +149,8 @@ public sealed class ProbationCandidatesApiTests
     {
         public List<CreateCall> Created { get; } = [];
 
+        public Guid? LastForceSyncCandidateId { get; private set; }
+
         public Task<ProbationCandidatePage> ListAsync(Guid actorMemberId, ListProbationCandidatesQuery query, CancellationToken cancellationToken) => Task.FromResult(new ProbationCandidatePage([], query.Page, query.PageSize, 0));
         public Task<ProbationCandidateDto> GetAsync(Guid actorMemberId, Guid candidateId, CancellationToken cancellationToken) => Throw<ProbationCandidateDto>();
 
@@ -142,6 +162,13 @@ public sealed class ProbationCandidatesApiTests
 
         public Task<ProbationCandidateDto> UpdateAsync(Guid actorMemberId, Guid candidateId, UpdateProbationCandidateCommand command, string correlationId, CancellationToken cancellationToken) => Throw<ProbationCandidateDto>();
         public Task<ProbationCandidateDto> ChangeTeamAsync(Guid actorMemberId, Guid candidateId, Guid? teamId, string correlationId, CancellationToken cancellationToken) => Throw<ProbationCandidateDto>();
+
+        public Task<ProbationCandidateDiscordSyncResult> ForceSyncDiscordRolesAsync(Guid actorMemberId, Guid candidateId, string correlationId, CancellationToken cancellationToken)
+        {
+            LastForceSyncCandidateId = candidateId;
+            return Task.FromResult(new ProbationCandidateDiscordSyncResult(candidateId, 123456789, true));
+        }
+
         public Task<ProbationManagementReferenceData> GetReferenceDataAsync(Guid actorMemberId, CancellationToken cancellationToken) => Task.FromResult(new ProbationManagementReferenceData([], [], []));
         public Task<IReadOnlyList<ProbationMentorOption>> SearchMentorsAsync(Guid actorMemberId, string? search, int limit, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<ProbationMentorOption>>([]);
 

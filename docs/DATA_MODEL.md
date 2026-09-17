@@ -65,30 +65,26 @@ Stores Admin-managed role assignments for one active Member or ProbationCandidat
 
 ## Evaluation
 ### EvaluationPeriod
-`Id, Name, StartsAt?, EndsAt?, Status(Draft|Open|Closed)`
+`Id, Name, CreatedAt, OpenedAt, ClosedAt?, UpdatedAt, Status(Open|Closed)`
 
-### EvaluationForm
-`Id, PeriodId, Name, ReviewerType(Peer|Mentor), IsActive`
-Allow separate peer and mentor forms.
+Admin creates a period in Open status and Admin closes it. There is no Draft state or scheduler.
 
-### EvaluationQuestion
-`Id, FormId, Order, Prompt, Type(Score|Text), IsRequired, ScoreMin?, ScoreMax?, TextMaxLength?`
-Check constraints ensure Score settings only apply to Score and text settings only to Text.
+### PeerEvaluation
+`Id, EvaluationPeriodId, EvaluatorCandidateId, TargetCandidateId, Contribution, Communication, Attitude, Note?, CreatedAt, UpdatedAt?, EvaluatorStudentIdSnapshot, EvaluatorNameSnapshot, TargetStudentIdSnapshot, TargetNameSnapshot`
 
-### EvaluationSubmission
-`Id, FormId, PeriodId, ReviewerType, ReviewerMemberId?, ReviewerCandidateId?, ReviewerStudentIdSnapshot, ReviewerNameSnapshot, TargetCandidateId?, TargetStudentIdSnapshot, TargetNameSnapshot, SubmittedAt, UpdatedAt`
-Use nullable reviewer/target FKs according to reviewer type and snapshots so retained evaluation remains understandable after candidate deletion. Add partial unique constraints equivalent to `(FormId, ReviewerCandidateId, TargetCandidateId)` and `(FormId, ReviewerMemberId, TargetCandidateId)` while target exists; application validation handles archived/deleted edge cases.
+Scores are integer 1..5. The unique key is `(EvaluationPeriodId, EvaluatorCandidateId, TargetCandidateId)`. Candidate IDs are retained as historical references without cascade deletion; snapshots preserve meaning after candidate archival/deletion.
 
-### EvaluationAnswer
-`Id, SubmissionId, QuestionId?, QuestionPromptSnapshot, QuestionTypeSnapshot, ScoreValue?, TextValue?, CreatedAt`
-Snapshot question prompt/type to preserve history if forms are edited/deleted.
+### MentorEvaluation
+`Id, EvaluationPeriodId, MentorMemberId, TargetCandidateId, Attendance, TaskCompletion, LearningInitiative, Note?, CreatedAt, UpdatedAt?, MentorStudentIdSnapshot, MentorNameSnapshot, TargetStudentIdSnapshot, TargetNameSnapshot`
+
+Scores are integer 1..10. The unique key is `(EvaluationPeriodId, MentorMemberId, TargetCandidateId)`. Multiple mentors may evaluate the same candidate. There is no generic form/question/criteria table and no shared FinalScore.
 
 ## AuditLog
 `Id, OccurredAt, ActorType(WebMember|DiscordMember|System), ActorMemberId?, ActorDiscordUserId?, Action, EntityType, EntityId?, CorrelationId, MetadataJson, BeforeJson?, AfterJson?`
 No cascade delete from domain entities into AuditLog.
 
 ## DiscordSyncJob (recommended)
-`Id, SubjectType, SubjectId, Operation(SynchronizeRoles|ClearManagedRoles|KickUser), PayloadJson, Status(Pending|Running|Succeeded|Failed), Attempts, LastError?, NextAttemptAt, CreatedAt, UpdatedAt`
+`Id, SubjectType, SubjectId, Operation(KickUser), PayloadJson, Status(Pending|Running|Succeeded|Failed), Attempts, LastError?, NextAttemptAt, CreatedAt, UpdatedAt`
 Used to retry role changes/kicks after DB decisions. The worker claims only pending/failed jobs whose `NextAttemptAt` has arrived. Failed jobs use exponential backoff capped at one hour, and the worker's idle database poll runs every 30 seconds.
 
 ## Probation decision configuration

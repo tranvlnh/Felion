@@ -1,3 +1,4 @@
+using Felion.Application.Discord;
 using Felion.Application.Identity;
 using Felion.Application.Probation;
 using Microsoft.AspNetCore.Builder;
@@ -210,7 +211,8 @@ internal static class ProbationTeamsApi
                 or ProbationCandidateNotFoundException
                 or ProbationMentorNotFoundException
                 or ProbationTeamValidationException
-                or ProbationTeamConflictException)
+                or ProbationTeamConflictException
+                or DiscordRoleGatewayException)
             {
                 return ToProblem(exception);
             }
@@ -236,6 +238,7 @@ internal static class ProbationTeamsApi
             ProbationTeamNotFoundException or ProbationCandidateNotFoundException or ProbationMentorNotFoundException
                 => StatusCodes.Status404NotFound,
             ProbationTeamConflictException => StatusCodes.Status409Conflict,
+            DiscordRoleGatewayException => StatusCodes.Status502BadGateway,
             _ => StatusCodes.Status400BadRequest
         };
 

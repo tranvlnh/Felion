@@ -11,7 +11,7 @@ namespace Felion.Application.Tests;
 public sealed class ProbationDecisionTests
 {
     [Fact]
-    public async Task PassCreatesMemberTransfersLinkArchivesCandidateAndQueuesRoleSync()
+    public async Task PassCreatesMemberTransfersLinkArchivesCandidateAndSynchronizesRolesImmediately()
     {
         var fixture = CreateFixture(new ProbationRetentionPolicy());
         fixture.DecisionStore.RoleAssignments.Add(DiscordRoleAssignment.Create(
@@ -38,8 +38,9 @@ public sealed class ProbationDecisionTests
         var assignment = Assert.Single(fixture.DecisionStore.RoleAssignments);
         Assert.Equal(DiscordIdentitySubjectType.Member, assignment.SubjectType);
         Assert.Equal(member.Id, assignment.SubjectId);
-        var syncJob = Assert.Single(fixture.DecisionStore.SyncJobs);
-        Assert.Equal(DiscordSyncOperation.SynchronizeRoles, syncJob.Operation);
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Member, member.Id),
+            fixture.RoleSynchronizationService.SynchronizedSubjects);
         Assert.Contains(fixture.DecisionStore.AuditLogs, audit => audit.Action == "ProbationCandidatePassed");
     }
 
@@ -189,7 +190,8 @@ public sealed class ProbationDecisionTests
             candidate,
             identityLink,
             regularDepartment,
-            generation);
+            generation,
+            new TestDiscordRoleSynchronizationService());
     }
 
     private sealed record Fixture(
@@ -202,7 +204,8 @@ public sealed class ProbationDecisionTests
         ProbationCandidate Candidate,
         DiscordIdentityLink IdentityLink,
         Department RegularDepartment,
-        Generation Generation)
+        Generation Generation,
+        TestDiscordRoleSynchronizationService RoleSynchronizationService)
     {
         public ProbationDecisionService CreateService()
         {
@@ -210,7 +213,8 @@ public sealed class ProbationDecisionTests
                 DecisionStore,
                 MemberStore,
                 RetentionPolicyProvider,
-                EmailGenerator);
+                EmailGenerator,
+                RoleSynchronizationService);
         }
     }
 
@@ -269,7 +273,6 @@ public sealed class ProbationDecisionTests
             ProbationCandidate candidate,
             Member member,
             DiscordIdentityLink? identityLink,
-            DiscordSyncJob? syncJob,
             AuditLog auditLog,
             bool deleteCandidate,
             CancellationToken cancellationToken)
@@ -278,11 +281,6 @@ public sealed class ProbationDecisionTests
             if (deleteCandidate)
             {
                 Candidates.Remove(candidate);
-            }
-
-            if (syncJob is not null)
-            {
-                SyncJobs.Add(syncJob);
             }
 
             AuditLogs.Add(auditLog);

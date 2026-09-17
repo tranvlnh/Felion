@@ -34,13 +34,9 @@ public sealed class FelionDbContext(DbContextOptions<FelionDbContext> options) :
 
     public DbSet<EvaluationPeriod> EvaluationPeriods => Set<EvaluationPeriod>();
 
-    public DbSet<EvaluationForm> EvaluationForms => Set<EvaluationForm>();
+    public DbSet<PeerEvaluation> PeerEvaluations => Set<PeerEvaluation>();
 
-    public DbSet<EvaluationQuestion> EvaluationQuestions => Set<EvaluationQuestion>();
-
-    public DbSet<EvaluationSubmission> EvaluationSubmissions => Set<EvaluationSubmission>();
-
-    public DbSet<EvaluationAnswer> EvaluationAnswers => Set<EvaluationAnswer>();
+    public DbSet<MentorEvaluation> MentorEvaluations => Set<MentorEvaluation>();
 
     public DbSet<Event> Events => Set<Event>();
 

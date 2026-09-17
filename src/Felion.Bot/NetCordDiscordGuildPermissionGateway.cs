@@ -18,6 +18,26 @@ public sealed class NetCordDiscordGuildPermissionGateway(
             return false;
         }
 
+        try
+        {
+            var guild = await restClient.GetGuildAsync(
+                configuredGuild.Id,
+                cancellationToken: cancellationToken);
+            if (guild.OwnerId == (ulong)discordUserId)
+            {
+                return true;
+            }
+        }
+        catch (RestException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+        catch (RestException)
+        {
+            throw new DiscordGuildPermissionGatewayException(
+                "Discord rejected the guild ownership lookup request.");
+        }
+
         GuildUser guildUser;
         try
         {

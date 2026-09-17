@@ -1,11 +1,16 @@
 using System.Text.Json;
+using Felion.Application.Discord;
 using Felion.Domain.Audit;
 using Felion.Domain.Common;
+using Felion.Domain.Identity;
 using Felion.Domain.Members;
 
 namespace Felion.Application.Members;
 
-public sealed class MemberManagementService(IMemberStore store) : IMemberManagementService
+public sealed class MemberManagementService(
+    IMemberStore store,
+    IDiscordMemberSyncStore discordMemberSyncStore,
+    IDiscordRoleSynchronizationService? roleSynchronizationService = null) : IMemberManagementService
 {
     private const int MaxStudentIdLength = 50;
     private const int MaxFullNameLength = 200;
@@ -93,6 +98,9 @@ public sealed class MemberManagementService(IMemberStore store) : IMemberManagem
         await GetAuthorizedActorAsync(actorMemberId, cancellationToken);
         var member = await store.FindByIdAsync(memberId, track: true, cancellationToken)
             ?? throw new MemberNotFoundException(memberId);
+        var discordUserId = await discordMemberSyncStore.FindDiscordUserIdAsync(
+            memberId,
+            cancellationToken);
 
         var department = await GetActiveDepartmentAsync(command.DepartmentId ?? member.DepartmentId, cancellationToken);
         var generation = await GetActiveGenerationAsync(command.GenerationId ?? member.GenerationId, cancellationToken);
@@ -132,7 +140,15 @@ public sealed class MemberManagementService(IMemberStore store) : IMemberManagem
             before,
             Snapshot(member));
 
-        await store.UpdateAsync(member, audit, cancellationToken);
+        await discordMemberSyncStore.UpdateMemberAsync(member, audit, cancellationToken);
+        if (discordUserId is > 0 && roleSynchronizationService is not null)
+        {
+            await roleSynchronizationService.SynchronizeSubjectAsync(
+                DiscordIdentitySubjectType.Member,
+                member.Id,
+                cancellationToken);
+        }
+
         return ToDto(member);
     }
 

@@ -15,7 +15,8 @@ public sealed class DiscordRoleMappingTests
     {
         var store = CreateStore(out var actor);
         var mappingStore = new FakeMappingStore();
-        var service = new DiscordRoleMappingService(mappingStore, store);
+        var roleSynchronizationService = new TestDiscordRoleSynchronizationService();
+        var service = new DiscordRoleMappingService(mappingStore, store, null, roleSynchronizationService);
 
         var result = await service.UpsertAsync(
             actor.Id,
@@ -30,6 +31,7 @@ public sealed class DiscordRoleMappingTests
         Assert.Equal("Member", result.SubjectKey);
         Assert.Equal(123456789, result.DiscordRoleId);
         Assert.Single(mappingStore.Mappings);
+        Assert.Equal(1, roleSynchronizationService.SyncAllCalls);
         Assert.Contains(mappingStore.AuditLogs, audit => audit.Action == "DiscordRoleMappingUpserted");
     }
 
@@ -85,7 +87,8 @@ public sealed class DiscordRoleMappingTests
             123456789,
             "Old Probation");
         mappingStore.Mappings.Add(existing);
-        var service = new DiscordRoleMappingService(mappingStore, store);
+        var roleSynchronizationService = new TestDiscordRoleSynchronizationService();
+        var service = new DiscordRoleMappingService(mappingStore, store, null, roleSynchronizationService);
 
         var result = await service.UpsertAsync(
             actor.Id,
@@ -101,6 +104,28 @@ public sealed class DiscordRoleMappingTests
         Assert.Equal(987654321, result.DiscordRoleId);
         Assert.Single(mappingStore.Mappings);
         Assert.NotNull(mappingStore.AuditLogs[0].BeforeJson);
+        Assert.Equal(1, roleSynchronizationService.SyncAllCalls);
+    }
+
+    [Fact]
+    public async Task UpsertSynchronizesAllLinkedSubjectsAffectedByMapping()
+    {
+        var store = CreateStore(out var actor);
+        var mappingStore = new FakeMappingStore();
+        var roleSynchronizationService = new TestDiscordRoleSynchronizationService();
+        var service = new DiscordRoleMappingService(mappingStore, store, null, roleSynchronizationService);
+
+        await service.UpsertAsync(
+            actor.Id,
+            new UpsertDiscordRoleMappingCommand(
+                DiscordRoleMappingKind.Probation,
+                "Probation",
+                123456789,
+                "Probation"),
+            "correlation-sync-mapping",
+            CancellationToken.None);
+
+        Assert.Equal(1, roleSynchronizationService.SyncAllCalls);
     }
 
     [Fact]
@@ -435,7 +460,6 @@ public sealed class DiscordRoleMappingTests
         public Task SaveCandidateAssignmentAsync(
             ProbationCandidate candidate,
             AuditLog auditLog,
-            DiscordSyncJob? syncJob,
             CancellationToken cancellationToken)
             => throw new NotSupportedException();
 

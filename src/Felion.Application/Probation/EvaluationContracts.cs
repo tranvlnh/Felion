@@ -3,208 +3,184 @@ using Felion.Domain.Evaluation;
 
 namespace Felion.Application.Probation;
 
-public sealed record EvaluationDefaults(
-    decimal DefaultScoreMin = 1,
-    decimal DefaultScoreMax = 5,
-    int DefaultTextMaxLength = 2000);
+public sealed record CreateEvaluationPeriodCommand(string Name);
 
-public interface IEvaluationDefaultsProvider
-{
-    public EvaluationDefaults GetDefaults();
-}
-
-public sealed record CreateEvaluationPeriodCommand(
-    string Name,
-    DateTimeOffset? StartsAt = null,
-    DateTimeOffset? EndsAt = null);
-
-public sealed record EvaluationQuestionCommand(
-    int Order,
-    string Prompt,
-    EvaluationQuestionType Type,
-    bool IsRequired,
-    decimal? ScoreMin = null,
-    decimal? ScoreMax = null,
-    int? TextMaxLength = null,
-    Guid? Id = null);
-
-public sealed record CreateEvaluationFormCommand(
+public sealed record SubmitPeerEvaluationCommand(
     Guid PeriodId,
-    string Name,
-    EvaluationReviewerType ReviewerType,
-    IReadOnlyList<EvaluationQuestionCommand> Questions);
-
-public sealed record UpdateEvaluationFormCommand(
-    string? Name = null,
-    bool? IsActive = null,
-    IReadOnlyList<EvaluationQuestionCommand>? Questions = null);
-
-public sealed record EvaluationAnswerCommand(
-    Guid QuestionId,
-    decimal? ScoreValue = null,
-    string? TextValue = null);
-
-public sealed record SubmitEvaluationCommand(
-    Guid FormId,
     Guid TargetCandidateId,
-    IReadOnlyList<EvaluationAnswerCommand> Answers);
+    int Contribution,
+    int Communication,
+    int Attitude,
+    string? Note = null);
 
-public sealed record EvaluationQuestionDto(
-    Guid Id,
-    Guid FormId,
-    int Order,
-    string Prompt,
-    EvaluationQuestionType Type,
-    bool IsRequired,
-    decimal? ScoreMin,
-    decimal? ScoreMax,
-    int? TextMaxLength,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
-
-public sealed record EvaluationFormDto(
-    Guid Id,
+public sealed record SubmitMentorEvaluationCommand(
     Guid PeriodId,
-    string Name,
-    EvaluationReviewerType ReviewerType,
-    bool IsActive,
-    IReadOnlyList<EvaluationQuestionDto> Questions,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    Guid TargetCandidateId,
+    int Attendance,
+    int TaskCompletion,
+    int LearningInitiative,
+    string? Note = null);
 
 public sealed record EvaluationPeriodDto(
     Guid Id,
     string Name,
-    DateTimeOffset? StartsAt,
-    DateTimeOffset? EndsAt,
-    EvaluationPeriodStatus Status,
-    IReadOnlyList<EvaluationFormDto> Forms,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset OpenedAt,
+    DateTimeOffset? ClosedAt,
+    EvaluationPeriodStatus Status);
 
-public sealed record EvaluationQuestionView(
+public sealed record EvaluationTargetDto(
+    Guid CandidateId,
+    string StudentId,
+    string FullName,
+    bool HasSubmission);
+
+public sealed record EvaluationTeamTargetDto(
+    Guid TeamId,
+    string TeamName,
+    IReadOnlyList<EvaluationTargetDto> Targets);
+
+public sealed record EvaluationTargetListDto(
+    EvaluationPeriodDto Period,
+    IReadOnlyList<EvaluationTeamTargetDto> Teams);
+
+public sealed record EvaluationProgressDto(
+    int PeerSubmitted,
+    int PeerExpected,
+    int MentorSubmitted,
+    int MentorExpected,
+    IReadOnlyList<EvaluationTeamProgressDto> Teams,
+    IReadOnlyList<MissingPeerEvaluationDto> MissingPeerEvaluations,
+    IReadOnlyList<MissingMentorEvaluationDto> MissingMentorEvaluations);
+
+public sealed record EvaluationTeamProgressDto(
+    Guid TeamId,
+    string TeamName,
+    int PeerSubmitted,
+    int PeerExpected,
+    int MentorSubmitted,
+    int MentorExpected);
+
+public sealed record MissingPeerEvaluationDto(
+    string EvaluatorStudentId,
+    string EvaluatorName,
+    string TargetStudentId,
+    string TargetName,
+    Guid TeamId,
+    string TeamName);
+
+public sealed record MissingMentorEvaluationDto(
+    string MentorStudentId,
+    string MentorName,
+    string TargetStudentId,
+    string TargetName,
+    Guid TeamId,
+    string TeamName);
+
+public sealed record EvaluationStatusDto(
+    EvaluationPeriodDto Period,
+    EvaluationProgressDto Progress);
+
+public sealed record PeerEvaluationAggregateDto(
+    decimal? AverageContribution,
+    decimal? AverageCommunication,
+    decimal? AverageAttitude,
+    int EvaluationCount);
+
+public sealed record MentorEvaluationAggregateDto(
+    decimal? AverageAttendance,
+    decimal? AverageTaskCompletion,
+    decimal? AverageLearningInitiative,
+    int EvaluationCount);
+
+public sealed record EvaluationCandidateSummaryDto(
+    Guid CandidateId,
+    string StudentId,
+    string FullName,
+    Guid TeamId,
+    string TeamName,
+    PeerEvaluationAggregateDto Peer,
+    MentorEvaluationAggregateDto Mentor);
+
+public sealed record EvaluationSummaryDto(
+    EvaluationPeriodDto Period,
+    string? TeamName,
+    IReadOnlyList<EvaluationCandidateSummaryDto> Candidates,
+    EvaluationProgressDto Progress);
+
+public sealed record PeerEvaluationSubmissionDto(
     Guid Id,
-    Guid FormId,
-    int Order,
-    string Prompt,
-    EvaluationQuestionType Type,
-    bool IsRequired,
-    decimal? ScoreMin,
-    decimal? ScoreMax,
-    int? TextMaxLength,
+    Guid EvaluatorCandidateId,
+    string EvaluatorStudentId,
+    string EvaluatorName,
+    Guid TargetCandidateId,
+    string TargetStudentId,
+    string TargetName,
+    int Contribution,
+    int Communication,
+    int Attitude,
+    string? Note,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset? UpdatedAt);
 
-public sealed record EvaluationFormView(
+public sealed record MentorEvaluationSubmissionDto(
     Guid Id,
-    Guid PeriodId,
-    string Name,
-    EvaluationReviewerType ReviewerType,
-    bool IsActive,
-    IReadOnlyList<EvaluationQuestionView> Questions,
+    Guid MentorMemberId,
+    string MentorStudentId,
+    string MentorName,
+    Guid TargetCandidateId,
+    string TargetStudentId,
+    string TargetName,
+    int Attendance,
+    int TaskCompletion,
+    int LearningInitiative,
+    string? Note,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset? UpdatedAt);
 
-public sealed record EvaluationPeriodView(
-    Guid Id,
-    string Name,
-    DateTimeOffset? StartsAt,
-    DateTimeOffset? EndsAt,
-    EvaluationPeriodStatus Status,
-    IReadOnlyList<EvaluationFormView> Forms,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
-
-public sealed record EvaluationAnswerView(
-    Guid Id,
-    Guid? QuestionId,
-    string QuestionPromptSnapshot,
-    EvaluationQuestionType QuestionTypeSnapshot,
-    decimal? ScoreValue,
-    string? TextValue,
-    DateTimeOffset CreatedAt);
-
-public sealed record EvaluationSubmissionView(
-    Guid Id,
-    Guid FormId,
-    Guid PeriodId,
-    EvaluationReviewerType ReviewerType,
-    Guid? ReviewerMemberId,
-    Guid? ReviewerCandidateId,
-    string ReviewerStudentIdSnapshot,
-    string ReviewerNameSnapshot,
-    Guid? TargetCandidateId,
-    string TargetStudentIdSnapshot,
-    string TargetNameSnapshot,
-    DateTimeOffset SubmittedAt,
-    DateTimeOffset UpdatedAt,
-    IReadOnlyList<EvaluationAnswerView> Answers);
+public sealed record EvaluationDetailDto(
+    EvaluationPeriodDto Period,
+    EvaluationCandidateSummaryDto Candidate,
+    IReadOnlyList<PeerEvaluationSubmissionDto> PeerSubmissions,
+    IReadOnlyList<MentorEvaluationSubmissionDto> MentorSubmissions);
 
 public sealed record EvaluationSubmissionReceiptDto(
     Guid Id,
-    DateTimeOffset SubmittedAt,
-    DateTimeOffset UpdatedAt);
-
-public sealed record EvaluationAnswerDto(
-    Guid Id,
-    Guid? QuestionId,
-    string QuestionPromptSnapshot,
-    EvaluationQuestionType QuestionTypeSnapshot,
-    decimal? ScoreValue,
-    string? TextValue,
-    DateTimeOffset CreatedAt);
-
-public sealed record EvaluationSubmissionDto(
-    Guid Id,
-    Guid FormId,
-    Guid PeriodId,
-    EvaluationReviewerType ReviewerType,
-    Guid? ReviewerMemberId,
-    Guid? ReviewerCandidateId,
-    string ReviewerStudentIdSnapshot,
-    string ReviewerNameSnapshot,
-    Guid? TargetCandidateId,
-    string TargetStudentIdSnapshot,
-    string TargetNameSnapshot,
-    DateTimeOffset SubmittedAt,
-    DateTimeOffset UpdatedAt,
-    IReadOnlyList<EvaluationAnswerDto> Answers);
+    bool Updated,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt);
 
 public interface IEvaluationStore
 {
-    public Task<IReadOnlyList<EvaluationPeriodView>> ListPeriodsAsync(
-        CancellationToken cancellationToken);
-
-    public Task<EvaluationPeriodView?> FindPeriodViewAsync(
-        Guid periodId,
-        CancellationToken cancellationToken);
+    public Task<IReadOnlyList<EvaluationPeriod>> ListPeriodsAsync(CancellationToken cancellationToken);
 
     public Task<EvaluationPeriod?> FindPeriodAsync(
         Guid periodId,
         bool track,
         CancellationToken cancellationToken);
 
-    public Task<EvaluationForm?> FindFormAsync(
-        Guid formId,
-        bool track,
-        CancellationToken cancellationToken);
-
-    public Task<IReadOnlyList<EvaluationQuestion>> ListQuestionsAsync(
-        Guid formId,
-        bool track,
-        CancellationToken cancellationToken);
-
-    public Task<EvaluationSubmission?> FindSubmissionAsync(
-        Guid formId,
-        Guid? reviewerMemberId,
-        Guid? reviewerCandidateId,
+    public Task<PeerEvaluation?> FindPeerEvaluationAsync(
+        Guid periodId,
+        Guid evaluatorCandidateId,
         Guid targetCandidateId,
         bool track,
         CancellationToken cancellationToken);
 
-    public Task<IReadOnlyList<EvaluationSubmissionView>> ListSubmissionViewsAsync(
-        Guid? periodId,
-        Guid? formId,
+    public Task<MentorEvaluation?> FindMentorEvaluationAsync(
+        Guid periodId,
+        Guid mentorMemberId,
+        Guid targetCandidateId,
+        bool track,
+        CancellationToken cancellationToken);
+
+    public Task<IReadOnlyList<PeerEvaluation>> ListPeerEvaluationsAsync(
+        Guid periodId,
+        Guid? targetCandidateId,
+        CancellationToken cancellationToken);
+
+    public Task<IReadOnlyList<MentorEvaluation>> ListMentorEvaluationsAsync(
+        Guid periodId,
+        Guid? targetCandidateId,
         CancellationToken cancellationToken);
 
     public Task AddPeriodAsync(
@@ -212,81 +188,113 @@ public interface IEvaluationStore
         AuditLog auditLog,
         CancellationToken cancellationToken);
 
-    public Task UpdatePeriodAsync(
+    public Task SavePeerEvaluationAsync(
+        PeerEvaluation evaluation,
+        AuditLog auditLog,
+        bool isNew,
+        CancellationToken cancellationToken);
+
+    public Task SaveMentorEvaluationAsync(
+        MentorEvaluation evaluation,
+        AuditLog auditLog,
+        bool isNew,
+        CancellationToken cancellationToken);
+
+    public Task ClosePeriodAsync(
         EvaluationPeriod period,
         AuditLog auditLog,
-        CancellationToken cancellationToken);
-
-    public Task AddFormAsync(
-        EvaluationForm form,
-        IReadOnlyCollection<EvaluationQuestion> questions,
-        AuditLog auditLog,
-        CancellationToken cancellationToken);
-
-    public Task UpdateFormAsync(
-        EvaluationForm form,
-        IReadOnlyCollection<EvaluationQuestion> addedQuestions,
-        IReadOnlyCollection<EvaluationQuestion> removedQuestions,
-        AuditLog auditLog,
-        CancellationToken cancellationToken);
-
-    public Task SaveSubmissionAsync(
-        EvaluationSubmission submission,
-        IReadOnlyCollection<EvaluationAnswer> answers,
-        bool isNew,
         CancellationToken cancellationToken);
 }
 
 public interface IEvaluationManagementService
 {
-    public Task<IReadOnlyList<EvaluationPeriodDto>> ListPeriodsAsync(
-        Guid actorMemberId,
-        CancellationToken cancellationToken);
-
     public Task<EvaluationPeriodDto> CreatePeriodAsync(
         Guid actorMemberId,
         CreateEvaluationPeriodCommand command,
         string correlationId,
-        CancellationToken cancellationToken);
-
-    public Task<EvaluationPeriodDto> OpenPeriodAsync(
-        Guid actorMemberId,
-        Guid periodId,
-        string correlationId,
+        long? actorDiscordUserId,
         CancellationToken cancellationToken);
 
     public Task<EvaluationPeriodDto> ClosePeriodAsync(
         Guid actorMemberId,
         Guid periodId,
         string correlationId,
+        long? actorDiscordUserId,
         CancellationToken cancellationToken);
 
-    public Task<EvaluationFormDto> CreateFormAsync(
+    public Task<IReadOnlyList<EvaluationPeriodDto>> ListPeriodsAsync(
         Guid actorMemberId,
-        CreateEvaluationFormCommand command,
-        string correlationId,
         CancellationToken cancellationToken);
 
-    public Task<EvaluationFormDto> UpdateFormAsync(
+    public Task<EvaluationPeriodDto?> GetCurrentPeriodAsync(CancellationToken cancellationToken);
+
+    public Task<EvaluationStatusDto?> GetCurrentStatusAsync(CancellationToken cancellationToken);
+
+    public Task<EvaluationStatusDto> GetStatusAsync(
         Guid actorMemberId,
-        Guid formId,
-        UpdateEvaluationFormCommand command,
-        string correlationId,
+        Guid? periodId,
+        CancellationToken cancellationToken);
+
+    public Task<EvaluationStatusDto> GetStatusByNameAsync(
+        Guid actorMemberId,
+        string periodName,
+        CancellationToken cancellationToken);
+
+    public Task<EvaluationTargetListDto> GetPeerTargetsAsync(
+        long discordUserId,
+        Guid? periodId,
+        CancellationToken cancellationToken);
+
+    public Task<EvaluationTargetListDto> GetMentorTargetsAsync(
+        long discordUserId,
+        Guid? periodId,
+        CancellationToken cancellationToken);
+
+    public Task<PeerEvaluationSubmissionDto?> GetPeerEvaluationAsync(
+        long discordUserId,
+        Guid periodId,
+        Guid targetCandidateId,
+        CancellationToken cancellationToken);
+
+    public Task<MentorEvaluationSubmissionDto?> GetMentorEvaluationAsync(
+        long discordUserId,
+        Guid periodId,
+        Guid targetCandidateId,
         CancellationToken cancellationToken);
 
     public Task<EvaluationSubmissionReceiptDto> SubmitPeerEvaluationAsync(
-        Guid reviewerCandidateId,
-        SubmitEvaluationCommand command,
+        long discordUserId,
+        SubmitPeerEvaluationCommand command,
+        string correlationId,
         CancellationToken cancellationToken);
 
     public Task<EvaluationSubmissionReceiptDto> SubmitMentorEvaluationAsync(
-        Guid reviewerMemberId,
-        SubmitEvaluationCommand command,
+        long discordUserId,
+        SubmitMentorEvaluationCommand command,
+        string correlationId,
         CancellationToken cancellationToken);
 
-    public Task<IReadOnlyList<EvaluationSubmissionDto>> ListResultsAsync(
+    public Task<EvaluationDetailDto> ViewAsync(
         Guid actorMemberId,
+        Guid candidateId,
         Guid? periodId,
-        Guid? formId,
+        CancellationToken cancellationToken);
+
+    public Task<EvaluationDetailDto> ViewByPeriodNameAsync(
+        Guid actorMemberId,
+        Guid candidateId,
+        string? periodName,
+        CancellationToken cancellationToken);
+
+    public Task<EvaluationSummaryDto> SummaryAsync(
+        Guid actorMemberId,
+        Guid periodId,
+        Guid? teamId,
+        CancellationToken cancellationToken);
+
+    public Task<EvaluationSummaryDto> SummaryByNameAsync(
+        Guid actorMemberId,
+        string periodName,
+        string? teamName,
         CancellationToken cancellationToken);
 }

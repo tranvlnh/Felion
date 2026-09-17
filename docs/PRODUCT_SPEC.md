@@ -24,14 +24,14 @@ A verification message exposes a button. Button opens a Discord modal containing
 3. Reject if StudentId is already linked to another Discord user.
 4. Reject if Discord user is already linked to another identity.
 5. Persist link transactionally.
-6. Synchronize configured Discord roles.
+6. Synchronize configured Discord roles immediately from the current database state.
 7. Audit the link.
 
 To mitigate abusive retries, Discord linking is limited to five attempts per Discord user in each fixed ten-minute window. A rejected attempt must not reach identity lookup or persistence.
 
 Admin/Core may unlink/relink and force role sync through web/API and Discord application commands according to authorization.
 
-Discord role changes are persisted as retryable `DiscordSyncJob` records. The worker must not hot-loop a failing job: it schedules the next attempt with backoff and only claims jobs whose retry time has arrived. When no job is ready, the worker uses a bounded idle poll so pending jobs remain durable across process restarts.
+Role synchronization is executed immediately after the application persists a linking or administrative data change, using current database data rather than a job. `/role sync` applies the same operation to every active linked Member and ProbationCandidate. `DiscordSyncJob` is retained only for durable `KickUser` retries after FAIL; the worker must not hot-loop a failing kick job and schedules its next attempt with backoff.
 
 ## Discord role mapping
 Mappings are configuration stored in DB, not hard-coded IDs. Supported role dimensions:
@@ -43,7 +43,11 @@ Mappings are configuration stored in DB, not hard-coded IDs. Supported role dime
 
 Admin can choose an existing guild role or create a new Discord role and save the mapping. Only the configured single guild is valid.
 
-Admin may also use the internal dashboard to create an official Member and assign multiple existing, non-managed guild roles to an active Member or ProbationCandidate. The assignment list is replacement-based: omitted roles are removed from Felion's managed set on the next synchronization, while automatic dimension mappings remain independent. A person may be configured before linking; after joining the configured guild, entering StudentId in the Discord verification modal links the identity and synchronizes both automatic and per-person roles. PASS transfers per-person assignments to the new Member. FAIL removes the candidate's assignments.
+Admin may also use the internal dashboard to create an official Member and assign multiple existing, non-managed guild roles to an active Member or ProbationCandidate. The assignment list is replacement-based: omitted roles are removed from Felion's managed set on the next synchronization, while automatic dimension mappings remain independent. The dashboard displays the effective union of per-person assignments and applicable automatic mappings, labeling automatic roles separately; editing still replaces only the per-person assignments. A person may be configured before linking; after joining the configured guild, entering StudentId in the Discord verification modal links the identity and synchronizes both automatic and per-person roles. PASS transfers per-person assignments to the new Member. FAIL removes the candidate's assignments.
+
+The dashboard role catalog shows only existing roles that the bot can assign: non-managed roles below the bot's highest role and with effective `ManageRoles` or `Administrator` permission. If the bot has no assignable custom role, the catalog is empty rather than failing because the bot has no custom highest role.
+
+When synchronizing a subject, an unrelated automatic mapping that is currently outside the bot's hierarchy must not block assignable roles for that subject. A role that is actually desired for the subject and cannot be assigned still fails synchronization with a permission/hierarchy error.
 
 ## Probation
 Probation candidates are separate from Members. Each candidate belongs to exactly one Department, one Generation and optionally one active ProbationTeam. Active Core/Admin members may create and edit an active candidate's StudentId, FullName, Department and Generation; candidate status remains controlled only by the PASS/FAIL decision workflow. Changing the StudentId of a linked active candidate updates its Discord identity link in the same persistence operation.
@@ -51,27 +55,15 @@ Probation candidates are separate from Members. Each candidate belongs to exactl
 A team has a name and optional/configured Discord role. A team may have many mentors. Mentors must reference active Members; a Member may mentor multiple teams.
 
 ## Evaluation
-Admin/Core creates an EvaluationPeriod (e.g. Week 1) and configures a form. A form contains ordered questions of only:
-- `Score`: numeric score with configured minimum/maximum (recommended default 1..5).
-- `Text`: free-form note with a configured maximum length.
+Evaluation is Discord-first. Admin creates an `EvaluationPeriod` and it opens immediately; only Admin may create or close periods. A period has `Open` or `Closed` status, and no scheduled lifecycle is used.
 
-A period has Draft/Open/Closed state. Only Open accepts submissions.
+Peer evaluation is fixed to `Contribution`, `Communication` and `Attitude`, each an integer from 1 to 5, plus an optional note. An active probation candidate may evaluate another active candidate in the same team, never themself. The unique submission key is `(EvaluationPeriodId, EvaluatorCandidateId, TargetCandidateId)`; the evaluator may edit it while the period is Open.
 
-Peer review rules:
-- reviewer is an active probation candidate;
-- target is another active candidate in the same team;
-- self-review forbidden;
-- one submission per reviewer/target/form/period unless explicitly edited before close.
+Mentor evaluation is fixed to `Attendance`, `TaskCompletion` and `LearningInitiative`, each an integer from 1 to 10, plus an optional note. An active Member may evaluate candidates only in teams they mentor. Multiple mentors may evaluate one candidate, while each mentor has one submission per candidate and period that can be edited while Open.
 
-Mentor review rules:
-- reviewer is an active Member assigned as mentor to target's team;
-- one submission per mentor/target/form/period unless edited before close.
+Only Core/Admin can read raw submissions and aggregated results. Candidates cannot read evaluation results, and mentors cannot read peer evaluations or other mentors' submissions. Peer and mentor aggregates remain separate; there is no shared FinalScore, weighting, normalization or automatic PASS/FAIL.
 
-Only Core/Admin can read raw submissions and aggregated results. Candidate-facing endpoints must not expose scores, notes, reviewer identity or aggregates.
-
-Submissions snapshot reviewer/target identity and each answer's question prompt/type so retained evaluation history remains interpretable when candidate or form/question records change. Re-submitting the same reviewer/target/form while the period is Open edits the existing submission rather than creating a duplicate.
-
-Evaluation submission is limited to ten attempts per reviewer in each fixed one-minute window. The limit applies to both peer and mentor reviewers, regardless of transport.
+Peer and mentor submissions snapshot the displayed identities so historical data remains understandable after candidate/member changes. Database unique constraints and application validation enforce duplicate, lifecycle, identity and team rules. Submission attempts are limited to ten per reviewer in each fixed one-minute window.
 
 ## Final decision
 Core/Admin selects candidates in bulk and chooses PASS/FAIL.
@@ -99,7 +91,7 @@ FAIL:
 Phase 1 supports manual CRUD and bulk import. CSV is mandatory. Excel (.xlsx) may be supported using a maintained library; import must validate the entire file and return row-level errors. Do not partially import by default.
 
 ## Audit
-Audit privileged mutations at minimum: member create/update/import, link/unlink/relink, role mapping/create/sync, per-person role assignment changes, team/mentor changes, evaluation period/form changes, evaluation administrative edits, pass/fail decisions and configuration changes.
+Audit privileged mutations at minimum: member create/update/import, link/unlink/relink, role mapping/create/sync, per-person role assignment changes, team/mentor changes, evaluation period creation/closure, peer/mentor submission create/update, pass/fail decisions and configuration changes.
 
 Audit should capture: actor type/id, action, entity type/id where available, timestamp, correlation/request id, and JSON before/after or structured metadata without secrets.
 

@@ -195,6 +195,10 @@ async function loadRoleAssignments() {
   renderRoleAssignments();
 }
 
+async function refreshRoleAssignmentsIfAvailable() {
+  if (!elements.roleAssignmentsTab.hidden) await loadRoleAssignments();
+}
+
 function renderRoleAssignments() {
   const search = selectedValue("#role-assignment-search").trim().toLocaleLowerCase();
   const subjects = (state.roleAssignments || []).filter(subject =>
@@ -208,9 +212,14 @@ function renderRoleAssignments() {
     const statusOrPosition = subjectType === "Member"
       ? enumName(subject.memberPosition, memberPositions)
       : enumName(subject.candidateStatus, candidateStatuses);
-    const assignments = (subject.assignments || [])
-      .map(assignment => `<span class="chip compact-chip">${escapeHtml(assignment.roleNameSnapshot)}</span>`)
-      .join(" ") || "<span class=\"muted\">Chưa gán</span>";
+    const directAssignments = subject.assignments || [];
+    const directRoleIds = new Set(directAssignments.map(assignment => String(assignment.discordRoleId)));
+    const assignments = [
+      ...directAssignments.map(assignment => `<span class="chip compact-chip" title="Role riêng">${escapeHtml(assignment.roleNameSnapshot)}</span>`),
+      ...(subject.automaticRoles || [])
+        .filter(assignment => !directRoleIds.has(String(assignment.discordRoleId)))
+        .map(assignment => `<span class="chip compact-chip automatic-chip" title="Role tự động theo mapping">${escapeHtml(assignment.roleNameSnapshot)} · tự động</span>`)
+    ].join(" ") || "<span class=\"muted\">Chưa gán</span>";
     const row = document.createElement("tr");
     row.innerHTML = `<td><div class="candidate-name">${escapeHtml(subject.fullName)}</div><div class="candidate-student">${escapeHtml(subject.studentId)}</div></td><td>${type}</td><td>${statusOrPosition ? statusBadge(statusOrPosition) : "—"}</td><td>${subject.discordUserId ? "Đã liên kết" : "Chưa liên kết"}</td><td><div class="chip-list">${assignments}</div></td><td><button class="button secondary" type="button" data-role-subject-type="${escapeHtml(subjectType)}" data-role-subject-id="${escapeHtml(subject.subjectId)}">Chỉnh role</button></td>`;
     elements.roleAssignmentTable.append(row);
@@ -231,7 +240,7 @@ function openRoleAssignmentForm(subject) {
     elements.roleAssignmentOptions.append(label);
   });
   if (!state.roleCatalog.length) {
-    elements.roleAssignmentOptions.textContent = "Guild chưa có role có thể gán.";
+    elements.roleAssignmentOptions.textContent = "Bot không có role custom đủ quyền để gán trong guild.";
   }
   elements.roleAssignmentDialog.showModal();
 }
@@ -324,7 +333,7 @@ async function makeDecision(decision) {
   if (!result.succeeded) throw new Error(result.error || "Không thể quyết định candidate.");
   elements.candidateDetailDialog.close();
   setMessage(`${decision.toUpperCase()} thành công cho ${candidate.fullName}.`);
-  await Promise.all([loadCandidates(), loadTeams()]);
+  await Promise.all([loadCandidates(), loadTeams(), refreshRoleAssignmentsIfAvailable()]);
 }
 
 async function initialize() {
@@ -408,7 +417,7 @@ elements.candidateForm.addEventListener("submit", async event => {
     await api(id ? `/probation/candidates/${id}` : "/probation/candidates", { method: id ? "PATCH" : "POST", body: JSON.stringify(payload) });
     elements.candidateDialog.close();
     setMessage(id ? "Đã cập nhật candidate." : "Đã thêm candidate.");
-    await loadCandidates();
+    await Promise.all([loadCandidates(), refreshRoleAssignmentsIfAvailable()]);
   } catch (error) { setMessage(error.message, "error"); }
 });
 
@@ -429,7 +438,7 @@ elements.teamChangeForm.addEventListener("submit", async event => {
     elements.teamChangeDialog.close();
     renderCandidateDetail();
     setMessage("Đã cập nhật team candidate.");
-    await Promise.all([loadCandidates(), loadTeams()]);
+    await Promise.all([loadCandidates(), loadTeams(), refreshRoleAssignmentsIfAvailable()]);
   } catch (error) { setMessage(error.message, "error"); }
 });
 document.querySelector("#pass-candidate-button").addEventListener("click", () => makeDecision("Pass").catch(error => setMessage(error.message, "error")));
@@ -448,7 +457,7 @@ elements.teamForm.addEventListener("submit", async event => {
     elements.teamDialog.close();
     state.references = await api("/probation/candidates/reference-data");
     populateReferences();
-    await Promise.all([loadCandidates(), loadTeams()]);
+    await Promise.all([loadCandidates(), loadTeams(), refreshRoleAssignmentsIfAvailable()]);
     setMessage(id ? "Đã cập nhật team." : "Đã tạo team.");
   } catch (error) { setMessage(error.message, "error"); }
 });
@@ -472,7 +481,7 @@ elements.roleAssignmentForm.addEventListener("submit", async event => {
     if (index >= 0) state.roleAssignments[index] = updated;
     elements.roleAssignmentDialog.close();
     renderRoleAssignments();
-    setMessage("Đã cập nhật Discord role riêng. Nếu đã link, hệ thống đã xếp hàng sync role.");
+    setMessage("Đã cập nhật Discord role riêng. Nếu đã link, hệ thống đã đồng bộ role trực tiếp.");
   } catch (error) { setMessage(error.message, "error"); }
 });
 elements.memberForm.addEventListener("submit", async event => {
@@ -545,7 +554,7 @@ document.querySelector("#candidate-search-results").addEventListener("click", as
     state.selectedTeam = await api(`/probation/teams/${state.selectedTeam.id}/candidates/${button.dataset.addCandidate}`, { method: "PUT" });
     document.querySelector("#candidate-search-results").replaceChildren();
     renderTeamDetail();
-    await Promise.all([loadTeams(), loadCandidates()]);
+    await Promise.all([loadTeams(), loadCandidates(), refreshRoleAssignmentsIfAvailable()]);
     setMessage("Đã thêm candidate vào team.");
   } catch (error) { setMessage(error.message, "error"); }
 });
@@ -569,7 +578,7 @@ document.querySelector("#team-candidate-list").addEventListener("click", async e
   try {
     state.selectedTeam = await api(`/probation/teams/${state.selectedTeam.id}/candidates/${button.dataset.removeCandidate}`, { method: "DELETE" });
     renderTeamDetail();
-    await Promise.all([loadTeams(), loadCandidates()]);
+    await Promise.all([loadTeams(), loadCandidates(), refreshRoleAssignmentsIfAvailable()]);
     setMessage("Đã gỡ candidate khỏi team.");
   } catch (error) { setMessage(error.message, "error"); }
 });

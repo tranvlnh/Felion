@@ -41,4 +41,38 @@ public sealed class DiscordAuthorizationService(
         return await FindAdminAsync(discordUserId, cancellationToken)
             ?? throw new DiscordAuthorizationException();
     }
+
+    public async Task<DiscordManagementActor?> FindCoreOrAdminAsync(
+        long discordUserId,
+        CancellationToken cancellationToken)
+    {
+        if (discordUserId <= 0)
+        {
+            return null;
+        }
+
+        var link = await linkStore.FindByDiscordUserIdAsync(discordUserId, cancellationToken);
+        if (link is null || link.SubjectType != DiscordIdentitySubjectType.Member)
+        {
+            return null;
+        }
+
+        var member = await memberStore.FindByIdAsync(link.SubjectId, track: false, cancellationToken);
+        if (member is null
+            || member.Status != MemberStatus.Active
+            || member.Position is not (MemberPosition.Admin or MemberPosition.Core))
+        {
+            return null;
+        }
+
+        return new DiscordManagementActor(member.Id, discordUserId, member.Position);
+    }
+
+    public async Task<DiscordManagementActor> RequireCoreOrAdminAsync(
+        long discordUserId,
+        CancellationToken cancellationToken)
+    {
+        return await FindCoreOrAdminAsync(discordUserId, cancellationToken)
+            ?? throw new DiscordAuthorizationException();
+    }
 }

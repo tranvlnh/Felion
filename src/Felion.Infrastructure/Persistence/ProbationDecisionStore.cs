@@ -67,7 +67,6 @@ internal sealed class ProbationDecisionStore(FelionDbContext dbContext) : IProba
         ProbationCandidate candidate,
         Member member,
         DiscordIdentityLink? identityLink,
-        DiscordSyncJob? syncJob,
         AuditLog auditLog,
         bool deleteCandidate,
         CancellationToken cancellationToken)
@@ -81,11 +80,6 @@ internal sealed class ProbationDecisionStore(FelionDbContext dbContext) : IProba
         if (deleteCandidate)
         {
             dbContext.ProbationCandidates.Remove(candidate);
-        }
-
-        if (syncJob is not null)
-        {
-            dbContext.DiscordSyncJobs.Add(syncJob);
         }
 
         dbContext.AuditLogs.Add(auditLog);

@@ -16,7 +16,7 @@ public sealed record DiscordLinkResult(
     string DisplayName,
     long DiscordUserId,
     DateTimeOffset LinkedAt,
-    bool SyncQueued);
+    bool RolesSynchronized);
 
 public interface IDiscordLinkStore
 {
@@ -35,7 +35,6 @@ public interface IDiscordLinkStore
     public Task AddAsync(
         DiscordIdentityLink link,
         AuditLog auditLog,
-        DiscordSyncJob syncJob,
         CancellationToken cancellationToken);
 }
 

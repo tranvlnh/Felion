@@ -24,7 +24,7 @@ public sealed class ProbationCandidateManagementTests
     }
 
     [Fact]
-    public async Task UpdateLinkedCandidateUpdatesLinkedStudentIdAndWritesAudit()
+    public async Task UpdateLinkedCandidateSynchronizesImmediatelyAndWritesAudit()
     {
         var fixture = CreateFixture();
         fixture.Store.IdentityLinks.Add(DiscordIdentityLink.Create(123456789, fixture.Candidate.StudentId, DiscordIdentitySubjectType.Probation, fixture.Candidate.Id));
@@ -39,10 +39,13 @@ public sealed class ProbationCandidateManagementTests
         Assert.Equal("CANDIDATE-009", result.StudentId);
         Assert.Equal("CANDIDATE-009", Assert.Single(fixture.Store.IdentityLinks).StudentId);
         Assert.Contains(fixture.Store.AuditLogs, audit => audit.Action == "ProbationCandidateUpdated");
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Probation, fixture.Candidate.Id),
+            fixture.RoleSynchronizationService.SynchronizedSubjects);
     }
 
     [Fact]
-    public async Task ChangeTeamMovesCandidateDirectlyAndQueuesRoleSync()
+    public async Task ChangeTeamMovesCandidateAndSynchronizesImmediately()
     {
         var fixture = CreateFixture();
         fixture.Candidate.AssignToTeam(fixture.Team.Id);
@@ -59,7 +62,50 @@ public sealed class ProbationCandidateManagementTests
 
         Assert.Equal(secondTeam.Id, result.Team?.Id);
         Assert.Contains(fixture.Store.AuditLogs, audit => audit.Action == "ProbationCandidateTeamChanged");
-        Assert.Equal(DiscordSyncOperation.SynchronizeRoles, Assert.Single(fixture.Store.SyncJobs).Operation);
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Probation, fixture.Candidate.Id),
+            fixture.RoleSynchronizationService.SynchronizedSubjects);
+    }
+
+    [Fact]
+    public async Task ForceSyncForLinkedCandidateSynchronizesAndAudits()
+    {
+        var fixture = CreateFixture();
+        fixture.Store.IdentityLinks.Add(DiscordIdentityLink.Create(
+            123456789,
+            fixture.Candidate.StudentId,
+            DiscordIdentitySubjectType.Probation,
+            fixture.Candidate.Id));
+
+        var result = await fixture.Service.ForceSyncDiscordRolesAsync(
+            fixture.Admin.Id,
+            fixture.Candidate.Id,
+            "candidate-force-sync",
+            CancellationToken.None);
+
+        Assert.Equal(fixture.Candidate.Id, result.CandidateId);
+        Assert.Equal(123456789, result.DiscordUserId);
+        Assert.True(result.RolesSynchronized);
+        Assert.Contains(
+            (DiscordIdentitySubjectType.Probation, fixture.Candidate.Id),
+            fixture.RoleSynchronizationService.SynchronizedSubjects);
+        Assert.Contains(
+            fixture.Store.AuditLogs,
+            audit => audit.Action == "ProbationCandidateDiscordRoleSyncRequested");
+    }
+
+    [Fact]
+    public async Task ForceSyncForUnlinkedCandidateIsRejected()
+    {
+        var fixture = CreateFixture();
+
+        await Assert.ThrowsAsync<ProbationCandidateValidationException>(() => fixture.Service.ForceSyncDiscordRolesAsync(
+            fixture.Admin.Id,
+            fixture.Candidate.Id,
+            "candidate-force-sync-missing-link",
+            CancellationToken.None));
+
+        Assert.Empty(fixture.Store.AuditLogs);
     }
 
     [Fact]
@@ -99,7 +145,18 @@ public sealed class ProbationCandidateManagementTests
         var team = ProbationTeam.Create("Team Alpha");
         var memberStore = new FakeMemberStore(coreDepartment, department, generation, admin, regularMember);
         var store = new FakeCandidateStore(department, generation, candidate, team);
-        return new Fixture(new ProbationCandidateManagementService(store, memberStore), memberStore, store, admin, regularMember, candidate, department, generation, team);
+        var roleSynchronizationService = new TestDiscordRoleSynchronizationService();
+        return new Fixture(
+            new ProbationCandidateManagementService(store, memberStore, roleSynchronizationService),
+            memberStore,
+            store,
+            admin,
+            regularMember,
+            candidate,
+            department,
+            generation,
+            team,
+            roleSynchronizationService);
     }
 
     private sealed record Fixture(
@@ -111,7 +168,8 @@ public sealed class ProbationCandidateManagementTests
         ProbationCandidate Candidate,
         Department Department,
         Generation Generation,
-        ProbationTeam Team);
+        ProbationTeam Team,
+        TestDiscordRoleSynchronizationService RoleSynchronizationService);
 
     private sealed class FakeCandidateStore(Department department, Generation generation, ProbationCandidate candidate, ProbationTeam team) : IProbationCandidateStore
     {
@@ -119,7 +177,6 @@ public sealed class ProbationCandidateManagementTests
         public List<ProbationTeam> Teams { get; } = [team];
         public List<DiscordIdentityLink> IdentityLinks { get; } = [];
         public List<AuditLog> AuditLogs { get; } = [];
-        public List<DiscordSyncJob> SyncJobs { get; } = [];
         public HashSet<string> TakenStudentIds { get; } = new(StringComparer.Ordinal);
 
         public Task<(IReadOnlyList<ProbationCandidateView> Items, int TotalCount)> ListAsync(ListProbationCandidatesQuery query, CancellationToken cancellationToken)
@@ -148,19 +205,25 @@ public sealed class ProbationCandidateManagementTests
             return Task.CompletedTask;
         }
 
-        public Task SaveUpdateAsync(ProbationCandidate candidate, DiscordIdentityLink? identityLink, AuditLog auditLog, CancellationToken cancellationToken)
+        public Task SaveUpdateAsync(
+            ProbationCandidate candidate,
+            DiscordIdentityLink? identityLink,
+            AuditLog auditLog,
+            CancellationToken cancellationToken)
         {
             AuditLogs.Add(auditLog);
             return Task.CompletedTask;
         }
 
-        public Task SaveTeamChangeAsync(ProbationCandidate candidate, AuditLog auditLog, DiscordSyncJob? syncJob, CancellationToken cancellationToken)
+        public Task SaveTeamChangeAsync(ProbationCandidate candidate, AuditLog auditLog, CancellationToken cancellationToken)
         {
             AuditLogs.Add(auditLog);
-            if (syncJob is not null)
-            {
-                SyncJobs.Add(syncJob);
-            }
+            return Task.CompletedTask;
+        }
+
+        public Task RecordAuditAsync(AuditLog auditLog, CancellationToken cancellationToken)
+        {
+            AuditLogs.Add(auditLog);
             return Task.CompletedTask;
         }
 

@@ -34,17 +34,16 @@ public sealed class PersistenceModelTests
             nameof(DiscordRoleAssignment.SubjectType),
             nameof(DiscordRoleAssignment.SubjectId),
             nameof(DiscordRoleAssignment.DiscordRoleId));
-        AssertUniqueIndex<EvaluationQuestion>(context, nameof(EvaluationQuestion.FormId), nameof(EvaluationQuestion.Order));
-        AssertUniqueIndex<EvaluationSubmission>(
+        AssertUniqueIndex<PeerEvaluation>(
             context,
-            nameof(EvaluationSubmission.FormId),
-            nameof(EvaluationSubmission.ReviewerCandidateId),
-            nameof(EvaluationSubmission.TargetCandidateId));
-        AssertUniqueIndex<EvaluationSubmission>(
+            nameof(PeerEvaluation.EvaluationPeriodId),
+            nameof(PeerEvaluation.EvaluatorCandidateId),
+            nameof(PeerEvaluation.TargetCandidateId));
+        AssertUniqueIndex<MentorEvaluation>(
             context,
-            nameof(EvaluationSubmission.FormId),
-            nameof(EvaluationSubmission.ReviewerMemberId),
-            nameof(EvaluationSubmission.TargetCandidateId));
+            nameof(MentorEvaluation.EvaluationPeriodId),
+            nameof(MentorEvaluation.MentorMemberId),
+            nameof(MentorEvaluation.TargetCandidateId));
 
         var evaluationPeriod = context.Model.FindEntityType(typeof(EvaluationPeriod));
         Assert.NotNull(evaluationPeriod);

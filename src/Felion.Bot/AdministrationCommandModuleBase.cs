@@ -56,6 +56,10 @@ public abstract class AdministrationCommandModuleBase(
             DiscordRoleMappingValidationException => exception.Message,
             DiscordRoleMappingConflictException => exception.Message,
             DiscordRoleManagementValidationException => exception.Message,
+            DiscordLinkManagementAccessDeniedException => exception.Message,
+            DiscordLinkNotFoundException => exception.Message,
+            DiscordLinkValidationException => exception.Message,
+            DiscordLinkConflictException => exception.Message,
             DiscordRoleGatewayException => exception.Message,
             _ => "The Discord operation could not be completed."
         };

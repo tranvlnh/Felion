@@ -37,33 +37,27 @@ internal sealed class DiscordLinkManagementStore(FelionDbContext dbContext) : ID
     public Task UnlinkAsync(
         DiscordIdentityLink link,
         AuditLog auditLog,
-        DiscordSyncJob clearRolesJob,
         CancellationToken cancellationToken)
     {
         dbContext.DiscordIdentityLinks.Remove(link);
         dbContext.AuditLogs.Add(auditLog);
-        dbContext.DiscordSyncJobs.Add(clearRolesJob);
         return SaveChangesAsync(cancellationToken);
     }
 
     public Task RelinkAsync(
         DiscordIdentityLink link,
         AuditLog auditLog,
-        IReadOnlyCollection<DiscordSyncJob> syncJobs,
         CancellationToken cancellationToken)
     {
         dbContext.AuditLogs.Add(auditLog);
-        dbContext.DiscordSyncJobs.AddRange(syncJobs);
         return SaveChangesAsync(cancellationToken);
     }
 
-    public Task EnqueueSyncAsync(
+    public Task RecordAuditAsync(
         AuditLog auditLog,
-        DiscordSyncJob syncJob,
         CancellationToken cancellationToken)
     {
         dbContext.AuditLogs.Add(auditLog);
-        dbContext.DiscordSyncJobs.Add(syncJob);
         return SaveChangesAsync(cancellationToken);
     }
 

@@ -47,7 +47,7 @@ public sealed record ProbationDecisionItemResult(
     bool Succeeded,
     string? Error,
     Guid? MemberId,
-    bool DiscordSyncQueued,
+    bool DiscordRolesSynchronized,
     bool KickQueued);
 
 public interface IProbationDecisionStore
@@ -74,7 +74,6 @@ public interface IProbationDecisionStore
         ProbationCandidate candidate,
         Member member,
         DiscordIdentityLink? identityLink,
-        DiscordSyncJob? syncJob,
         AuditLog auditLog,
         bool deleteCandidate,
         CancellationToken cancellationToken);

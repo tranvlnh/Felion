@@ -22,10 +22,10 @@ Configure Google auth, resolve returned email to active Member, issue applicatio
 Candidate CRUD/import, team CRUD, mentor many-to-many assignment, team role mapping/sync.
 
 ## Milestone 6 — Evaluations
-Evaluation periods, configurable peer/mentor forms, Score/Text questions, open/close state machine, peer/mentor authorization, submissions, Core/Admin-only results and snapshots.
+Fixed Open/Closed evaluation periods, fixed peer/mentor criteria, Discord-first submissions, application authorization, separate aggregates and Core/Admin-only raw results.
 
 ## Milestone 7 — Decisions
-Bulk pass/fail command/API, promotion to Member, failure retention policy, Discord kick/role sync jobs, idempotency and audit. Add conflict/retry tests.
+Bulk pass/fail command/API, promotion to Member, failure retention policy, immediate role synchronization, durable Discord kick retry, idempotency and audit. Add conflict/retry tests.
 
 ## Milestone 9 — Hardening
 Integration tests with PostgreSQL (Testcontainers if suitable), authorization matrix tests, rate limiting for link/evaluation endpoints, structured logs, health checks, import limits, security review and deployment docs. Link/evaluation rate limits and cookie/HTTPS/response-header hardening are complete; remaining work is ingress/upload hardening and live integration coverage.

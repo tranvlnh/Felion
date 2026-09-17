@@ -113,14 +113,9 @@ internal sealed class ProbationTeamStore(FelionDbContext dbContext) : IProbation
     public Task SaveCandidateAssignmentAsync(
         ProbationCandidate candidate,
         AuditLog auditLog,
-        DiscordSyncJob? syncJob,
         CancellationToken cancellationToken)
     {
         dbContext.AuditLogs.Add(auditLog);
-        if (syncJob is not null)
-        {
-            dbContext.DiscordSyncJobs.Add(syncJob);
-        }
 
         return SaveChangesAsync(cancellationToken);
     }

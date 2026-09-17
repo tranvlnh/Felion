@@ -6,7 +6,7 @@ Last Updated: 2026-09-17
 Milestone 9 — Hardening (in progress)
 
 ## Current Focus
-Members & Discord roles dashboard tab, team candidate controls và Discord sync polling hardening đã hoàn tất: Admin có thể tạo Member, active Member/ProbationCandidate có thể được gán nhiều existing guild role trước khi link; team detail có thể tìm kiếm, thêm và gỡ candidate; queued sync áp dụng cả role riêng và role mapping tự động, retry có durable backoff và idle polling giảm còn 30 giây. Milestone 9 Hardening vẫn là milestone đang thực hiện; task này không đánh dấu hoàn tất các phần Hardening còn lại.
+Probation Evaluation refactor đã chuyển sang mô hình fixed criteria, Discord-first: Admin tạo/mở và đóng EvaluationPeriod; candidate dùng peer modal, mentor dùng mentor modal; Core/Admin xem status, summary và raw detail. Các lệnh Discord read/close nhận `periodName` và `teamName` không phân biệt hoa thường, đồng thời từ chối tên bị trùng. Migration mới thay thế toàn bộ schema Evaluation legacy; không có dữ liệu production cần giữ theo xác nhận của user. Milestone 9 Hardening vẫn là milestone đang thực hiện; task này không đánh dấu hoàn tất các phần Hardening còn lại.
 
 ## Completed
 - [x] Product scope baseline
@@ -36,14 +36,14 @@ Members & Discord roles dashboard tab, team candidate controls và Discord sync 
 - [x] Temporary Development/Testing actor authorization boundary
 - [x] Discord link application use case with StudentId normalization and active identity lookup
 - [x] Duplicate Discord link protection with database uniqueness and race-safe conflict mapping
-- [x] Transactional Discord link audit and retry-job enqueue model
+- [x] Transactional Discord link audit and immediate role synchronization
 - [x] Discord role mapping domain, Admin-only application service and API
 - [x] Discord role mapping persistence constraints and migration
 - [x] Discord verification button/modal transport and StudentId linking flow
 - [x] Discord server Administrator bootstrap and linked-Admin verification-message publishing command
 - [x] Name-based Discord role mapping command input with canonical ID persistence
-- [x] Discord role creation/existence adapter and retryable synchronization worker
-- [x] Discord unlink/relink/force sync with audit and queued role jobs
+- [x] Discord role creation/existence adapter and direct synchronization gateway
+- [x] Discord unlink/relink/force sync with audit and immediate role synchronization
 - [x] Google Workspace OAuth with application cookie session
 - [x] Active Member lookup from normalized Workspace email
 - [x] Admin/Core/Member authorization policy matrix
@@ -51,18 +51,18 @@ Members & Discord roles dashboard tab, team candidate controls và Discord sync 
 - [x] Authentication and authorization tests
 - [x] Probation team aggregate and mentor relationship
 - [x] Probation team CRUD and soft deactivation
-- [x] Candidate assignment/removal with one-team invariant and Discord role-sync enqueue
+- [x] Candidate assignment/removal with one-team invariant and immediate Discord role synchronization
 - [x] Multi-mentor assignment/removal with active-Member validation
 - [x] Probation team persistence migration and model constraints
 - [x] Probation team API and audit coverage
-- [x] EvaluationPeriod Draft/Open/Closed lifecycle
-- [x] Configurable Peer/Mentor Score/Text evaluation forms and questions
-- [x] Evaluation persistence migration, validation, authorization and audit coverage
+- [x] Fixed Open/Closed EvaluationPeriod lifecycle with Admin-only create/close
+- [x] Fixed Peer and Mentor criteria with typed score validation and optional notes
+- [x] Evaluation replacement migration, validation, authorization and audit coverage
 - [x] Peer/mentor submission rules, Open-only writes and duplicate edit behavior
-- [x] Core/Admin-only raw results and history-safe identity/question snapshots
+- [x] Core/Admin-only raw results and history-safe identity snapshots
 - [x] Bulk PASS/FAIL decision API with per-candidate outcomes
 - [x] PASS promotion to regular Member with generated Workspace email
-- [x] Transactional identity transfer, audit and role-sync enqueue
+- [x] Transactional identity transfer, audit and immediate role synchronization
 - [x] FAIL identity removal and retryable idempotent Discord kick
 - [x] Configurable PASS/FAIL retention policies
 - [x] Promotion/failure domain, application and Discord worker tests
@@ -87,10 +87,13 @@ Members & Discord roles dashboard tab, team candidate controls và Discord sync 
 - [x] Candidate list EF projection ordering regression fix with PostgreSQL coverage
 - [x] Simplified one-shot bootstrap command for initial Admin/Generation, usable as a deployment job with empty-database guard and system audit
 - [x] Admin-only guild-scoped Discord slash commands for role creation/mapping and Department/Generation creation
-- [x] Admin-only per-subject Discord role assignments, role catalog, queued synchronization and PASS/FAIL lifecycle transfer/removal
+- [x] Admin-only per-subject Discord role assignments, role catalog, immediate synchronization and PASS/FAIL lifecycle transfer/removal
+- [x] Discord role catalog filters roles by bot permission/hierarchy without failing when no custom bot highest role exists
+- [x] Ignore unrelated unassignable automatic mappings during subject role synchronization
 - [x] Members & Discord roles dashboard tab with multi-select role assignment UI and Admin member creation action
-- [x] Discord sync retry backoff and reduced idle polling with PostgreSQL migration/test coverage
+- [x] FAIL-only Discord kick retry backoff and reduced idle polling with PostgreSQL migration/test coverage
 - [x] Team detail candidate search/assignment/removal controls and candidate detail projection regression fix
+- [x] Discord `/team` slash commands and interactive team/candidate/mentor/role administration panel
 - [x] Repository README overview, local setup and deployment guidance
 
 ## In Progress
@@ -105,8 +108,8 @@ Milestone 9 — Hardening: giới hạn upload import, sau đó mở rộng live
 ## Verification
 - dotnet restore: PASS — `dotnet restore Felion.slnx -p:NuGetAudit=false`
 - dotnet format: PASS — `dotnet format Felion.slnx --verify-no-changes --no-restore`
-- dotnet build: PASS — Release/Debug, 0 warnings, 0 errors
-- dotnet test: PASS — 24 domain tests, 96 application tests, 35 integration tests with `FELION_POSTGRES_TEST_CONNECTION`
+- dotnet build: PASS — Debug, 0 warnings, 0 errors
+- dotnet test: PASS — 22 domain tests, 105 application tests, 30 integration tests; 6 PostgreSQL integration tests skipped because `FELION_POSTGRES_TEST_CONNECTION` is not configured in this environment
 - NuGet vulnerability audit: PASS — không phát hiện package vulnerable, kể cả transitive dependencies
 - EF migration: PASS — `20260916112125_AddEvaluations`
 - EF migration: PASS — `20260916115048_AddEvaluationSubmissions`
@@ -116,11 +119,15 @@ Milestone 9 — Hardening: giới hạn upload import, sau đó mở rộng live
 - EF migration: PASS — `20260916135416_AddEventAttendance`
 - EF migration: PASS — `20260917071232_AddDiscordRoleAssignments`
 - EF migration: PASS — `20260917082628_AddDiscordSyncRetryBackoff`
+- EF migration: PASS — `20260917122505_RemoveDiscordRoleSyncJobs`
+- EF migration: PASS — `20260917152122_ReplaceConfigurableEvaluations` (drops legacy configurable evaluation tables; no data existed per user confirmation)
 - dotnet ef database update: PASS — local PostgreSQL đã apply `20260916133349_AddEventRegistrations`
 - dotnet ef database update: PASS — local PostgreSQL đã apply `20260916135416_AddEventAttendance`
 - dotnet ef database update: PASS — local PostgreSQL đã apply `20260916132229_AddEvents`
 - dotnet ef database update: PASS — local PostgreSQL với user `postgres`, đã apply toàn bộ migration hiện tại
 - dotnet ef database update: PASS — local PostgreSQL đã apply `20260917082628_AddDiscordSyncRetryBackoff`
+- dotnet ef database update: PASS — local PostgreSQL đã apply `20260917122505_RemoveDiscordRoleSyncJobs`
+- dotnet ef database update: PASS — local PostgreSQL đã apply `20260917152122_ReplaceConfigurableEvaluations`
 - PostgreSQL integration test: PASS — `ConcurrentAttendanceInsertsLeaveExactlyOneRecord` với database `felion_test_*` cô lập
 - PostgreSQL integration test: PASS — `ListAsyncOrdersCandidatesBeforeProjectingViews` với database `felion_test_*` cô lập
 - node syntax check: PASS — `node --check src/Felion.Host/wwwroot/admin/probation/app.js`

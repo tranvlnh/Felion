@@ -10,7 +10,8 @@ public sealed record DiscordGuildRoleSnapshot(
     string Name,
     bool IsManaged,
     bool IsEveryone,
-    int RawPosition);
+    int RawPosition,
+    bool IsAssignableByBot = true);
 
 public sealed record DiscordRoleSyncTarget(
     long DiscordUserId,
@@ -18,7 +19,8 @@ public sealed record DiscordRoleSyncTarget(
     MemberPosition? Position,
     Guid DepartmentId,
     Guid GenerationId,
-    Guid? ProbationTeamId);
+    Guid? ProbationTeamId,
+    Guid SubjectId = default);
 
 public interface IDiscordRoleGateway
 {
@@ -48,6 +50,8 @@ public class DiscordRoleGatewayException(string message) : Exception(message);
 public sealed class DiscordRoleNotFoundException(string message) : DiscordRoleGatewayException(message);
 
 public sealed class DiscordRolePermissionException(string message) : DiscordRoleGatewayException(message);
+
+public sealed class DiscordRoleSynchronizationException(string message) : DiscordRoleGatewayException(message);
 
 public sealed class DiscordRoleUnavailableException()
     : DiscordRoleGatewayException("Discord role operations are unavailable because the Discord gateway is not configured.");

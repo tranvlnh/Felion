@@ -45,6 +45,11 @@ public sealed record ProbationCandidateDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 
+public sealed record ProbationCandidateDiscordSyncResult(
+    Guid CandidateId,
+    long DiscordUserId,
+    bool RolesSynchronized);
+
 public sealed record ProbationCandidatePage(
     IReadOnlyList<ProbationCandidateDto> Items,
     int Page,
@@ -120,7 +125,10 @@ public interface IProbationCandidateStore
     public Task SaveTeamChangeAsync(
         ProbationCandidate candidate,
         AuditLog auditLog,
-        DiscordSyncJob? syncJob,
+        CancellationToken cancellationToken);
+
+    public Task RecordAuditAsync(
+        AuditLog auditLog,
         CancellationToken cancellationToken);
 }
 
@@ -153,6 +161,12 @@ public interface IProbationCandidateManagementService
         Guid actorMemberId,
         Guid candidateId,
         Guid? teamId,
+        string correlationId,
+        CancellationToken cancellationToken);
+
+    public Task<ProbationCandidateDiscordSyncResult> ForceSyncDiscordRolesAsync(
+        Guid actorMemberId,
+        Guid candidateId,
         string correlationId,
         CancellationToken cancellationToken);
 

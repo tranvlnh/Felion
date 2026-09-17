@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddSingleton<IRateLimitGate, InMemoryRateLimitGate>();
         services.AddScoped<MemberStore>();
         services.AddScoped<IMemberStore>(services => services.GetRequiredService<MemberStore>());
+        services.AddScoped<IDiscordMemberSyncStore>(services => services.GetRequiredService<MemberStore>());
         services.AddScoped<IReferenceDataStore>(services => services.GetRequiredService<MemberStore>());
         services.AddScoped<IWebIdentityDirectory>(services => services.GetRequiredService<MemberStore>());
         services.AddScoped<IWebIdentityService, WebIdentityService>();
@@ -53,7 +54,6 @@ public static class DependencyInjection
         services.AddScoped<IEvaluationManagementService, EvaluationManagementService>();
         services.AddScoped<IEventStore, EventStore>();
         services.AddScoped<IEventManagementService, EventManagementService>();
-        services.AddSingleton<IEvaluationDefaultsProvider, EvaluationDefaultsProvider>();
         services.AddScoped<IDiscordLinkStore, DiscordLinkStore>();
         services.AddScoped<IDiscordAuthorizationService, DiscordAuthorizationService>();
         services.AddScoped<IDiscordLinkingService, DiscordLinkingService>();
@@ -64,6 +64,8 @@ public static class DependencyInjection
         services.AddScoped<IDiscordRoleMappingService, DiscordRoleMappingService>();
         services.AddScoped<IDiscordRoleAssignmentStore, DiscordRoleAssignmentStore>();
         services.AddScoped<IDiscordRoleAssignmentService, DiscordRoleAssignmentService>();
+        services.AddScoped<IDiscordRoleSynchronizationStore, DiscordRoleSynchronizationStore>();
+        services.AddScoped<IDiscordRoleSynchronizationService, DisabledDiscordRoleSynchronizationService>();
         services.AddScoped<DiscordRoleManagementStore>();
         services.AddScoped<IDiscordRoleManagementStore>(services =>
             services.GetRequiredService<DiscordRoleManagementStore>());

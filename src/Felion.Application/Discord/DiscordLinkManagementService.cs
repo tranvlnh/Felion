@@ -9,7 +9,8 @@ namespace Felion.Application.Discord;
 
 public sealed class DiscordLinkManagementService(
     IDiscordLinkManagementStore store,
-    IMemberStore memberStore) : IDiscordLinkManagementService
+    IMemberStore memberStore,
+    IDiscordRoleSynchronizationService? roleSynchronizationService = null) : IDiscordLinkManagementService
 {
     public async Task<DiscordUnlinkResult> UnlinkAsync(
         Guid actorMemberId,
@@ -21,11 +22,6 @@ public sealed class DiscordLinkManagementService(
         var link = await store.FindByMemberIdAsync(memberId, track: true, cancellationToken)
             ?? throw new DiscordLinkNotFoundException(memberId);
 
-        var clearRolesJob = CreateSyncJob(
-            link.SubjectType,
-            link.SubjectId,
-            DiscordSyncOperation.ClearManagedRoles,
-            link.DiscordUserId);
         var audit = CreateAudit(
             actorMemberId,
             "DiscordIdentityUnlinked",
@@ -33,8 +29,20 @@ public sealed class DiscordLinkManagementService(
             correlationId,
             before: Snapshot(link));
 
-        await store.UnlinkAsync(link, audit, clearRolesJob, cancellationToken);
-        return new DiscordUnlinkResult(memberId, link.DiscordUserId, SyncQueued: true);
+        await store.UnlinkAsync(link, audit, cancellationToken);
+        if (roleSynchronizationService is not null)
+        {
+            await roleSynchronizationService.ClearSubjectAsync(
+                link.SubjectType,
+                link.SubjectId,
+                link.DiscordUserId,
+                cancellationToken);
+        }
+
+        return new DiscordUnlinkResult(
+            memberId,
+            link.DiscordUserId,
+            RolesSynchronized: roleSynchronizationService is not null);
     }
 
     public async Task<DiscordRelinkResult> RelinkAsync(
@@ -79,16 +87,6 @@ public sealed class DiscordLinkManagementService(
             throw new DiscordLinkValidationException(exception.Message);
         }
 
-        var clearRolesJob = CreateSyncJob(
-            link.SubjectType,
-            link.SubjectId,
-            DiscordSyncOperation.ClearManagedRoles,
-            previousDiscordUserId);
-        var synchronizeRolesJob = CreateSyncJob(
-            link.SubjectType,
-            link.SubjectId,
-            DiscordSyncOperation.SynchronizeRoles,
-            command.DiscordUserId);
         var audit = CreateAudit(
             actorMemberId,
             "DiscordIdentityRelinked",
@@ -97,16 +95,28 @@ public sealed class DiscordLinkManagementService(
             before,
             Snapshot(link));
 
-        await store.RelinkAsync(
-            link,
-            audit,
-            [clearRolesJob, synchronizeRolesJob],
-            cancellationToken);
+        if (roleSynchronizationService is not null)
+        {
+            await roleSynchronizationService.ClearSubjectAsync(
+                link.SubjectType,
+                link.SubjectId,
+                previousDiscordUserId,
+                cancellationToken);
+        }
+
+        await store.RelinkAsync(link, audit, cancellationToken);
+        if (roleSynchronizationService is not null)
+        {
+            await roleSynchronizationService.SynchronizeSubjectAsync(
+                link.SubjectType,
+                link.SubjectId,
+                cancellationToken);
+        }
         return new DiscordRelinkResult(
             memberId,
             previousDiscordUserId,
             command.DiscordUserId,
-            SyncQueued: true);
+            RolesSynchronized: roleSynchronizationService is not null);
     }
 
     public async Task<DiscordForceSyncResult> ForceSyncAsync(
@@ -125,11 +135,6 @@ public sealed class DiscordLinkManagementService(
 
         var link = await store.FindByMemberIdAsync(memberId, track: false, cancellationToken)
             ?? throw new DiscordLinkNotFoundException(memberId);
-        var syncJob = CreateSyncJob(
-            link.SubjectType,
-            link.SubjectId,
-            DiscordSyncOperation.SynchronizeRoles,
-            link.DiscordUserId);
         var audit = CreateAudit(
             actorMemberId,
             "DiscordRoleSyncRequested",
@@ -137,12 +142,23 @@ public sealed class DiscordLinkManagementService(
             correlationId,
             after: JsonSerializer.Serialize(new
             {
-                link.DiscordUserId,
-                SyncJobId = syncJob.Id
+                link.DiscordUserId
             }));
 
-        await store.EnqueueSyncAsync(audit, syncJob, cancellationToken);
-        return new DiscordForceSyncResult(memberId, link.DiscordUserId, SyncQueued: true);
+        await store.RecordAuditAsync(audit, cancellationToken);
+
+        if (roleSynchronizationService is not null)
+        {
+            await roleSynchronizationService.SynchronizeSubjectAsync(
+                link.SubjectType,
+                link.SubjectId,
+                cancellationToken);
+        }
+
+        return new DiscordForceSyncResult(
+            memberId,
+            link.DiscordUserId,
+            RolesSynchronized: roleSynchronizationService is not null);
     }
 
     private async Task EnsureAuthorizedActorAsync(
@@ -156,19 +172,6 @@ public sealed class DiscordLinkManagementService(
         {
             throw new DiscordLinkManagementAccessDeniedException();
         }
-    }
-
-    private static DiscordSyncJob CreateSyncJob(
-        DiscordIdentitySubjectType subjectType,
-        Guid subjectId,
-        DiscordSyncOperation operation,
-        long discordUserId)
-    {
-        return DiscordSyncJob.Create(
-            subjectType,
-            subjectId,
-            operation,
-            JsonSerializer.Serialize(new { DiscordUserId = discordUserId }));
     }
 
     private static AuditLog CreateAudit(

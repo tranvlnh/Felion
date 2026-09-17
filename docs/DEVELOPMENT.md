@@ -57,7 +57,7 @@ $env:Discord__GuildId = "<guild-id>"
 dotnet run --project src/Felion.Host
 ```
 
-Before the first Admin Discord link exists, a user with the Discord server `Administrator` permission may run `/verification publish` in the desired verification channel. The command is accepted only in the configured guild and its permission is checked from the user's guild roles. After the message is published, click `Nhận Role` and submit the exact bootstrap `StudentId`. A successful submission creates the Discord link, writes audit history and queues role synchronization. From then on, all other privileged administration commands still require an active linked Felion Admin; Discord role possession does not grant Felion access.
+Before the first Admin Discord link exists, a user with the Discord server `Administrator` permission may run `/verification publish` in the desired verification channel. The command is accepted only in the configured guild and its permission is checked from the user's guild roles. After the message is published, click `Nhận Role` and submit the exact bootstrap `StudentId`. A successful submission creates the Discord link, writes audit history and synchronizes roles immediately from current data. From then on, all other privileged administration commands still require an active linked Felion Admin; Discord role possession does not grant Felion access.
 
 ## Verification commands
 
