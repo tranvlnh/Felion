@@ -101,6 +101,7 @@
 - [x] Member participation history
 
 ## Cross-cutting
+- [x] README tổng quan dự án, local setup và deployment guide
 - [x] Audit privileged Event, position, registration and attendance mutations
 - [x] Authorization tests
 - [x] Domain invariant tests

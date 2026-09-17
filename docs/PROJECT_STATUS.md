@@ -91,6 +91,7 @@ Members & Discord roles dashboard tab, team candidate controls và Discord sync 
 - [x] Members & Discord roles dashboard tab with multi-select role assignment UI and Admin member creation action
 - [x] Discord sync retry backoff and reduced idle polling with PostgreSQL migration/test coverage
 - [x] Team detail candidate search/assignment/removal controls and candidate detail projection regression fix
+- [x] Repository README overview, local setup and deployment guidance
 
 ## In Progress
 Milestone 9 — Hardening còn lại (ingress/upload hardening và mở rộng live integration coverage). Probation Admin Dashboard và per-subject Discord role assignment slice đã hoàn tất.
