@@ -35,10 +35,11 @@ public sealed class DiscordSyncJobConfiguration : IEntityTypeConfiguration<Disco
         builder.Property(job => job.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(job => job.Attempts).HasColumnName("attempts").IsRequired();
         builder.Property(job => job.LastError).HasColumnName("last_error").HasMaxLength(2000);
+        builder.Property(job => job.NextAttemptAt).HasColumnName("next_attempt_at").IsRequired();
         builder.Property(job => job.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(job => job.UpdatedAt).HasColumnName("updated_at").IsRequired();
 
-        builder.HasIndex(job => new { job.Status, job.CreatedAt });
+        builder.HasIndex(job => new { job.Status, job.NextAttemptAt, job.CreatedAt });
         builder.HasIndex(job => new { job.SubjectType, job.SubjectId, job.Operation, job.Status });
     }
 }

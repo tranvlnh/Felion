@@ -165,19 +165,27 @@ public sealed class CoreDomainTests
     [Fact]
     public void DiscordSyncJobTransitionsAreExplicitAndRetryable()
     {
+        var createdAt = DateTimeOffset.UtcNow.AddMinutes(-1);
         var job = DiscordSyncJob.Create(
             DiscordIdentitySubjectType.Member,
             Guid.NewGuid(),
             DiscordSyncOperation.SynchronizeRoles,
-            "{\"subjectId\":\"test\"}");
+            "{\"subjectId\":\"test\"}",
+            createdAt);
 
-        job.MarkRunning();
-        job.MarkFailed("Discord role synchronization failed.");
-        job.MarkRunning();
-        job.MarkSucceeded();
+        Assert.Equal(createdAt, job.NextAttemptAt);
+
+        job.MarkRunning(createdAt);
+        job.MarkFailed("Discord role synchronization failed.", createdAt);
+        Assert.Equal(createdAt.AddSeconds(5), job.NextAttemptAt);
+        job.MarkRunning(createdAt.AddSeconds(5));
+        job.MarkFailed("Discord role synchronization failed again.", createdAt.AddSeconds(5));
+        Assert.Equal(createdAt.AddSeconds(35), job.NextAttemptAt);
+        job.MarkRunning(createdAt.AddSeconds(35));
+        job.MarkSucceeded(createdAt.AddSeconds(35));
 
         Assert.Equal(DiscordSyncJobStatus.Succeeded, job.Status);
-        Assert.Equal(2, job.Attempts);
+        Assert.Equal(3, job.Attempts);
         Assert.Null(job.LastError);
     }
 

@@ -64,9 +64,12 @@ public sealed class PersistenceModelTests
         var syncJob = context.Model.FindEntityType(typeof(DiscordSyncJob));
         Assert.NotNull(syncJob);
         Assert.Contains(syncJob!.GetIndexes(), index =>
-            index.Properties.Count == 2
-            && index.Properties[0].Name == nameof(DiscordSyncJob.Status)
-            && index.Properties[1].Name == nameof(DiscordSyncJob.CreatedAt));
+            index.Properties.Select(property => property.Name).SequenceEqual(
+                [
+                    nameof(DiscordSyncJob.Status),
+                    nameof(DiscordSyncJob.NextAttemptAt),
+                    nameof(DiscordSyncJob.CreatedAt)
+                ]));
 
         var @event = context.Model.FindEntityType(typeof(Event));
         Assert.NotNull(@event);

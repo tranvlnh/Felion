@@ -25,6 +25,7 @@ public sealed class DiscordSyncJob
         Attempts = 0;
         CreatedAt = now;
         UpdatedAt = now;
+        NextAttemptAt = now;
     }
 
     public Guid Id { get; private set; }
@@ -42,6 +43,8 @@ public sealed class DiscordSyncJob
     public int Attempts { get; private set; }
 
     public string? LastError { get; private set; }
+
+    public DateTimeOffset NextAttemptAt { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -109,7 +112,21 @@ public sealed class DiscordSyncJob
         var normalizedError = IdentityNormalizer.RequiredText(error, nameof(LastError));
         Status = DiscordSyncJobStatus.Failed;
         LastError = normalizedError;
-        Touch(now);
+        var timestamp = (now ?? DateTimeOffset.UtcNow).ToUniversalTime();
+        NextAttemptAt = timestamp.Add(GetRetryDelay(Attempts));
+        Touch(timestamp);
+    }
+
+    private static TimeSpan GetRetryDelay(int attempts)
+    {
+        return attempts switch
+        {
+            <= 1 => TimeSpan.FromSeconds(5),
+            2 => TimeSpan.FromSeconds(30),
+            3 => TimeSpan.FromMinutes(5),
+            4 => TimeSpan.FromMinutes(15),
+            _ => TimeSpan.FromHours(1)
+        };
     }
 
     private void Touch(DateTimeOffset? now)

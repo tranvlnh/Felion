@@ -17,7 +17,8 @@ internal sealed class DiscordSyncJobStore(FelionDbContext dbContext) : IDiscordS
                 SELECT *
                 FROM discord_sync_jobs
                 WHERE status IN ('Pending', 'Failed')
-                ORDER BY created_at
+                  AND next_attempt_at <= CURRENT_TIMESTAMP
+                ORDER BY next_attempt_at, created_at
                 FOR UPDATE SKIP LOCKED
                 LIMIT 1
                 """)
