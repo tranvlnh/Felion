@@ -30,6 +30,8 @@ public sealed class FelionDbContext(DbContextOptions<FelionDbContext> options) :
 
     public DbSet<DiscordRoleMapping> DiscordRoleMappings => Set<DiscordRoleMapping>();
 
+    public DbSet<DiscordRoleAssignment> DiscordRoleAssignments => Set<DiscordRoleAssignment>();
+
     public DbSet<EvaluationPeriod> EvaluationPeriods => Set<EvaluationPeriod>();
 
     public DbSet<EvaluationForm> EvaluationForms => Set<EvaluationForm>();

@@ -29,6 +29,11 @@ public sealed class PersistenceModelTests
         AssertUniqueIndex<DiscordIdentityLink>(context, nameof(DiscordIdentityLink.SubjectId));
 
         AssertUniqueIndex<DiscordRoleMapping>(context, nameof(DiscordRoleMapping.Kind), nameof(DiscordRoleMapping.SubjectKey));
+        AssertUniqueIndex<DiscordRoleAssignment>(
+            context,
+            nameof(DiscordRoleAssignment.SubjectType),
+            nameof(DiscordRoleAssignment.SubjectId),
+            nameof(DiscordRoleAssignment.DiscordRoleId));
         AssertUniqueIndex<EvaluationQuestion>(context, nameof(EvaluationQuestion.FormId), nameof(EvaluationQuestion.Order));
         AssertUniqueIndex<EvaluationSubmission>(
             context,

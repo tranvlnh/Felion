@@ -204,4 +204,27 @@ public sealed class CoreDomainTests
             123456789,
             "Probation"));
     }
+
+    [Fact]
+    public void DiscordRoleAssignmentValidatesRolesAndTransfersFromProbation()
+    {
+        var candidateId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        var assignment = DiscordRoleAssignment.Create(
+            DiscordIdentitySubjectType.Probation,
+            candidateId,
+            123456789,
+            "Special Team");
+
+        assignment.TransferToMember(memberId);
+
+        Assert.Equal(DiscordIdentitySubjectType.Member, assignment.SubjectType);
+        Assert.Equal(memberId, assignment.SubjectId);
+        Assert.Throws<DomainException>(() => DiscordRoleAssignment.Create(
+            DiscordIdentitySubjectType.Member,
+            memberId,
+            0,
+            "Invalid"));
+        Assert.Throws<DomainException>(() => assignment.TransferToMember(Guid.NewGuid()));
+    }
 }
