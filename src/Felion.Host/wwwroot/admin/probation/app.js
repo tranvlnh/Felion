@@ -293,11 +293,12 @@ function renderTeamDetail() {
   (team.candidates || []).forEach(candidate => {
     const chip = document.createElement("span");
     chip.className = "chip";
-    chip.textContent = `${candidate.fullName} · ${candidate.studentId}`;
+    chip.innerHTML = `${escapeHtml(candidate.fullName)} · ${escapeHtml(candidate.studentId)}${team.isActive ? `<button type="button" aria-label="Remove ${escapeHtml(candidate.fullName)}" data-remove-candidate="${escapeHtml(candidate.id)}">×</button>` : ""}`;
     candidates.append(chip);
   });
   if (!team.candidates?.length) candidates.textContent = "Chưa có candidate.";
   document.querySelector("#mentor-search-form").hidden = !team.isActive;
+  document.querySelector("#candidate-search-form").hidden = !team.isActive;
 }
 
 function openTeamChange() {
@@ -517,6 +518,37 @@ document.querySelector("#mentor-search-results").addEventListener("click", async
     setMessage("Đã thêm mentor.");
   } catch (error) { setMessage(error.message, "error"); }
 });
+document.querySelector("#candidate-search-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  try {
+    const parameters = new URLSearchParams({ page: "1", pageSize: "20", hasTeam: "false", status: "Active" });
+    const search = selectedValue("#team-candidate-search").trim();
+    if (search) parameters.set("search", search);
+    const page = await api(`/probation/candidates?${parameters}`);
+    const results = document.querySelector("#candidate-search-results");
+    results.replaceChildren();
+    page.items
+      .filter(candidate => !state.selectedTeam.candidateIds.includes(candidate.id))
+      .forEach(candidate => {
+        const row = document.createElement("div");
+        row.className = "search-result";
+        row.innerHTML = `<span>${escapeHtml(candidate.fullName)} · ${escapeHtml(candidate.studentId)}</span><button class="button secondary" type="button" data-add-candidate="${escapeHtml(candidate.id)}">Thêm</button>`;
+        results.append(row);
+      });
+    if (!results.childElementCount) results.textContent = "Không tìm thấy candidate chưa có team.";
+  } catch (error) { setMessage(error.message, "error"); }
+});
+document.querySelector("#candidate-search-results").addEventListener("click", async event => {
+  const button = event.target.closest("[data-add-candidate]");
+  if (!button) return;
+  try {
+    state.selectedTeam = await api(`/probation/teams/${state.selectedTeam.id}/candidates/${button.dataset.addCandidate}`, { method: "PUT" });
+    document.querySelector("#candidate-search-results").replaceChildren();
+    renderTeamDetail();
+    await Promise.all([loadTeams(), loadCandidates()]);
+    setMessage("Đã thêm candidate vào team.");
+  } catch (error) { setMessage(error.message, "error"); }
+});
 document.querySelector("#team-mentor-list").addEventListener("click", async event => {
   const button = event.target.closest("[data-remove-mentor]");
   if (!button) return;
@@ -527,6 +559,18 @@ document.querySelector("#team-mentor-list").addEventListener("click", async even
     renderTeamDetail();
     await loadTeams();
     setMessage("Đã gỡ mentor.");
+  } catch (error) { setMessage(error.message, "error"); }
+});
+document.querySelector("#team-candidate-list").addEventListener("click", async event => {
+  const button = event.target.closest("[data-remove-candidate]");
+  if (!button) return;
+  const candidate = state.selectedTeam.candidates.find(item => item.id === button.dataset.removeCandidate);
+  if (!await confirmAction("Gỡ candidate", `Gỡ ${candidate?.fullName || "candidate"} khỏi ${state.selectedTeam.name}?`)) return;
+  try {
+    state.selectedTeam = await api(`/probation/teams/${state.selectedTeam.id}/candidates/${button.dataset.removeCandidate}`, { method: "DELETE" });
+    renderTeamDetail();
+    await Promise.all([loadTeams(), loadCandidates()]);
+    setMessage("Đã gỡ candidate khỏi team.");
   } catch (error) { setMessage(error.message, "error"); }
 });
 
