@@ -1,6 +1,6 @@
 using Felion.Api;
 using Felion.Application.Bootstrap;
-using Felion.Bot;
+using Felion.Bot.Hosting;
 using Felion.Host.Authentication;
 using Felion.Host.Middleware;
 using Felion.Infrastructure;
