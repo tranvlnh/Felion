@@ -59,6 +59,10 @@ Team and mentor foreign keys use restrict semantics so historical audit and eval
 `Id, Kind(Position|Probation|Department|Generation|ProbationTeam), Key/SubjectId, DiscordRoleId, RoleNameSnapshot, UpdatedAt`
 Unique mapping for each logical subject. Guild ID lives in app configuration because only one guild is supported.
 
+### DiscordRoleAssignment
+`Id, SubjectType(Member|Probation), SubjectId, DiscordRoleId, RoleNameSnapshot, CreatedAt, UpdatedAt`
+Stores Admin-managed role assignments for one active Member or ProbationCandidate. The unique key is `(SubjectType, SubjectId, DiscordRoleId)`; the polymorphic subject has no cascade foreign key. PASS explicitly transfers assignments to the new Member, while FAIL explicitly removes them. Role synchronization manages the union of automatic mappings and these per-subject assignments.
+
 ## Evaluation
 ### EvaluationPeriod
 `Id, Name, StartsAt?, EndsAt?, Status(Draft|Open|Closed)`

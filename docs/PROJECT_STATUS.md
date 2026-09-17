@@ -6,7 +6,7 @@ Last Updated: 2026-09-17
 Milestone 9 — Hardening (in progress)
 
 ## Current Focus
-Priority MVP work đã hoàn tất: Probation Admin Dashboard nội bộ tại `/admin/probation/`, bao gồm candidate/team/mentor management và PASS/FAIL confirmation. Milestone 9 Hardening vẫn là milestone đang thực hiện; task MVP này không đánh dấu hoàn tất các phần Hardening còn lại.
+Admin-only Members & Discord roles dashboard tab đã hoàn tất: active Member/ProbationCandidate có thể được gán nhiều existing guild role trước khi link; queued sync áp dụng cả role riêng và role mapping tự động. Milestone 9 Hardening vẫn là milestone đang thực hiện; task này không đánh dấu hoàn tất các phần Hardening còn lại.
 
 ## Completed
 - [x] Product scope baseline
@@ -87,12 +87,14 @@ Priority MVP work đã hoàn tất: Probation Admin Dashboard nội bộ tại `
 - [x] Candidate list EF projection ordering regression fix with PostgreSQL coverage
 - [x] Simplified one-shot bootstrap command for initial Admin/Generation, usable as a deployment job with empty-database guard and system audit
 - [x] Admin-only guild-scoped Discord slash commands for role creation/mapping and Department/Generation creation
+- [x] Admin-only per-subject Discord role assignments, role catalog, queued synchronization and PASS/FAIL lifecycle transfer/removal
+- [x] Members & Discord roles dashboard tab with multi-select role assignment UI
 
 ## In Progress
-Milestone 9 — Hardening còn lại (ingress/upload hardening và mở rộng live integration coverage). Priority Probation Admin Dashboard MVP và deploy-safe bootstrap command đã hoàn tất.
+Milestone 9 — Hardening còn lại (ingress/upload hardening và mở rộng live integration coverage). Probation Admin Dashboard và per-subject Discord role assignment slice đã hoàn tất.
 
 ## Known Issues / Open Questions
-Không có blocker code. PostgreSQL và Discord Gateway được cấu hình optional để local build/test không cần secret hoặc service đang chạy. Google OAuth credentials phải được cung cấp qua environment variables hoặc user-secrets khi chạy thật. `X-Felion-Actor-Member-Id` chỉ là compatibility path cho Development/Testing và bị từ chối ngoài hai environment này. Lệnh one-shot `bootstrap-admin` dùng được trong mọi environment nhưng chỉ khi DB chưa có Member; khi deploy phải chạy như process/job riêng rồi gỡ cấu hình `Bootstrap__*`. Các PostgreSQL integration test cần biến `FELION_POSTGRES_TEST_CONNECTION`; CI đã cấp PostgreSQL service, còn local không cấu hình sẽ skip các test này. Chưa có live Discord integration test vì môi trường không có guild/token. Rate limiter hiện không chia sẻ state giữa nhiều replica; cần shared store nếu chuyển sang multi-instance. Anti-forgery cho cookie-authenticated JSON mutation được hoãn theo quyết định đã chốt. Khi triển khai sau reverse proxy, phải allowlist các proxy tin cậy trước HTTPS redirection và đặt `AllowedHosts` thành hostname production; không tin cậy `X-Forwarded-*` từ mọi client. EF CLI migration scaffolding đã sinh migration team/mentor và evaluation thành công; các migration được nhận diện bởi EF model.
+Không có blocker code. PostgreSQL và Discord Gateway được cấu hình optional để local build/test không cần secret hoặc service đang chạy. Google OAuth credentials phải được cung cấp qua environment variables hoặc user-secrets khi chạy thật. `X-Felion-Actor-Member-Id` chỉ là compatibility path cho Development/Testing và bị từ chối ngoài hai environment này. Lệnh one-shot `bootstrap-admin` dùng được trong mọi environment nhưng chỉ khi DB chưa có Member; khi deploy phải chạy như process/job riêng rồi gỡ cấu hình `Bootstrap__*`. Các PostgreSQL integration test cần biến `FELION_POSTGRES_TEST_CONNECTION`; CI đã cấp PostgreSQL service, còn local không cấu hình sẽ skip các test này. Chưa có live Discord integration test vì môi trường không có guild/token; role catalog/assignment UI cần Discord Gateway được cấu hình để tải role. Rate limiter hiện không chia sẻ state giữa nhiều replica; cần shared store nếu chuyển sang multi-instance. Anti-forgery cho cookie-authenticated JSON mutation được hoãn theo quyết định đã chốt. Khi triển khai sau reverse proxy, phải allowlist các proxy tin cậy trước HTTPS redirection và đặt `AllowedHosts` thành hostname production; không tin cậy `X-Forwarded-*` từ mọi client. EF CLI migration scaffolding đã sinh migration team/mentor, evaluation và Discord role assignments thành công; các migration được nhận diện bởi EF model.
 
 ## Next Recommended Task
 Milestone 9 — Hardening: giới hạn upload import, sau đó mở rộng live integration coverage (PostgreSQL/Discord khi có hạ tầng).
@@ -101,7 +103,7 @@ Milestone 9 — Hardening: giới hạn upload import, sau đó mở rộng live
 - dotnet restore: PASS — `dotnet restore Felion.slnx -p:NuGetAudit=false`
 - dotnet format: PASS — `dotnet format Felion.slnx --verify-no-changes --no-restore`
 - dotnet build: PASS — Release/Debug, 0 warnings, 0 errors
-- dotnet test: PASS — 23 domain tests, 93 application tests, 31 integration tests với PostgreSQL test connection
+- dotnet test: PASS — 24 domain tests, 96 application tests, 30 passed + 2 skipped integration tests (PostgreSQL test connection chưa cấu hình local)
 - NuGet vulnerability audit: PASS — không phát hiện package vulnerable, kể cả transitive dependencies
 - EF migration: PASS — `20260916112125_AddEvaluations`
 - EF migration: PASS — `20260916115048_AddEvaluationSubmissions`
@@ -109,9 +111,11 @@ Milestone 9 — Hardening: giới hạn upload import, sau đó mở rộng live
 - EF migration: PASS — `20260916132229_AddEvents`
 - EF migration: PASS — `20260916133349_AddEventRegistrations`
 - EF migration: PASS — `20260916135416_AddEventAttendance`
+- EF migration: PASS — `20260917071232_AddDiscordRoleAssignments`
 - dotnet ef database update: PASS — local PostgreSQL đã apply `20260916133349_AddEventRegistrations`
 - dotnet ef database update: PASS — local PostgreSQL đã apply `20260916135416_AddEventAttendance`
 - dotnet ef database update: PASS — local PostgreSQL đã apply `20260916132229_AddEvents`
 - dotnet ef database update: PASS — local PostgreSQL với user `postgres`, đã apply toàn bộ migration hiện tại
 - PostgreSQL integration test: PASS — `ConcurrentAttendanceInsertsLeaveExactlyOneRecord` với database `felion_test_*` cô lập
 - PostgreSQL integration test: PASS — `ListAsyncOrdersCandidatesBeforeProjectingViews` với database `felion_test_*` cô lập
+- node syntax check: PASS — `node --check src/Felion.Host/wwwroot/admin/probation/app.js`

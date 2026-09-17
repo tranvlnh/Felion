@@ -41,6 +41,8 @@ Mappings are configuration stored in DB, not hard-coded IDs. Supported role dime
 
 Admin can choose an existing guild role or create a new Discord role and save the mapping. Only the configured single guild is valid.
 
+Admin may also assign multiple existing, non-managed guild roles to an active Member or ProbationCandidate from the internal dashboard. The assignment list is replacement-based: omitted roles are removed from Felion's managed set on the next synchronization, while automatic dimension mappings remain independent. A person may be configured before linking; after joining the configured guild, entering StudentId in the Discord verification modal links the identity and synchronizes both automatic and per-person roles. PASS transfers per-person assignments to the new Member. FAIL removes the candidate's assignments.
+
 ## Probation
 Probation candidates are separate from Members. Each candidate belongs to exactly one Department, one Generation and optionally one active ProbationTeam. Active Core/Admin members may create and edit an active candidate's StudentId, FullName, Department and Generation; candidate status remains controlled only by the PASS/FAIL decision workflow. Changing the StudentId of a linked active candidate updates its Discord identity link in the same persistence operation.
 
@@ -76,7 +78,8 @@ PASS must be atomic from the application's perspective:
 - validate candidate is eligible and linked state is consistent;
 - create active Member using candidate identity fields, `Position=Member`, and a generated Workspace email;
 - transfer Discord link;
-- sync Discord roles: remove probation/team roles, add Member/Department/Generation mappings;
+- transfer per-person Discord role assignments;
+- sync Discord roles: remove probation/team roles, add Member/Department/Generation mappings and retained per-person assignments;
 - record immutable audit event;
 - archive or delete probation record according to configured `Probation:SuccessPolicy` (`Archive` or `Delete`).
 
@@ -84,6 +87,7 @@ The generated Workspace email uses the normalized given name followed by the ini
 
 FAIL:
 - record immutable audit event;
+- remove per-person Discord role assignments;
 - kick linked Discord user from guild (handle already-left idempotently);
 - archive/delete probation record according to `ProbationFailurePolicy`.
 
@@ -93,7 +97,7 @@ FAIL:
 Phase 1 supports manual CRUD and bulk import. CSV is mandatory. Excel (.xlsx) may be supported using a maintained library; import must validate the entire file and return row-level errors. Do not partially import by default.
 
 ## Audit
-Audit privileged mutations at minimum: member create/update/import, link/unlink/relink, role mapping/create/sync, team/mentor changes, evaluation period/form changes, evaluation administrative edits, pass/fail decisions and configuration changes.
+Audit privileged mutations at minimum: member create/update/import, link/unlink/relink, role mapping/create/sync, per-person role assignment changes, team/mentor changes, evaluation period/form changes, evaluation administrative edits, pass/fail decisions and configuration changes.
 
 Audit should capture: actor type/id, action, entity type/id where available, timestamp, correlation/request id, and JSON before/after or structured metadata without secrets.
 

@@ -47,6 +47,7 @@
 - [x] Admin Discord slash commands for Department and Generation creation
 - [x] Position/Department/Generation/Probation/ProbationTeam role sync
 - [x] Unlink/relink/force sync
+- [x] Admin-only per-subject Discord role assignments with queued sync and role catalog
 
 ## Milestone 4 — Web identity & authorization
 - [x] Google Workspace OAuth
@@ -67,6 +68,7 @@
 - [x] Team create/edit, mentor assignment/removal and destructive-action confirmations
 - [x] PASS/FAIL confirmation UI backed by existing decision workflow
 - [x] Candidate application/API/dashboard integration coverage
+- [x] Members & Discord roles dashboard tab with multi-select assignment UI
 - [x] PostgreSQL regression coverage for candidate list projection ordering
 
 ## Milestone 6 — Evaluation

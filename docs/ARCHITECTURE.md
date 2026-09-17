@@ -106,6 +106,7 @@ Suggested endpoint groups:
 - `/probation/evaluation-periods/*`
 - `/probation/evaluations/*`
 - `/discord/roles/*`
+- `/discord/role-assignments/*`
 - `/discord/sync/*`
 - `/imports/members`
 - `/audit`

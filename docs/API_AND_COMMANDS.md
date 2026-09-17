@@ -31,6 +31,9 @@ This is a planning contract, not generated OpenAPI. Codex should keep actual Ope
 - `POST /api/v1/probation/decisions` (bulk pass/fail)
 - `GET/PUT /api/v1/discord/role-mappings`
 - `POST /api/v1/discord/roles` (Admin; create guild role)
+- `GET /api/v1/discord/role-assignments` (Admin; active Members and ProbationCandidates with individual assignments)
+- `GET /api/v1/discord/role-assignments/roles` (Admin; assignable roles from the configured guild)
+- `PUT /api/v1/discord/role-assignments/{subjectType}/{subjectId}` (Admin; replace individual role IDs, `subjectType=Member|Probation`, body `{ "discordRoleIds": ["123456789"] }`)
 - `POST /api/v1/discord/sync`
 - `GET /api/v1/audit` (Admin; Core if later desired)
 
@@ -78,9 +81,9 @@ Evaluation period and form management is Core/Admin-only. A period transitions `
 
 Discord account linking is limited to five attempts per Discord user per ten-minute fixed window. Peer and mentor evaluation submissions are limited to ten attempts per reviewer per one-minute fixed window. HTTP rate-limit rejection returns `429 Too Many Requests` and a `Retry-After` header; Discord interactions return an ephemeral retry message.
 
-`POST /api/v1/probation/decisions` accepts `{ "items": [{ "candidateId": "...", "decision": "Pass|Fail" }] }` and returns one outcome per candidate. PASS creates a regular Member with a generated email from the candidate's name and `Authentication:Google:WorkspaceDomain`, transfers the identity link and queues role synchronization. FAIL queues an idempotent guild kick and removes the identity link. Retention is configured through `Probation:SuccessPolicy` (`Archive|Delete`) and `Probation:FailurePolicy` (`MarkInactive|Delete`).
+`POST /api/v1/probation/decisions` accepts `{ "items": [{ "candidateId": "...", "decision": "Pass|Fail" }] }` and returns one outcome per candidate. PASS creates a regular Member with a generated email from the candidate's name and `Authentication:Google:WorkspaceDomain`, transfers the identity link and any individual Discord role assignments, then queues role synchronization. FAIL removes individual role assignments, queues an idempotent guild kick and removes the identity link. Retention is configured through `Probation:SuccessPolicy` (`Archive|Delete`) and `Probation:FailurePolicy` (`MarkInactive|Delete`).
 
-`POST /api/v1/discord/roles` is Admin-only and creates a role in the configured guild. When the Discord adapter is configured, role mapping upserts verify the role belongs to that guild and store the role name returned by Discord; the synchronization worker consumes retryable `DiscordSyncJob` rows and only mutates roles managed by Felion.
+`POST /api/v1/discord/roles` is Admin-only and creates a role in the configured guild. When the Discord adapter is configured, role mapping upserts verify the role belongs to that guild and store the role name returned by Discord; the synchronization worker consumes retryable `DiscordSyncJob` rows and only mutates roles managed by Felion. Individual role assignments are Admin-only, reject `@everyone` and managed integration roles, and are included in the same queued synchronization union as automatic mappings.
 
 # Events API / bot surface
 The Event lifecycle, position, registration, attendance and Member history endpoints below are implemented. Registration cancellation remains planned.
