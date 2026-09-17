@@ -7,8 +7,15 @@ namespace Felion.Bot;
 
 public sealed class NetCordDiscordRoleGateway(
     RestClient restClient,
-    ConfiguredDiscordGuild configuredGuild) : IDiscordRoleGateway
+    ConfiguredDiscordGuild configuredGuild) : IDiscordRoleGateway, IDiscordGuildRoleCatalog
 {
+    public async Task<IReadOnlyList<DiscordGuildRoleSnapshot>> ListRolesAsync(
+        CancellationToken cancellationToken)
+    {
+        var roles = await GetRolesAsync(cancellationToken);
+        return roles.Select(ToGuildRoleSnapshot).ToArray();
+    }
+
     public async Task<DiscordRoleSnapshot> GetRoleAsync(
         long discordRoleId,
         CancellationToken cancellationToken)
@@ -200,6 +207,22 @@ public sealed class NetCordDiscordRoleGateway(
         }
 
         return new DiscordRoleSnapshot((long)role.Id, role.Name);
+    }
+
+    private DiscordGuildRoleSnapshot ToGuildRoleSnapshot(Role role)
+    {
+        if (role.Id > long.MaxValue)
+        {
+            throw new DiscordRoleGatewayException(
+                "The Discord role ID is outside the supported signed bigint range.");
+        }
+
+        return new DiscordGuildRoleSnapshot(
+            (long)role.Id,
+            role.Name,
+            role.Managed,
+            role.Id == configuredGuild.Id,
+            role.RawPosition);
     }
 
     private static ulong ToSnowflake(long value)

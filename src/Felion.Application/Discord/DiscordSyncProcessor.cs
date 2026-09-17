@@ -26,13 +26,23 @@ public sealed class DiscordSyncProcessor(
                         var managedRoleIds = mappings
                             .Select(mapping => mapping.DiscordRoleId)
                             .ToHashSet();
-                        var target = await store.FindTargetAsync(job, cancellationToken)
-                            ?? throw new DiscordSyncProcessingException(
-                                "The identity subject for the Discord sync job no longer exists or is not linked.");
+                        var assignments = await store.ListRoleAssignmentsAsync(
+                            job.SubjectType,
+                            job.SubjectId,
+                            cancellationToken);
+                        managedRoleIds.UnionWith(assignments.Select(assignment => assignment.DiscordRoleId));
+                        managedRoleIds.UnionWith(ReadAdditionalManagedRoleIds(job.PayloadJson));
+                        var target = await store.FindTargetAsync(job, cancellationToken);
+                        if (target is null)
+                        {
+                            await ClearStaleTargetAsync(job, managedRoleIds, cancellationToken);
+                            break;
+                        }
                         var desiredRoleIds = mappings
                             .Where(mapping => IsDesired(mapping, target))
                             .Select(mapping => mapping.DiscordRoleId)
                             .ToHashSet();
+                        desiredRoleIds.UnionWith(assignments.Select(assignment => assignment.DiscordRoleId));
 
                         await roleGateway.SynchronizeUserRolesAsync(
                             target.DiscordUserId,
@@ -44,10 +54,19 @@ public sealed class DiscordSyncProcessor(
                 case DiscordSyncOperation.ClearManagedRoles:
                     {
                         var mappings = await store.ListRoleMappingsAsync(cancellationToken);
+                        var assignments = await store.ListRoleAssignmentsAsync(
+                            job.SubjectType,
+                            job.SubjectId,
+                            cancellationToken);
+                        var managedRoleIds = mappings
+                            .Select(mapping => mapping.DiscordRoleId)
+                            .Concat(assignments.Select(assignment => assignment.DiscordRoleId))
+                            .Concat(ReadAdditionalManagedRoleIds(job.PayloadJson))
+                            .ToHashSet();
                         await roleGateway.SynchronizeUserRolesAsync(
                             ReadDiscordUserId(job.PayloadJson),
                             [],
-                            mappings.Select(mapping => mapping.DiscordRoleId).ToHashSet(),
+                            managedRoleIds,
                             cancellationToken);
                         break;
                     }
@@ -122,7 +141,41 @@ public sealed class DiscordSyncProcessor(
         throw new DiscordSyncProcessingException("The Discord sync job payload is invalid.");
     }
 
-    private sealed record DiscordSyncPayload(long? DiscordUserId);
+    private async Task ClearStaleTargetAsync(
+        DiscordSyncJob job,
+        IReadOnlyCollection<long> managedRoleIds,
+        CancellationToken cancellationToken)
+    {
+        var additionalRoleIds = ReadAdditionalManagedRoleIds(job.PayloadJson);
+        if (additionalRoleIds.Count == 0)
+        {
+            throw new DiscordSyncProcessingException(
+                "The identity subject for the Discord sync job no longer exists or is not linked.");
+        }
+
+        await roleGateway.SynchronizeUserRolesAsync(
+            ReadDiscordUserId(job.PayloadJson),
+            [],
+            managedRoleIds,
+            cancellationToken);
+    }
+
+    private static HashSet<long> ReadAdditionalManagedRoleIds(string payloadJson)
+    {
+        try
+        {
+            var payload = JsonSerializer.Deserialize<DiscordSyncPayload>(payloadJson);
+            return payload?.AdditionalManagedRoleIds is null
+                ? []
+                : payload.AdditionalManagedRoleIds.Where(roleId => roleId > 0).ToHashSet();
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    private sealed record DiscordSyncPayload(long? DiscordUserId, long[]? AdditionalManagedRoleIds);
 }
 
 public sealed class DiscordSyncProcessingException(string message) : Exception(message);

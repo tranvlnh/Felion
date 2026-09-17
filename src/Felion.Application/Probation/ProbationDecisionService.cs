@@ -113,6 +113,10 @@ public sealed class ProbationDecisionService(
         }
 
         var clubEmail = emailGenerator.Generate(candidate.FullName);
+        var roleAssignments = await store.ListRoleAssignmentsAsync(
+            DiscordIdentitySubjectType.Probation,
+            candidate.Id,
+            cancellationToken);
         if (await store.MemberStudentIdExistsAsync(candidate.StudentId, cancellationToken))
         {
             throw new ProbationDecisionConflictException("A Member with this StudentId already exists.");
@@ -136,6 +140,10 @@ public sealed class ProbationDecisionService(
                 candidate.GenerationId,
                 MemberPosition.Member);
             candidate.MarkPassed();
+            foreach (var assignment in roleAssignments)
+            {
+                assignment.TransferToMember(member.Id);
+            }
         }
         catch (DomainException exception)
         {

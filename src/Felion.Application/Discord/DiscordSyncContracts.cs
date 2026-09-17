@@ -13,6 +13,11 @@ public interface IDiscordSyncJobStore
     public Task<IReadOnlyList<DiscordRoleMapping>> ListRoleMappingsAsync(
         CancellationToken cancellationToken);
 
+    public Task<IReadOnlyList<DiscordRoleAssignment>> ListRoleAssignmentsAsync(
+        DiscordIdentitySubjectType subjectType,
+        Guid subjectId,
+        CancellationToken cancellationToken);
+
     public Task SaveJobAsync(
         DiscordSyncJob job,
         CancellationToken cancellationToken);

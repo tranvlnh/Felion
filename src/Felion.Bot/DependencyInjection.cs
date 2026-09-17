@@ -46,6 +46,8 @@ public static class DependencyInjection
 
         services.AddSingleton(new ConfiguredDiscordGuild(parsedGuildId));
         services.AddSingleton<IDiscordRoleGateway, NetCordDiscordRoleGateway>();
+        services.AddSingleton<IDiscordGuildRoleCatalog>(services =>
+            (IDiscordGuildRoleCatalog)services.GetRequiredService<IDiscordRoleGateway>());
         services.AddSingleton<IDiscordGuildPermissionGateway, NetCordDiscordGuildPermissionGateway>();
         services.AddSingleton<IDiscordVerificationMessageGateway, NetCordDiscordVerificationMessageGateway>();
         services.AddSingleton<IDiscordGuildGateway, NetCordDiscordGuildGateway>();

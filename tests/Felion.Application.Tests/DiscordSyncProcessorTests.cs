@@ -52,14 +52,19 @@ public sealed class DiscordSyncProcessorTests
             Guid.NewGuid().ToString("D"),
             15,
             "Other team"));
+        store.Assignments.Add(DiscordRoleAssignment.Create(
+            DiscordIdentitySubjectType.Member,
+            store.Job.SubjectId,
+            16,
+            "Individual role"));
 
         var gateway = new FakeRoleGateway();
         var processor = new DiscordSyncProcessor(store, gateway);
 
         Assert.True(await processor.ProcessNextAsync(CancellationToken.None));
         Assert.Equal(DiscordSyncJobStatus.Succeeded, store.Job.Status);
-        Assert.Equal([10L, 13L, 14L], gateway.DesiredRoleIds.OrderBy(id => id));
-        Assert.Equal([10L, 11L, 12L, 13L, 14L, 15L], gateway.ManagedRoleIds.OrderBy(id => id));
+        Assert.Equal([10L, 13L, 14L, 16L], gateway.DesiredRoleIds.OrderBy(id => id));
+        Assert.Equal([10L, 11L, 12L, 13L, 14L, 15L, 16L], gateway.ManagedRoleIds.OrderBy(id => id));
     }
 
     [Fact]
@@ -117,6 +122,8 @@ public sealed class DiscordSyncProcessorTests
 
         public List<DiscordRoleMapping> Mappings { get; } = [];
 
+        public List<DiscordRoleAssignment> Assignments { get; } = [];
+
         public Task<DiscordSyncJob?> ClaimNextAsync(CancellationToken cancellationToken)
         {
             if (Job.Status == DiscordSyncJobStatus.Pending)
@@ -139,6 +146,16 @@ public sealed class DiscordSyncProcessorTests
             CancellationToken cancellationToken)
         {
             return Task.FromResult<IReadOnlyList<DiscordRoleMapping>>(Mappings);
+        }
+
+        public Task<IReadOnlyList<DiscordRoleAssignment>> ListRoleAssignmentsAsync(
+            DiscordIdentitySubjectType subjectType,
+            Guid subjectId,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<DiscordRoleAssignment>>(Assignments
+                .Where(assignment => assignment.SubjectType == subjectType && assignment.SubjectId == subjectId)
+                .ToArray());
         }
 
         public Task SaveJobAsync(DiscordSyncJob job, CancellationToken cancellationToken)

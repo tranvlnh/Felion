@@ -5,6 +5,13 @@ namespace Felion.Application.Discord;
 
 public sealed record DiscordRoleSnapshot(long Id, string Name);
 
+public sealed record DiscordGuildRoleSnapshot(
+    long Id,
+    string Name,
+    bool IsManaged,
+    bool IsEveryone,
+    int RawPosition);
+
 public sealed record DiscordRoleSyncTarget(
     long DiscordUserId,
     DiscordIdentitySubjectType SubjectType,
@@ -27,6 +34,12 @@ public interface IDiscordRoleGateway
         long discordUserId,
         IReadOnlyCollection<long> desiredRoleIds,
         IReadOnlyCollection<long> managedRoleIds,
+        CancellationToken cancellationToken);
+}
+
+public interface IDiscordGuildRoleCatalog
+{
+    public Task<IReadOnlyList<DiscordGuildRoleSnapshot>> ListRolesAsync(
         CancellationToken cancellationToken);
 }
 

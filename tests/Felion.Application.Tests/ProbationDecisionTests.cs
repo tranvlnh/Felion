@@ -14,6 +14,11 @@ public sealed class ProbationDecisionTests
     public async Task PassCreatesMemberTransfersLinkArchivesCandidateAndQueuesRoleSync()
     {
         var fixture = CreateFixture(new ProbationRetentionPolicy());
+        fixture.DecisionStore.RoleAssignments.Add(DiscordRoleAssignment.Create(
+            DiscordIdentitySubjectType.Probation,
+            fixture.Candidate.Id,
+            987654321,
+            "Personal role"));
         var service = fixture.CreateService();
 
         var result = await service.DecideAsync(
@@ -30,6 +35,9 @@ public sealed class ProbationDecisionTests
         Assert.Equal(ProbationCandidateStatus.Archived, fixture.Candidate.Status);
         Assert.Equal(DiscordIdentitySubjectType.Member, fixture.IdentityLink.SubjectType);
         Assert.Equal(member.Id, fixture.IdentityLink.SubjectId);
+        var assignment = Assert.Single(fixture.DecisionStore.RoleAssignments);
+        Assert.Equal(DiscordIdentitySubjectType.Member, assignment.SubjectType);
+        Assert.Equal(member.Id, assignment.SubjectId);
         var syncJob = Assert.Single(fixture.DecisionStore.SyncJobs);
         Assert.Equal(DiscordSyncOperation.SynchronizeRoles, syncJob.Operation);
         Assert.Contains(fixture.DecisionStore.AuditLogs, audit => audit.Action == "ProbationCandidatePassed");
@@ -57,6 +65,11 @@ public sealed class ProbationDecisionTests
     public async Task FailMarkInactiveRemovesLinkAndQueuesIdempotentKick()
     {
         var fixture = CreateFixture(new ProbationRetentionPolicy(FailurePolicy: ProbationFailurePolicy.MarkInactive));
+        fixture.DecisionStore.RoleAssignments.Add(DiscordRoleAssignment.Create(
+            DiscordIdentitySubjectType.Probation,
+            fixture.Candidate.Id,
+            987654321,
+            "Personal role"));
         var service = fixture.CreateService();
 
         var result = await service.DecideAsync(
@@ -70,6 +83,7 @@ public sealed class ProbationDecisionTests
         Assert.True(item.KickQueued);
         Assert.Equal(ProbationCandidateStatus.Failed, fixture.Candidate.Status);
         Assert.Empty(fixture.DecisionStore.IdentityLinks);
+        Assert.Empty(fixture.DecisionStore.RoleAssignments);
         Assert.Equal(DiscordSyncOperation.KickUser, Assert.Single(fixture.DecisionStore.SyncJobs).Operation);
         Assert.Contains(fixture.DecisionStore.AuditLogs, audit => audit.Action == "ProbationCandidateFailed");
     }
@@ -225,6 +239,8 @@ public sealed class ProbationDecisionTests
 
         public List<AuditLog> AuditLogs { get; } = [];
 
+        public List<DiscordRoleAssignment> RoleAssignments { get; } = [];
+
         public Task<ProbationDecisionCandidateView?> FindCandidateAsync(
             Guid candidateId,
             bool track,
@@ -240,6 +256,14 @@ public sealed class ProbationDecisionTests
 
         public Task<bool> MemberClubEmailExistsAsync(string clubEmail, CancellationToken cancellationToken)
             => Task.FromResult(Members.Any(member => member.ClubEmail == clubEmail));
+
+        public Task<IReadOnlyList<DiscordRoleAssignment>> ListRoleAssignmentsAsync(
+            DiscordIdentitySubjectType subjectType,
+            Guid subjectId,
+            CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<DiscordRoleAssignment>>(RoleAssignments
+                .Where(assignment => assignment.SubjectType == subjectType && assignment.SubjectId == subjectId)
+                .ToArray());
 
         public Task SavePassAsync(
             ProbationCandidate candidate,
@@ -277,6 +301,10 @@ public sealed class ProbationDecisionTests
             {
                 IdentityLinks.Remove(identityLink);
             }
+
+            RoleAssignments.RemoveAll(assignment =>
+                assignment.SubjectType == DiscordIdentitySubjectType.Probation
+                && assignment.SubjectId == candidate.Id);
 
             if (deleteCandidate)
             {

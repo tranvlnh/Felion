@@ -89,6 +89,18 @@ internal sealed class DiscordSyncJobStore(FelionDbContext dbContext) : IDiscordS
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<DiscordRoleAssignment>> ListRoleAssignmentsAsync(
+        DiscordIdentitySubjectType subjectType,
+        Guid subjectId,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.DiscordRoleAssignments
+            .AsNoTracking()
+            .Where(assignment =>
+                assignment.SubjectType == subjectType && assignment.SubjectId == subjectId)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task SaveJobAsync(DiscordSyncJob job, CancellationToken cancellationToken)
     {
         return dbContext.SaveChangesAsync(cancellationToken);

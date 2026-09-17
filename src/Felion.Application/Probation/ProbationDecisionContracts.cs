@@ -65,6 +65,11 @@ public interface IProbationDecisionStore
         string clubEmail,
         CancellationToken cancellationToken);
 
+    public Task<IReadOnlyList<DiscordRoleAssignment>> ListRoleAssignmentsAsync(
+        DiscordIdentitySubjectType subjectType,
+        Guid subjectId,
+        CancellationToken cancellationToken);
+
     public Task SavePassAsync(
         ProbationCandidate candidate,
         Member member,

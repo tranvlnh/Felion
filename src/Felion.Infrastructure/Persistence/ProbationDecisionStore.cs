@@ -52,6 +52,17 @@ internal sealed class ProbationDecisionStore(FelionDbContext dbContext) : IProba
         return dbContext.Members.AnyAsync(member => member.ClubEmail == clubEmail, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<DiscordRoleAssignment>> ListRoleAssignmentsAsync(
+        DiscordIdentitySubjectType subjectType,
+        Guid subjectId,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.DiscordRoleAssignments
+            .Where(assignment =>
+                assignment.SubjectType == subjectType && assignment.SubjectId == subjectId)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task SavePassAsync(
         ProbationCandidate candidate,
         Member member,
@@ -93,6 +104,12 @@ internal sealed class ProbationDecisionStore(FelionDbContext dbContext) : IProba
         {
             dbContext.DiscordIdentityLinks.Remove(identityLink);
         }
+
+        var roleAssignments = dbContext.DiscordRoleAssignments
+            .Where(assignment =>
+                assignment.SubjectType == DiscordIdentitySubjectType.Probation
+                && assignment.SubjectId == candidate.Id);
+        dbContext.DiscordRoleAssignments.RemoveRange(roleAssignments);
 
         if (deleteCandidate)
         {
