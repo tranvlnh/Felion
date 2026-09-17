@@ -68,7 +68,7 @@
 - [x] Team create/edit, mentor assignment/removal and destructive-action confirmations
 - [x] PASS/FAIL confirmation UI backed by existing decision workflow
 - [x] Candidate application/API/dashboard integration coverage
-- [x] Members & Discord roles dashboard tab with multi-select assignment UI
+- [x] Members & Discord roles dashboard tab with multi-select assignment UI and Admin member creation action
 - [x] PostgreSQL regression coverage for candidate list projection ordering
 
 ## Milestone 6 — Evaluation

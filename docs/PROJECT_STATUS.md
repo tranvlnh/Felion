@@ -6,7 +6,7 @@ Last Updated: 2026-09-17
 Milestone 9 — Hardening (in progress)
 
 ## Current Focus
-Admin-only Members & Discord roles dashboard tab đã hoàn tất: active Member/ProbationCandidate có thể được gán nhiều existing guild role trước khi link; queued sync áp dụng cả role riêng và role mapping tự động. Milestone 9 Hardening vẫn là milestone đang thực hiện; task này không đánh dấu hoàn tất các phần Hardening còn lại.
+Admin-only Members & Discord roles dashboard tab đã hoàn tất: Admin có thể tạo Member, active Member/ProbationCandidate có thể được gán nhiều existing guild role trước khi link; queued sync áp dụng cả role riêng và role mapping tự động. Milestone 9 Hardening vẫn là milestone đang thực hiện; task này không đánh dấu hoàn tất các phần Hardening còn lại.
 
 ## Completed
 - [x] Product scope baseline
@@ -88,7 +88,7 @@ Admin-only Members & Discord roles dashboard tab đã hoàn tất: active Member
 - [x] Simplified one-shot bootstrap command for initial Admin/Generation, usable as a deployment job with empty-database guard and system audit
 - [x] Admin-only guild-scoped Discord slash commands for role creation/mapping and Department/Generation creation
 - [x] Admin-only per-subject Discord role assignments, role catalog, queued synchronization and PASS/FAIL lifecycle transfer/removal
-- [x] Members & Discord roles dashboard tab with multi-select role assignment UI
+- [x] Members & Discord roles dashboard tab with multi-select role assignment UI and Admin member creation action
 
 ## In Progress
 Milestone 9 — Hardening còn lại (ingress/upload hardening và mở rộng live integration coverage). Probation Admin Dashboard và per-subject Discord role assignment slice đã hoàn tất.
