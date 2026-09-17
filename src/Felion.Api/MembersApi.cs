@@ -32,6 +32,7 @@ public static class MembersApi
         imports.MapPost("/members", ImportMembersAsync);
 
         DiscordRoleMappingsApi.Map(group);
+        DiscordRoleAssignmentsApi.Map(group);
         ProbationCandidatesApi.Map(group);
         ProbationTeamsApi.Map(group);
         EvaluationsApi.Map(group);

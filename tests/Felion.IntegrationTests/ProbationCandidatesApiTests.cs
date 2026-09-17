@@ -71,6 +71,23 @@ public sealed class ProbationCandidatesApiTests
         Assert.Contains("Status must be", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task IndividualDiscordRoleAssignmentsAreAdminOnly()
+    {
+        using var factory = new TestApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var anonymousResponse = await client.GetAsync("/api/v1/discord/role-assignments");
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
+
+        using var coreRequest = CreateRequest(
+            HttpMethod.Get,
+            "/api/v1/discord/role-assignments",
+            factory.Core.MemberId);
+        using var coreResponse = await client.SendAsync(coreRequest);
+        Assert.Equal(HttpStatusCode.Forbidden, coreResponse.StatusCode);
+    }
+
     private static HttpRequestMessage CreateRequest(HttpMethod method, string uri, Guid actorMemberId, object? content = null)
     {
         var request = new HttpRequestMessage(method, uri);

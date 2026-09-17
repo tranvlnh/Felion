@@ -62,6 +62,8 @@ public static class DependencyInjection
         services.AddScoped<IDiscordRoleMappingStore, DiscordRoleMappingStore>();
         services.AddScoped<IDiscordRoleMappingSubjectResolver, DiscordRoleMappingSubjectResolver>();
         services.AddScoped<IDiscordRoleMappingService, DiscordRoleMappingService>();
+        services.AddScoped<IDiscordRoleAssignmentStore, DiscordRoleAssignmentStore>();
+        services.AddScoped<IDiscordRoleAssignmentService, DiscordRoleAssignmentService>();
         services.AddScoped<DiscordRoleManagementStore>();
         services.AddScoped<IDiscordRoleManagementStore>(services =>
             services.GetRequiredService<DiscordRoleManagementStore>());
