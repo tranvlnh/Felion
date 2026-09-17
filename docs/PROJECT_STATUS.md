@@ -96,6 +96,7 @@ Probation Evaluation refactor đã chuyển sang mô hình fixed criteria, Disco
 - [x] Discord `/team` slash commands and interactive team/candidate/mentor/role administration panel
 - [x] Repository README overview, local setup and deployment guidance
 - [x] Reorganized `Felion.Bot` into Commands, Components, Gateways, Workers, Hosting, HealthChecks and Configuration namespaces
+- [x] Removed the redundant role-mapping button from the probation team panel while retaining role-mapping commands
 
 ## In Progress
 Milestone 9 — Hardening còn lại (ingress/upload hardening và mở rộng live integration coverage). Probation Admin Dashboard và per-subject Discord role assignment slice đã hoàn tất.

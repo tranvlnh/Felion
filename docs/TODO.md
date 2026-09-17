@@ -120,5 +120,6 @@
 - [x] Discord command authorization and audit coverage for Admin administration commands
 - [x] FAIL-only Discord kick retry backoff and reduced idle polling
 - [x] Reorganize `Felion.Bot` into feature/infrastructure namespaces and folders
+- [x] Remove the redundant role-mapping button from the probation team panel
 - [ ] API integration tests
 - [x] Keep specs/status/TODO/decisions synchronized for completed Member management slice

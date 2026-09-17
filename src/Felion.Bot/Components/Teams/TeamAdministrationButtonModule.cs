@@ -2,7 +2,6 @@ using Felion.Application.Discord;
 using Felion.Application.Probation;
 using Felion.Bot.Commands;
 using Felion.Bot.Configuration;
-using Felion.Domain.Members;
 using Felion.Domain.Probation;
 using NetCord.Rest;
 using NetCord.Services.ComponentInteractions;
@@ -265,8 +264,7 @@ public sealed class TeamAdministrationButtonModule(
     private async Task<InteractionCallbackProperties> PanelAsync(DiscordManagementActor actor)
     {
         var message = TeamAdministrationMessageFactory.Panel(
-            await teamService.ListAsync(actor.MemberId, CancellationToken.None),
-            actor.Position == MemberPosition.Admin);
+            await teamService.ListAsync(actor.MemberId, CancellationToken.None));
         return TeamAdministrationComponentSupport.Modify(message);
     }
 
@@ -277,8 +275,7 @@ public sealed class TeamAdministrationButtonModule(
         try
         {
             var message = TeamAdministrationMessageFactory.Detail(
-                await teamService.GetAsync(actor.MemberId, teamId, CancellationToken.None),
-                actor.Position == MemberPosition.Admin);
+                await teamService.GetAsync(actor.MemberId, teamId, CancellationToken.None));
             return TeamAdministrationComponentSupport.Modify(message);
         }
         catch (Exception exception) when (TeamAdministrationComponentSupport.IsTeamException(exception))

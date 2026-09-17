@@ -237,8 +237,7 @@ public sealed class TeamAdministrationStringMenuModule(
         try
         {
             var message = TeamAdministrationMessageFactory.Detail(
-                await teamService.GetAsync(actor.MemberId, teamId, CancellationToken.None),
-                actor.Position == MemberPosition.Admin);
+                await teamService.GetAsync(actor.MemberId, teamId, CancellationToken.None));
             return TeamAdministrationComponentSupport.Modify(message);
         }
         catch (Exception exception) when (TeamAdministrationComponentSupport.IsTeamException(exception))

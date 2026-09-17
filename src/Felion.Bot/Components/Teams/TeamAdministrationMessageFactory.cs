@@ -11,8 +11,7 @@ namespace Felion.Bot.Components.Teams;
 internal static class TeamAdministrationMessageFactory
 {
     public static InteractionMessageProperties Panel(
-        IReadOnlyList<ProbationTeamDto> teams,
-        bool canMapRoles)
+        IReadOnlyList<ProbationTeamDto> teams)
     {
         var options = teams
             .Take(25)
@@ -54,15 +53,6 @@ internal static class TeamAdministrationMessageFactory
                 new ButtonProperties(TeamInteractionIds.Refresh, "Làm mới", ButtonStyle.Secondary)
             ]));
 
-        if (canMapRoles)
-        {
-            components.Add(
-                new ActionRowProperties(
-                [
-                    new ButtonProperties(TeamInteractionIds.MapRole, "Cấu hình map role", ButtonStyle.Primary)
-                ]));
-        }
-
         return new InteractionMessageProperties()
             .WithContent("Felion probation administration")
             .WithFlags(MessageFlags.Ephemeral)
@@ -78,8 +68,7 @@ internal static class TeamAdministrationMessageFactory
     }
 
     public static InteractionMessageProperties Detail(
-        ProbationTeamDto team,
-        bool canMapRoles)
+        ProbationTeamDto team)
     {
         var candidates = team.Candidates.Count == 0
             ? "_Chưa có candidate._"
@@ -110,15 +99,6 @@ internal static class TeamAdministrationMessageFactory
                 new ButtonProperties($"{TeamInteractionIds.RemoveMentor}:{team.Id:D}", "− Mentor", ButtonStyle.Danger)
             ])
         };
-
-        if (canMapRoles)
-        {
-            components.Add(
-                new ActionRowProperties(
-                [
-                    new ButtonProperties(TeamInteractionIds.MapRole, "Cấu hình map role", ButtonStyle.Primary)
-                ]));
-        }
 
         return new InteractionMessageProperties()
             .WithContent($"Quản lý team **{team.Name}**")

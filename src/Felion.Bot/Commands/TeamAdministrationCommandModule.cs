@@ -36,8 +36,7 @@ public sealed class TeamAdministrationCommandModule(
             var teams = await teamService.ListAsync(actor.MemberId, CancellationToken.None);
             return InteractionCallback.Message(
                 TeamAdministrationMessageFactory.Panel(
-                    teams,
-                    actor.Position == Domain.Members.MemberPosition.Admin));
+                    teams));
         }
         catch (Exception exception) when (exception is DiscordAuthorizationException
             or ProbationTeamAccessDeniedException)
