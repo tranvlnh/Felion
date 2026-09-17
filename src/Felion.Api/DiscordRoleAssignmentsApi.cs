@@ -1,10 +1,10 @@
+using System.Globalization;
 using Felion.Application.Discord;
 using Felion.Application.Identity;
 using Felion.Domain.Identity;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using System.Globalization;
 
 namespace Felion.Api;
 
