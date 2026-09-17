@@ -13,44 +13,66 @@ internal sealed class DiscordRoleAssignmentStore(FelionDbContext dbContext) : ID
     public async Task<IReadOnlyList<DiscordRoleAssignmentSubjectView>> ListSubjectsAsync(
         CancellationToken cancellationToken)
     {
-        var members = await (
+        var memberRows = await (
             from member in dbContext.Members.AsNoTracking()
             join link in dbContext.DiscordIdentityLinks.AsNoTracking()
                     .Where(link => link.SubjectType == DiscordIdentitySubjectType.Member)
                 on member.Id equals link.SubjectId into linkJoin
             from link in linkJoin.DefaultIfEmpty()
             where member.Status == MemberStatus.Active
-            select new DiscordRoleAssignmentSubjectView(
+            orderby member.StudentId
+            select new
+            {
                 member.Id,
-                DiscordIdentitySubjectType.Member,
                 member.StudentId,
                 member.FullName,
                 member.Position,
                 member.Status,
-                CandidateStatus: null,
-                link == null ? null : link.DiscordUserId,
-                Assignments: Array.Empty<DiscordRoleAssignment>()))
-            .OrderBy(subject => subject.StudentId)
+                DiscordUserId = link == null ? null : (long?)link.DiscordUserId
+            })
             .ToListAsync(cancellationToken);
-        var candidates = await (
+        var members = memberRows
+            .Select(row => new DiscordRoleAssignmentSubjectView(
+                row.Id,
+                DiscordIdentitySubjectType.Member,
+                row.StudentId,
+                row.FullName,
+                row.Position,
+                row.Status,
+                CandidateStatus: null,
+                row.DiscordUserId,
+                Assignments: Array.Empty<DiscordRoleAssignment>()))
+            .ToArray();
+
+        var candidateRows = await (
             from candidate in dbContext.ProbationCandidates.AsNoTracking()
             join link in dbContext.DiscordIdentityLinks.AsNoTracking()
                     .Where(link => link.SubjectType == DiscordIdentitySubjectType.Probation)
                 on candidate.Id equals link.SubjectId into linkJoin
             from link in linkJoin.DefaultIfEmpty()
             where candidate.Status == ProbationCandidateStatus.Active
-            select new DiscordRoleAssignmentSubjectView(
+            orderby candidate.StudentId
+            select new
+            {
                 candidate.Id,
-                DiscordIdentitySubjectType.Probation,
                 candidate.StudentId,
                 candidate.FullName,
+                candidate.Status,
+                DiscordUserId = link == null ? null : (long?)link.DiscordUserId
+            })
+            .ToListAsync(cancellationToken);
+        var candidates = candidateRows
+            .Select(row => new DiscordRoleAssignmentSubjectView(
+                row.Id,
+                DiscordIdentitySubjectType.Probation,
+                row.StudentId,
+                row.FullName,
                 MemberPosition: null,
                 MemberStatus: null,
-                candidate.Status,
-                link == null ? null : link.DiscordUserId,
+                row.Status,
+                row.DiscordUserId,
                 Assignments: Array.Empty<DiscordRoleAssignment>()))
-            .OrderBy(subject => subject.StudentId)
-            .ToListAsync(cancellationToken);
+            .ToArray();
 
         var subjects = members.Concat(candidates).ToArray();
         var memberIds = members.Select(subject => subject.SubjectId).ToArray();
