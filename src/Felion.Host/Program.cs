@@ -1,4 +1,5 @@
 using Felion.Api;
+using Felion.Application.Bootstrap;
 using Felion.Bot;
 using Felion.Host.Authentication;
 using Felion.Host.Middleware;
@@ -6,7 +7,9 @@ using Felion.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-var builder = WebApplication.CreateBuilder(args);
+var isBootstrapAdminCommand = args is [var command]
+    && string.Equals(command, "bootstrap-admin", StringComparison.OrdinalIgnoreCase);
+var builder = WebApplication.CreateBuilder(isBootstrapAdminCommand ? [] : args);
 
 builder.WebHost.ConfigureKestrel(options =>
 {
@@ -59,6 +62,31 @@ builder.Services.AddFelionInfrastructure(builder.Configuration, healthChecks);
 builder.Services.AddFelionBot(builder.Configuration, healthChecks);
 
 var app = builder.Build();
+
+if (isBootstrapAdminCommand)
+{
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var bootstrapService = scope.ServiceProvider.GetRequiredService<BootstrapService>();
+        var bootstrapSection = builder.Configuration.GetSection("Bootstrap");
+        var bootstrapCommand = new BootstrapAdminCommand(
+            bootstrapSection["StudentId"] ?? string.Empty,
+            bootstrapSection["FullName"] ?? string.Empty,
+            bootstrapSection["ClubEmail"] ?? string.Empty,
+            bootstrapSection["GenerationName"] ?? string.Empty,
+            bootstrapSection["GenerationCode"] ?? string.Empty);
+        var result = await bootstrapService.BootstrapAdminAsync(bootstrapCommand);
+        Console.WriteLine($"Bootstrap completed. Admin={result.ClubEmail}; MemberId={result.MemberId}; Generation={result.GenerationName} ({result.GenerationId})");
+        return;
+    }
+    catch (Exception exception)
+    {
+        Console.Error.WriteLine($"[Bootstrap Failed] {exception.Message}");
+        Environment.ExitCode = 1;
+        return;
+    }
+}
 
 if (!string.IsNullOrWhiteSpace(builder.Configuration["Discord:Token"]))
 {

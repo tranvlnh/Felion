@@ -1,3 +1,4 @@
+using Felion.Application.Bootstrap;
 using Felion.Application.Discord;
 using Felion.Application.Events;
 using Felion.Application.Hardening;
@@ -71,6 +72,8 @@ public static class DependencyInjection
         services.AddScoped<IDiscordSyncJobStore, DiscordSyncJobStore>();
         services.AddScoped<IDiscordSyncProcessor, DiscordSyncProcessor>();
         services.AddSingleton<IMemberImportReader, MemberImportReader>();
+        services.AddScoped<IBootstrapStore, BootstrapStore>();
+        services.AddScoped<BootstrapService>();
 
         var connectionString = configuration.GetConnectionString("Postgres");
         if (string.IsNullOrWhiteSpace(connectionString))
