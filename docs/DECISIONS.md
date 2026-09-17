@@ -74,3 +74,15 @@ Discord linking is limited to five attempts per Discord user per fixed ten-minut
 
 ## ADR-019 — Priority Probation Admin Dashboard MVP
 The internal Probation Admin Dashboard is implemented as framework-free static HTML/CSS/ES modules under `Felion.Host/wwwroot/admin/probation`, served at `/admin/probation/`. It calls the existing same-origin REST API and reuses Google Workspace cookie authentication. No separate frontend project, SPA framework, CORS policy or new authentication strategy is introduced for this MVP.
+
+## ADR-020 — One-shot initial Admin bootstrap command
+To resolve the chicken-and-egg startup dependency where member creation requires a pre-existing Core/Admin actor, `Felion.Host` exposes the explicit one-shot CLI command `bootstrap-admin`. It may be run in any environment, including as a one-off deployment process, but refuses to run after any Member exists. It reads the initial Admin and Generation details from configuration, creates the Generation when needed, creates an active Admin associated with the reserved Core Department, and records audit logs using `AuditActorType.System` in the same persistence operation. Bootstrap never runs during normal web startup and is not exposed over HTTP. Deployment supplies `Bootstrap__*` values through its configuration/secret system and removes them after success.
+
+## ADR-021 — Admin-only Discord administration commands
+The Discord administration surface is limited to active linked Admin Members. Guild-scoped slash commands support creating Discord roles, mapping existing roles to the configured Felion dimensions, creating Departments and creating Generations. Authorization is resolved from `DiscordIdentityLink` and the active Member record; Discord role possession is not an authorization source. Every successful privileged mutation records an audit log with the Discord actor identity.
+
+## ADR-022 — Admin-published verification message
+For the first-link bootstrap, a Discord user with the server `Administrator` permission may publish the standard verification message in the current channel through `/verification publish`, even before that Discord user is linked to a Felion Admin. After the initial link, the command also remains available to active linked Admins. The command is restricted to the configured guild, reuses the existing button/modal StudentId flow, checks server permission through a Discord adapter, and audits the Discord message channel, ID and authorization mode after the message is successfully sent. This bootstrap exception grants no Felion application authorization; every other privileged administration command still requires an active linked Felion Admin.
+
+## ADR-023 — Name-based Discord role mapping command input
+The Discord `/role map` command accepts the display name of a Department, Generation or ProbationTeam and resolves it to the existing canonical GUID before persistence. Position and probation mappings keep their fixed keys (`Admin`, `Core`, `Member` and `Probation`). The HTTP role-mapping API remains canonical and continues to accept GUID keys. A missing or ambiguous entity name is rejected rather than guessed.

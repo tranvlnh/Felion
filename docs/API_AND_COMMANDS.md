@@ -55,11 +55,20 @@ Suggested application commands:
 - `/role create ...`
 - `/role sync [user]`
 
+Implemented Discord administration commands:
+- `/verification publish` publishes the verification message with the StudentId linking button in the current channel. Before the first link, it also accepts a Discord server Administrator for bootstrap; afterwards it accepts an active linked Felion Admin.
+- `/role create name` creates a role in the configured guild and audits the mutation.
+- `/role map kind subject role` maps an existing guild role. `kind` is `Position`, `Probation`, `Department`, `Generation` or `ProbationTeam`; `subject` is the display name for Department, Generation or ProbationTeam, and remains `Admin|Core|Member` or `Probation` for the fixed dimensions. The application stores the resolved canonical ID internally.
+- `/department create name slug` creates a regular Department; `core` remains reserved for the seeded Core Department.
+- `/generation create name code` creates a Generation with an uppercase canonical code.
+
+These commands are registered guild-scoped for `Discord:GuildId`. Role, Department and Generation commands resolve the invoking Discord user through `DiscordIdentityLink` and require an active linked Member with Position `Admin`; Discord role possession alone is not sufficient. `/verification publish` has the documented first-link server-Administrator bootstrap exception. Responses are ephemeral.
+
 Permissions must be resolved from linked DB Member position, not merely Discord role possession. Discord roles are presentation/access synchronization, not the source of truth for application authorization.
 
 Google login issues an application cookie only when the normalized Google email matches an active `Member.ClubEmail`. Matching `WorkspaceDomain` alone never authorizes access, and probation candidates have no web principal. Member CRUD/import and Discord link management require `CoreOrAdmin`; Discord role mapping/creation requires `AdminOnly`. Development and Testing additionally accept `X-Felion-Actor-Member-Id` as a compatibility header after active-Member lookup; production rejects it. The import file is create-only and all-or-nothing. Required headers are `StudentId`, `FullName`, `ClubEmail`, `Department`, `Generation` and `Position`; Department accepts ID/slug/name and Generation accepts ID/code/name. Import responses contain `Committed`, `ImportedRows` and row-level `Errors`.
 
-Discord role mapping management is Admin-only. `PUT /api/v1/discord/role-mappings` maps an existing positive Discord role ID using canonical keys: `Admin|Core|Member` for `Position`, `Probation` for the probation base role, and a non-empty GUID for `Department`, `Generation` or `ProbationTeam`.
+Discord role mapping management is Admin-only. `PUT /api/v1/discord/role-mappings` maps an existing positive Discord role ID using canonical keys: `Admin|Core|Member` for `Position`, `Probation` for the probation base role, and a non-empty GUID for `Department`, `Generation` or `ProbationTeam`. The Discord slash command resolves the latter dimensions from their names before calling the same application mapping use case.
 
 Probation team management is Core/Admin-only. Team deactivation is a soft delete through `PATCH /api/v1/probation/teams/{teamId}` with `IsActive=false`; candidate assignment is limited to one active team, and mentors must be active Members.
 

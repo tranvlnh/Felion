@@ -24,6 +24,41 @@ dotnet user-secrets set "Authentication:Google:ClientSecret" "<client-secret>" -
 
 Use `GET /api/v1/auth/login` to start the flow, `GET /api/v1/auth/me` to inspect the current application identity, and `POST /api/v1/auth/logout` to clear the session. In Development and Testing only, `X-Felion-Actor-Member-Id` remains a compatibility header; it is resolved against an active Member and is rejected outside those environments.
 
+## Initial Admin bootstrap
+
+An empty database cannot authorize Member-management APIs, so create the first Admin with the explicit one-shot `bootstrap-admin` command. Apply EF migrations first, configure `Bootstrap:StudentId`, `Bootstrap:FullName`, `Bootstrap:ClubEmail`, `Bootstrap:GenerationName`, and `Bootstrap:GenerationCode`, then run:
+
+```powershell
+dotnet run --project src/Felion.Host -- bootstrap-admin
+```
+
+The command creates the initial Generation when needed, an active Admin in the reserved Core Department, and system audit records in one persistence operation. It refuses to run after any Member exists. The configured `ClubEmail` must exactly match the Google Workspace account used for the first browser login.
+
+For deployment, use the same published Host artifact as a one-off process after migrations and before starting the web process. Supply configuration from the deployment secret/configuration system rather than a committed file:
+
+```powershell
+$env:Bootstrap__StudentId = "<student-id>"
+$env:Bootstrap__FullName = "<full-name>"
+$env:Bootstrap__ClubEmail = "<workspace-email>"
+$env:Bootstrap__GenerationName = "<generation-name>"
+$env:Bootstrap__GenerationCode = "<generation-code>"
+dotnet Felion.Host.dll bootstrap-admin
+```
+
+Remove the `Bootstrap__*` values after the command succeeds. The normal web process never runs bootstrap automatically, and there is no bootstrap HTTP endpoint.
+
+## Discord Admin linking
+
+Configure the bot token and the one allowed guild through environment variables or user-secrets. The bot application must be installed in that guild with `bot` and `applications.commands` scopes. It needs `View Channel` and `Send Messages` in the channel used for verification; role creation and synchronization additionally require `Manage Roles`, with the bot's highest role above every role Felion manages.
+
+```powershell
+$env:Discord__Token = "<bot-token>"
+$env:Discord__GuildId = "<guild-id>"
+dotnet run --project src/Felion.Host
+```
+
+Before the first Admin Discord link exists, a user with the Discord server `Administrator` permission may run `/verification publish` in the desired verification channel. The command is accepted only in the configured guild and its permission is checked from the user's guild roles. After the message is published, click `Nhận Role` and submit the exact bootstrap `StudentId`. A successful submission creates the Discord link, writes audit history and queues role synchronization. From then on, all other privileged administration commands still require an active linked Felion Admin; Discord role possession does not grant Felion access.
+
 ## Verification commands
 
 ```powershell
