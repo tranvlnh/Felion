@@ -88,7 +88,7 @@ Discord: derive Discord user id from interaction context, resolve linked Member,
 Suggested policies: `ActiveMember`, `CoreOrAdmin`, `AdminOnly`, `MentorOfTeam`.
 
 ## Transactions and external side effects
-Database transactions cannot atomically include Discord API calls. Use idempotent application operations and explicit state/audit. For pass/fail, persist the decision and intended role action safely, then execute Discord synchronization; failures must be retryable. Prefer an outbox/job approach once reliability matters. For phase 1, a small `DiscordSyncJob` table + hosted worker is acceptable and avoids pretending distributed atomicity.
+Database transactions cannot atomically include Discord API calls. Use idempotent application operations and explicit state/audit. For pass/fail, persist the decision and intended role action safely, then execute Discord synchronization; failures must be retryable. Prefer an outbox/job approach once reliability matters. For phase 1, a small `DiscordSyncJob` table + hosted worker is acceptable and avoids pretending distributed atomicity. `DiscordSyncJob.NextAttemptAt` provides durable retry backoff, while the worker uses a bounded idle poll instead of continuously retrying failed jobs.
 
 ## NetCord transport
 Prefer NetCord application commands + component interactions (buttons/modals). The verification button opens the StudentId modal. Command/component handlers contain no EF queries directly; call application services.

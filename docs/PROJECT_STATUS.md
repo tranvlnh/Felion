@@ -6,7 +6,7 @@ Last Updated: 2026-09-17
 Milestone 9 — Hardening (in progress)
 
 ## Current Focus
-Admin-only Members & Discord roles dashboard tab đã hoàn tất: Admin có thể tạo Member, active Member/ProbationCandidate có thể được gán nhiều existing guild role trước khi link; queued sync áp dụng cả role riêng và role mapping tự động. Milestone 9 Hardening vẫn là milestone đang thực hiện; task này không đánh dấu hoàn tất các phần Hardening còn lại.
+Admin-only Members & Discord roles dashboard tab và Discord sync polling hardening đã hoàn tất: Admin có thể tạo Member, active Member/ProbationCandidate có thể được gán nhiều existing guild role trước khi link; queued sync áp dụng cả role riêng và role mapping tự động, retry có durable backoff và idle polling giảm còn 30 giây. Milestone 9 Hardening vẫn là milestone đang thực hiện; task này không đánh dấu hoàn tất các phần Hardening còn lại.
 
 ## Completed
 - [x] Product scope baseline
@@ -89,6 +89,7 @@ Admin-only Members & Discord roles dashboard tab đã hoàn tất: Admin có th�
 - [x] Admin-only guild-scoped Discord slash commands for role creation/mapping and Department/Generation creation
 - [x] Admin-only per-subject Discord role assignments, role catalog, queued synchronization and PASS/FAIL lifecycle transfer/removal
 - [x] Members & Discord roles dashboard tab with multi-select role assignment UI and Admin member creation action
+- [x] Discord sync retry backoff and reduced idle polling with PostgreSQL migration/test coverage
 
 ## In Progress
 Milestone 9 — Hardening còn lại (ingress/upload hardening và mở rộng live integration coverage). Probation Admin Dashboard và per-subject Discord role assignment slice đã hoàn tất.
@@ -103,7 +104,7 @@ Milestone 9 — Hardening: giới hạn upload import, sau đó mở rộng live
 - dotnet restore: PASS — `dotnet restore Felion.slnx -p:NuGetAudit=false`
 - dotnet format: PASS — `dotnet format Felion.slnx --verify-no-changes --no-restore`
 - dotnet build: PASS — Release/Debug, 0 warnings, 0 errors
-- dotnet test: PASS — 24 domain tests, 96 application tests, 30 passed + 2 skipped integration tests (PostgreSQL test connection chưa cấu hình local)
+- dotnet test: PASS — 24 domain tests, 96 application tests, 34 integration tests with `FELION_POSTGRES_TEST_CONNECTION`
 - NuGet vulnerability audit: PASS — không phát hiện package vulnerable, kể cả transitive dependencies
 - EF migration: PASS — `20260916112125_AddEvaluations`
 - EF migration: PASS — `20260916115048_AddEvaluationSubmissions`
@@ -112,10 +113,12 @@ Milestone 9 — Hardening: giới hạn upload import, sau đó mở rộng live
 - EF migration: PASS — `20260916133349_AddEventRegistrations`
 - EF migration: PASS — `20260916135416_AddEventAttendance`
 - EF migration: PASS — `20260917071232_AddDiscordRoleAssignments`
+- EF migration: PASS — `20260917082628_AddDiscordSyncRetryBackoff`
 - dotnet ef database update: PASS — local PostgreSQL đã apply `20260916133349_AddEventRegistrations`
 - dotnet ef database update: PASS — local PostgreSQL đã apply `20260916135416_AddEventAttendance`
 - dotnet ef database update: PASS — local PostgreSQL đã apply `20260916132229_AddEvents`
 - dotnet ef database update: PASS — local PostgreSQL với user `postgres`, đã apply toàn bộ migration hiện tại
+- dotnet ef database update: PASS — local PostgreSQL đã apply `20260917082628_AddDiscordSyncRetryBackoff`
 - PostgreSQL integration test: PASS — `ConcurrentAttendanceInsertsLeaveExactlyOneRecord` với database `felion_test_*` cô lập
 - PostgreSQL integration test: PASS — `ListAsyncOrdersCandidatesBeforeProjectingViews` với database `felion_test_*` cô lập
 - node syntax check: PASS — `node --check src/Felion.Host/wwwroot/admin/probation/app.js`

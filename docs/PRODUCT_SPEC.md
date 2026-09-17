@@ -31,6 +31,8 @@ To mitigate abusive retries, Discord linking is limited to five attempts per Dis
 
 Admin/Core may unlink/relink and force role sync through web/API and Discord application commands according to authorization.
 
+Discord role changes are persisted as retryable `DiscordSyncJob` records. The worker must not hot-loop a failing job: it schedules the next attempt with backoff and only claims jobs whose retry time has arrived. When no job is ready, the worker uses a bounded idle poll so pending jobs remain durable across process restarts.
+
 ## Discord role mapping
 Mappings are configuration stored in DB, not hard-coded IDs. Supported role dimensions:
 - Member position: Admin/Core/Member

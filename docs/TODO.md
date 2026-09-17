@@ -111,5 +111,6 @@
 - [x] Cookie/HTTPS/HSTS, Kestrel and security response-header hardening
 - [x] One-shot deploy-safe bootstrap command for initial Admin/Generation with system audit
 - [x] Discord command authorization and audit coverage for Admin administration commands
+- [x] Discord sync retry backoff and reduced idle polling
 - [ ] API integration tests
 - [x] Keep specs/status/TODO/decisions synchronized for completed Member management slice
