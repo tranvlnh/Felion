@@ -17,6 +17,14 @@ public sealed record DiscordRoleMappingDto(
     string RoleNameSnapshot,
     DateTimeOffset UpdatedAt);
 
+public interface IDiscordRoleMappingSubjectResolver
+{
+    public Task<string> ResolveAsync(
+        DiscordRoleMappingKind kind,
+        string subjectName,
+        CancellationToken cancellationToken);
+}
+
 public interface IDiscordRoleMappingStore
 {
     public Task<IReadOnlyList<DiscordRoleMapping>> ListAsync(CancellationToken cancellationToken);
@@ -43,5 +51,6 @@ public interface IDiscordRoleMappingService
         Guid actorMemberId,
         UpsertDiscordRoleMappingCommand command,
         string correlationId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null);
 }

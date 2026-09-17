@@ -34,9 +34,12 @@ public static class DependencyInjection
         services.AddSingleton<IRateLimitGate, InMemoryRateLimitGate>();
         services.AddScoped<MemberStore>();
         services.AddScoped<IMemberStore>(services => services.GetRequiredService<MemberStore>());
+        services.AddScoped<IReferenceDataStore>(services => services.GetRequiredService<MemberStore>());
         services.AddScoped<IWebIdentityDirectory>(services => services.GetRequiredService<MemberStore>());
         services.AddScoped<IWebIdentityService, WebIdentityService>();
         services.AddScoped<IMemberManagementService, MemberManagementService>();
+        services.AddScoped<IDepartmentManagementService, DepartmentManagementService>();
+        services.AddScoped<IGenerationManagementService, GenerationManagementService>();
         services.AddScoped<IProbationTeamStore, ProbationTeamStore>();
         services.AddScoped<IProbationTeamManagementService, ProbationTeamManagementService>();
         services.AddScoped<IProbationCandidateStore, ProbationCandidateStore>();
@@ -51,13 +54,20 @@ public static class DependencyInjection
         services.AddScoped<IEventManagementService, EventManagementService>();
         services.AddSingleton<IEvaluationDefaultsProvider, EvaluationDefaultsProvider>();
         services.AddScoped<IDiscordLinkStore, DiscordLinkStore>();
+        services.AddScoped<IDiscordAuthorizationService, DiscordAuthorizationService>();
         services.AddScoped<IDiscordLinkingService, DiscordLinkingService>();
         services.AddScoped<IDiscordLinkManagementStore, DiscordLinkManagementStore>();
         services.AddScoped<IDiscordLinkManagementService, DiscordLinkManagementService>();
         services.AddScoped<IDiscordRoleMappingStore, DiscordRoleMappingStore>();
+        services.AddScoped<IDiscordRoleMappingSubjectResolver, DiscordRoleMappingSubjectResolver>();
         services.AddScoped<IDiscordRoleMappingService, DiscordRoleMappingService>();
-        services.AddScoped<IDiscordRoleManagementStore, DiscordRoleManagementStore>();
+        services.AddScoped<DiscordRoleManagementStore>();
+        services.AddScoped<IDiscordRoleManagementStore>(services =>
+            services.GetRequiredService<DiscordRoleManagementStore>());
         services.AddScoped<IDiscordRoleManagementService, DiscordRoleManagementService>();
+        services.AddScoped<IDiscordVerificationMessageStore>(services =>
+            services.GetRequiredService<DiscordRoleManagementStore>());
+        services.AddScoped<IDiscordVerificationMessageService, DiscordVerificationMessageService>();
         services.AddScoped<IDiscordSyncJobStore, DiscordSyncJobStore>();
         services.AddScoped<IDiscordSyncProcessor, DiscordSyncProcessor>();
         services.AddSingleton<IMemberImportReader, MemberImportReader>();

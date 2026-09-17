@@ -7,7 +7,9 @@ using NetCord;
 using NetCord.Gateway;
 using NetCord.Hosting.Gateway;
 using NetCord.Hosting.Services;
+using NetCord.Hosting.Services.ApplicationCommands;
 using NetCord.Hosting.Services.ComponentInteractions;
+using NetCord.Services.ApplicationCommands;
 using NetCord.Services.ComponentInteractions;
 
 namespace Felion.Bot;
@@ -44,11 +46,19 @@ public static class DependencyInjection
 
         services.AddSingleton(new ConfiguredDiscordGuild(parsedGuildId));
         services.AddSingleton<IDiscordRoleGateway, NetCordDiscordRoleGateway>();
+        services.AddSingleton<IDiscordGuildPermissionGateway, NetCordDiscordGuildPermissionGateway>();
+        services.AddSingleton<IDiscordVerificationMessageGateway, NetCordDiscordVerificationMessageGateway>();
         services.AddSingleton<IDiscordGuildGateway, NetCordDiscordGuildGateway>();
         services.AddHostedService<DiscordSyncWorker>();
+        services.AddHostedService<DiscordCommandRegistrationWorker>();
         services
             .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>()
             .AddComponentInteractions<ModalInteraction, ModalInteractionContext>();
+        services.AddApplicationCommands(options =>
+        {
+            options.AutoRegisterCommands = false;
+            options.DefaultContexts = [InteractionContextType.Guild];
+        });
 
         services.AddDiscordGateway(options =>
         {

@@ -25,7 +25,8 @@ public sealed class DiscordRoleMappingService(
         Guid actorMemberId,
         UpsertDiscordRoleMappingCommand command,
         string correlationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null)
     {
         await GetAuthorizedActorAsync(actorMemberId, cancellationToken);
 
@@ -69,9 +70,9 @@ public sealed class DiscordRoleMappingService(
             }
 
             var audit = AuditLog.Create(
-                AuditActorType.WebMember,
-                actorMemberId,
-                actorDiscordUserId: null,
+                actorDiscordUserId is null ? AuditActorType.WebMember : AuditActorType.DiscordMember,
+                actorDiscordUserId is null ? actorMemberId : null,
+                actorDiscordUserId,
                 "DiscordRoleMappingUpserted",
                 "DiscordRoleMapping",
                 mapping.Id,

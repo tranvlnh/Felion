@@ -1,8 +1,10 @@
 using Felion.Application.Discord;
 using Felion.Application.Members;
+using Felion.Application.Probation;
 using Felion.Domain.Audit;
 using Felion.Domain.Identity;
 using Felion.Domain.Members;
+using Felion.Domain.Probation;
 
 namespace Felion.Application.Tests;
 
@@ -116,11 +118,15 @@ public sealed class DiscordRoleMappingTests
             actor.Id,
             new CreateDiscordRoleCommand(" Core "),
             "correlation-create",
-            CancellationToken.None);
+            CancellationToken.None,
+            actorDiscordUserId: 123456789);
 
         Assert.Equal(987654321, result.Id);
         Assert.Equal("Core", result.Name);
-        Assert.Contains(mappingStore.AuditLogs, audit => audit.Action == "DiscordRoleCreated");
+        var audit = Assert.Single(mappingStore.AuditLogs, audit => audit.Action == "DiscordRoleCreated");
+        Assert.Equal(AuditActorType.DiscordMember, audit.ActorType);
+        Assert.Null(audit.ActorMemberId);
+        Assert.Equal(123456789, audit.ActorDiscordUserId);
     }
 
     [Fact]
@@ -172,6 +178,68 @@ public sealed class DiscordRoleMappingTests
         Assert.Equal("Actual role name", result.RoleNameSnapshot);
     }
 
+    [Fact]
+    public async Task RoleMappingSubjectResolverResolvesReferenceDataAndTeamNames()
+    {
+        var store = CreateStore(out _);
+        var department = Department.CreateRegular("Engineering", "engineering");
+        var team = ProbationTeam.Create("Spring 2026");
+        store.Departments.Add(department);
+        var teamStore = new FakeProbationTeamStore();
+        teamStore.Teams.Add(new ProbationTeamView(
+            team.Id,
+            team.Name,
+            team.IsActive,
+            [],
+            [],
+            team.CreatedAt,
+            team.UpdatedAt));
+        var resolver = new DiscordRoleMappingSubjectResolver(store, teamStore);
+
+        var departmentKey = await resolver.ResolveAsync(
+            DiscordRoleMappingKind.Department,
+            " engineering ",
+            CancellationToken.None);
+        var generationKey = await resolver.ResolveAsync(
+            DiscordRoleMappingKind.Generation,
+            "Generation 1",
+            CancellationToken.None);
+        var teamKey = await resolver.ResolveAsync(
+            DiscordRoleMappingKind.ProbationTeam,
+            "spring 2026",
+            CancellationToken.None);
+
+        Assert.Equal(department.Id.ToString("D"), departmentKey);
+        Assert.Equal(store.Generation.Id.ToString("D"), generationKey);
+        Assert.Equal(team.Id.ToString("D"), teamKey);
+    }
+
+    [Fact]
+    public async Task UnknownRoleMappingSubjectNameIsRejected()
+    {
+        var store = CreateStore(out _);
+        var resolver = new DiscordRoleMappingSubjectResolver(store, new FakeProbationTeamStore());
+
+        await Assert.ThrowsAsync<DiscordRoleMappingValidationException>(() => resolver.ResolveAsync(
+            DiscordRoleMappingKind.Department,
+            "Missing Department",
+            CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AmbiguousRoleMappingSubjectNameIsRejected()
+    {
+        var store = CreateStore(out _);
+        store.Departments.Add(Department.CreateRegular("Product", "product"));
+        store.Departments.Add(Department.CreateRegular("Product", "product-2"));
+        var resolver = new DiscordRoleMappingSubjectResolver(store, new FakeProbationTeamStore());
+
+        await Assert.ThrowsAsync<DiscordRoleMappingValidationException>(() => resolver.ResolveAsync(
+            DiscordRoleMappingKind.Department,
+            "Product",
+            CancellationToken.None));
+    }
+
     private static FakeMemberStore CreateStore(out Member actor)
     {
         var store = new FakeMemberStore
@@ -179,6 +247,8 @@ public sealed class DiscordRoleMappingTests
             CoreDepartment = Department.CreateCore(),
             Generation = Generation.Create("Generation 1", "G1")
         };
+        store.Departments.Add(store.CoreDepartment);
+        store.Generations.Add(store.Generation);
         actor = Member.Create(
             "ADMIN001",
             "Admin",
@@ -268,6 +338,10 @@ public sealed class DiscordRoleMappingTests
     {
         public List<Member> Members { get; } = [];
 
+        public List<Department> Departments { get; } = [];
+
+        public List<Generation> Generations { get; } = [];
+
         public required Department CoreDepartment { get; init; }
 
         public required Generation Generation { get; init; }
@@ -306,12 +380,12 @@ public sealed class DiscordRoleMappingTests
 
         public Task<IReadOnlyList<Department>> ListDepartmentsAsync(CancellationToken cancellationToken)
         {
-            throw new NotSupportedException();
+            return Task.FromResult<IReadOnlyList<Department>>(Departments.ToArray());
         }
 
         public Task<IReadOnlyList<Generation>> ListGenerationsAsync(CancellationToken cancellationToken)
         {
-            throw new NotSupportedException();
+            return Task.FromResult<IReadOnlyList<Generation>>(Generations.ToArray());
         }
 
         public Task AddAsync(Member member, AuditLog auditLog, CancellationToken cancellationToken)
@@ -328,5 +402,47 @@ public sealed class DiscordRoleMappingTests
         {
             throw new NotSupportedException();
         }
+    }
+
+    private sealed class FakeProbationTeamStore : IProbationTeamStore
+    {
+        public List<ProbationTeamView> Teams { get; } = [];
+
+        public Task<IReadOnlyList<ProbationTeamView>> ListAsync(CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<ProbationTeamView>>(Teams.ToArray());
+
+        public Task<ProbationTeamView?> FindViewAsync(Guid teamId, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<ProbationTeam?> FindTeamAsync(Guid teamId, bool track, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<ProbationCandidate?> FindCandidateAsync(Guid candidateId, bool track, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<TeamMentor?> FindMentorAsync(Guid teamId, Guid memberId, bool track, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<long?> FindCandidateDiscordUserIdAsync(Guid candidateId, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task AddTeamAsync(ProbationTeam team, AuditLog auditLog, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task UpdateTeamAsync(ProbationTeam team, AuditLog auditLog, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task SaveCandidateAssignmentAsync(
+            ProbationCandidate candidate,
+            AuditLog auditLog,
+            DiscordSyncJob? syncJob,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task AddMentorAsync(TeamMentor mentor, AuditLog auditLog, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task RemoveMentorAsync(TeamMentor mentor, AuditLog auditLog, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
     }
 }

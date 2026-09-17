@@ -15,7 +15,8 @@ public sealed class DiscordRoleManagementService(
         Guid actorMemberId,
         CreateDiscordRoleCommand command,
         string correlationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null)
     {
         await EnsureAdminAsync(actorMemberId, cancellationToken);
 
@@ -42,9 +43,9 @@ public sealed class DiscordRoleManagementService(
 
         var role = await roleGateway.CreateRoleAsync(name, cancellationToken);
         var audit = AuditLog.Create(
-            AuditActorType.WebMember,
-            actorMemberId,
-            actorDiscordUserId: null,
+            actorDiscordUserId is null ? AuditActorType.WebMember : AuditActorType.DiscordMember,
+            actorDiscordUserId is null ? actorMemberId : null,
+            actorDiscordUserId,
             "DiscordRoleCreated",
             "DiscordRole",
             entityId: null,

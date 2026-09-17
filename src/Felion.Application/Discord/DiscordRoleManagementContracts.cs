@@ -15,5 +15,6 @@ public interface IDiscordRoleManagementService
         Guid actorMemberId,
         CreateDiscordRoleCommand command,
         string correlationId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        long? actorDiscordUserId = null);
 }
