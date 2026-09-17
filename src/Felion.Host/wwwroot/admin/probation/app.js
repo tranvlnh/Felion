@@ -12,6 +12,19 @@ const state = {
   activeView: "candidates"
 };
 
+const memberPositions = ["Admin", "Core", "Member"];
+const candidateStatuses = ["Active", "Passed", "Failed", "Archived"];
+
+function enumName(value, names) {
+  if (typeof value === "number" && Number.isInteger(value)) return names[value] ?? String(value);
+  if (typeof value === "string" && names.includes(value)) return value;
+  return value == null ? "" : String(value);
+}
+
+function subjectTypeName(value) {
+  return enumName(value, ["Member", "Probation"]);
+}
+
 const elements = {
   message: document.querySelector("#message"),
   currentUser: document.querySelector("#current-user"),
@@ -146,7 +159,7 @@ async function loadCandidates() {
   elements.candidateTable.replaceChildren();
   page.items.forEach(candidate => {
     const row = document.createElement("tr");
-    row.innerHTML = `<td><div class="candidate-name">${escapeHtml(candidate.fullName)}</div><div class="candidate-student">${escapeHtml(candidate.studentId)}${candidate.hasDiscordIdentity ? " · Discord linked" : ""}</div></td><td>${escapeHtml(candidate.department.name)}</td><td>${escapeHtml(candidate.generation.code || candidate.generation.name)}</td><td>${escapeHtml(candidate.team?.name || "—")}</td><td>${statusBadge(candidate.status)}</td><td><button class="button secondary" type="button" data-candidate-id="${candidate.id}">Chi tiết</button></td>`;
+    row.innerHTML = `<td><div class="candidate-name">${escapeHtml(candidate.fullName)}</div><div class="candidate-student">${escapeHtml(candidate.studentId)}${candidate.hasDiscordIdentity ? " · Discord linked" : ""}</div></td><td>${escapeHtml(candidate.department.name)}</td><td>${escapeHtml(candidate.generation.code || candidate.generation.name)}</td><td>${escapeHtml(candidate.team?.name || "—")}</td><td>${statusBadge(enumName(candidate.status, candidateStatuses))}</td><td><button class="button secondary" type="button" data-candidate-id="${candidate.id}">Chi tiết</button></td>`;
     elements.candidateTable.append(row);
   });
   elements.candidateEmpty.hidden = page.items.length !== 0;
@@ -190,15 +203,16 @@ function renderRoleAssignments() {
     || subject.fullName.toLocaleLowerCase().includes(search));
   elements.roleAssignmentTable.replaceChildren();
   subjects.forEach(subject => {
-    const type = subject.subjectType === "Member" ? "Member" : "Candidate";
-    const statusOrPosition = subject.subjectType === "Member"
-      ? subject.memberPosition
-      : subject.candidateStatus;
+    const subjectType = subjectTypeName(subject.subjectType);
+    const type = subjectType === "Member" ? "Member" : "Candidate";
+    const statusOrPosition = subjectType === "Member"
+      ? enumName(subject.memberPosition, memberPositions)
+      : enumName(subject.candidateStatus, candidateStatuses);
     const assignments = (subject.assignments || [])
       .map(assignment => `<span class="chip compact-chip">${escapeHtml(assignment.roleNameSnapshot)}</span>`)
       .join(" ") || "<span class=\"muted\">Chưa gán</span>";
     const row = document.createElement("tr");
-    row.innerHTML = `<td><div class="candidate-name">${escapeHtml(subject.fullName)}</div><div class="candidate-student">${escapeHtml(subject.studentId)}</div></td><td>${type}</td><td>${statusOrPosition ? statusBadge(statusOrPosition) : "—"}</td><td>${subject.discordUserId ? "Đã liên kết" : "Chưa liên kết"}</td><td><div class="chip-list">${assignments}</div></td><td><button class="button secondary" type="button" data-role-subject-type="${escapeHtml(subject.subjectType)}" data-role-subject-id="${escapeHtml(subject.subjectId)}">Chỉnh role</button></td>`;
+    row.innerHTML = `<td><div class="candidate-name">${escapeHtml(subject.fullName)}</div><div class="candidate-student">${escapeHtml(subject.studentId)}</div></td><td>${type}</td><td>${statusOrPosition ? statusBadge(statusOrPosition) : "—"}</td><td>${subject.discordUserId ? "Đã liên kết" : "Chưa liên kết"}</td><td><div class="chip-list">${assignments}</div></td><td><button class="button secondary" type="button" data-role-subject-type="${escapeHtml(subjectType)}" data-role-subject-id="${escapeHtml(subject.subjectId)}">Chỉnh role</button></td>`;
     elements.roleAssignmentTable.append(row);
   });
   elements.roleAssignmentEmpty.hidden = subjects.length !== 0;
@@ -206,7 +220,8 @@ function renderRoleAssignments() {
 
 function openRoleAssignmentForm(subject) {
   state.selectedRoleSubject = subject;
-  elements.roleAssignmentSubject.textContent = `${subject.fullName} · ${subject.studentId} · ${subject.subjectType === "Member" ? "Member" : "Candidate"}`;
+  const subjectType = subjectTypeName(subject.subjectType);
+  elements.roleAssignmentSubject.textContent = `${subject.fullName} · ${subject.studentId} · ${subjectType === "Member" ? "Member" : "Candidate"}`;
   elements.roleAssignmentOptions.replaceChildren();
   const selectedRoleIds = new Set((subject.assignments || []).map(assignment => assignment.discordRoleId));
   state.roleCatalog.forEach(role => {
@@ -229,8 +244,8 @@ async function openCandidateDetail(candidateId) {
 
 function renderCandidateDetail() {
   const candidate = state.selectedCandidate;
-  document.querySelector("#candidate-detail-content").innerHTML = `<dl class="detail-list"><dt>MSSV</dt><dd>${escapeHtml(candidate.studentId)}</dd><dt>Họ và tên</dt><dd>${escapeHtml(candidate.fullName)}</dd><dt>Department</dt><dd>${escapeHtml(candidate.department.name)}</dd><dt>Generation</dt><dd>${escapeHtml(candidate.generation.name)}${candidate.generation.code ? ` (${escapeHtml(candidate.generation.code)})` : ""}</dd><dt>Team</dt><dd>${escapeHtml(candidate.team?.name || "Chưa có team")}</dd><dt>Status</dt><dd>${statusBadge(candidate.status)}</dd><dt>Discord</dt><dd>${candidate.hasDiscordIdentity ? "Đã liên kết" : "Chưa liên kết"}</dd></dl>`;
-  const active = candidate.status === "Active";
+  document.querySelector("#candidate-detail-content").innerHTML = `<dl class="detail-list"><dt>MSSV</dt><dd>${escapeHtml(candidate.studentId)}</dd><dt>Họ và tên</dt><dd>${escapeHtml(candidate.fullName)}</dd><dt>Department</dt><dd>${escapeHtml(candidate.department.name)}</dd><dt>Generation</dt><dd>${escapeHtml(candidate.generation.name)}${candidate.generation.code ? ` (${escapeHtml(candidate.generation.code)})` : ""}</dd><dt>Team</dt><dd>${escapeHtml(candidate.team?.name || "Chưa có team")}</dd><dt>Status</dt><dd>${statusBadge(enumName(candidate.status, candidateStatuses))}</dd><dt>Discord</dt><dd>${candidate.hasDiscordIdentity ? "Đã liên kết" : "Chưa liên kết"}</dd></dl>`;
+  const active = enumName(candidate.status, candidateStatuses) === "Active";
   document.querySelector("#edit-candidate-button").hidden = !active;
   document.querySelector("#change-team-button").hidden = !active;
   document.querySelector("#pass-candidate-button").hidden = !active;
@@ -378,7 +393,8 @@ elements.roleAssignmentTable.addEventListener("click", event => {
   const button = event.target.closest("[data-role-subject-id]");
   if (!button) return;
   const subject = state.roleAssignments.find(item =>
-    item.subjectType === button.dataset.roleSubjectType && item.subjectId === button.dataset.roleSubjectId);
+    subjectTypeName(item.subjectType) === button.dataset.roleSubjectType
+    && String(item.subjectId) === button.dataset.roleSubjectId);
   if (subject) openRoleAssignmentForm(subject);
 });
 document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => document.querySelector(`#${button.dataset.close}`).close()));
@@ -444,12 +460,14 @@ elements.roleAssignmentForm.addEventListener("submit", async event => {
   const discordRoleIds = [...elements.roleAssignmentOptions.querySelectorAll("input[type=checkbox]:checked")]
     .map(input => input.value);
   try {
-    const updated = await api(`/discord/role-assignments/${subject.subjectType}/${subject.subjectId}`, {
+    const subjectType = subjectTypeName(subject.subjectType);
+    const updated = await api(`/discord/role-assignments/${subjectType}/${subject.subjectId}`, {
       method: "PUT",
       body: JSON.stringify({ discordRoleIds })
     });
     const index = state.roleAssignments.findIndex(item =>
-      item.subjectType === updated.subjectType && item.subjectId === updated.subjectId);
+      subjectTypeName(item.subjectType) === subjectTypeName(updated.subjectType)
+      && String(item.subjectId) === String(updated.subjectId));
     if (index >= 0) state.roleAssignments[index] = updated;
     elements.roleAssignmentDialog.close();
     renderRoleAssignments();
