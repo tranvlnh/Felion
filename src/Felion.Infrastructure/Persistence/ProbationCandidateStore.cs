@@ -28,8 +28,11 @@ internal sealed class ProbationCandidateStore(FelionDbContext dbContext) : IProb
         Guid candidateId,
         CancellationToken cancellationToken)
     {
-        return CreateViewsQuery(dbContext.ProbationCandidates.AsNoTracking())
-            .SingleOrDefaultAsync(view => view.Candidate.Id == candidateId, cancellationToken);
+        return CreateViewsQuery(
+                dbContext.ProbationCandidates
+                    .AsNoTracking()
+                    .Where(candidate => candidate.Id == candidateId))
+            .SingleOrDefaultAsync(cancellationToken);
     }
 
     public Task<ProbationCandidate?> FindCandidateAsync(

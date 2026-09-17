@@ -14,7 +14,7 @@ public sealed class ProbationCandidateStoreTests
     public async Task ListAsyncOrdersCandidatesBeforeProjectingViews()
     {
         await using var database = await PostgreSqlTestDatabase.CreateAsync();
-        var (departmentId, generationId) = await SeedCandidatesAsync(database);
+        var (departmentId, generationId, _) = await SeedCandidatesAsync(database);
 
         var services = new ServiceCollection();
         var configuration = new ConfigurationBuilder()
@@ -44,7 +44,34 @@ public sealed class ProbationCandidateStoreTests
         });
     }
 
-    private static async Task<(Guid DepartmentId, Guid GenerationId)> SeedCandidatesAsync(
+    [PostgreSqlFact]
+    public async Task FindViewAsyncReturnsCandidateWithoutTeamOrDiscordLink()
+    {
+        await using var database = await PostgreSqlTestDatabase.CreateAsync();
+        var (_, _, candidateId) = await SeedCandidatesAsync(database);
+
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Postgres"] = database.ConnectionString
+            })
+            .Build();
+        services.AddFelionInfrastructure(configuration, services.AddHealthChecks());
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var store = scope.ServiceProvider.GetRequiredService<IProbationCandidateStore>();
+
+        var result = await store.FindViewAsync(candidateId, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(candidateId, result.Candidate.Id);
+        Assert.Null(result.Team);
+        Assert.False(result.HasDiscordIdentity);
+    }
+
+    private static async Task<(Guid DepartmentId, Guid GenerationId, Guid CandidateId)> SeedCandidatesAsync(
         PostgreSqlTestDatabase database)
     {
         await using var context = database.CreateContext();
@@ -66,6 +93,6 @@ public sealed class ProbationCandidateStoreTests
         context.ProbationCandidates.AddRange(first, second);
         await context.SaveChangesAsync();
 
-        return (department.Id, generation.Id);
+        return (department.Id, generation.Id, first.Id);
     }
 }
