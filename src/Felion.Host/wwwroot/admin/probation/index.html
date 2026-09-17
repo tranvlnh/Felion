@@ -20,6 +20,7 @@
     <nav class="tabs" aria-label="Probation management">
       <button class="tab active" type="button" data-view="candidates">Candidates</button>
       <button class="tab" type="button" data-view="teams">Teams</button>
+      <button id="role-assignments-tab" class="tab" type="button" data-view="role-assignments" hidden>Members &amp; Discord roles</button>
     </nav>
 
     <section id="message" class="message" hidden aria-live="polite"></section>
@@ -88,6 +89,33 @@
       <div id="team-list" class="team-grid"></div>
       <div id="team-empty" class="empty" hidden>Chưa có probation team.</div>
     </section>
+
+    <section id="role-assignments-view" hidden>
+      <div class="toolbar">
+        <div>
+          <h2>Members &amp; Discord roles</h2>
+          <p class="muted">Admin chọn role riêng cho Member hoặc Candidate. Người dùng vẫn link bằng MSSV trên Discord như bình thường.</p>
+        </div>
+      </div>
+      <form id="role-assignment-filters" class="filters compact-filters">
+        <label>Tìm kiếm
+          <input id="role-assignment-search" type="search" placeholder="MSSV hoặc họ tên">
+        </label>
+        <div class="filter-actions">
+          <button class="button secondary" type="submit">Lọc</button>
+          <button id="clear-role-assignment-filter" class="button ghost" type="button">Xóa lọc</button>
+        </div>
+      </form>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Người dùng</th><th>Loại</th><th>Position / Status</th><th>Discord</th><th>Role riêng</th><th></th></tr>
+          </thead>
+          <tbody id="role-assignment-table-body"></tbody>
+        </table>
+      </div>
+      <div id="role-assignment-empty" class="empty" hidden>Không tìm thấy Member/Candidate phù hợp.</div>
+    </section>
   </main>
 
   <dialog id="candidate-dialog" class="dialog">
@@ -146,6 +174,16 @@
       <header><h2>Đổi team</h2></header>
       <label>Team<select id="team-change-select"></select></label>
       <footer><button class="button ghost" type="button" data-close="team-change-dialog">Hủy</button><button class="button primary" type="submit">Xác nhận</button></footer>
+    </form>
+  </dialog>
+
+  <dialog id="role-assignment-dialog" class="dialog wide">
+    <form id="role-assignment-form" method="dialog">
+      <header><h2>Gán Discord role riêng</h2></header>
+      <p id="role-assignment-subject" class="muted"></p>
+      <div id="role-assignment-options" class="role-options"></div>
+      <p class="form-note">Danh sách này thay thế toàn bộ role riêng hiện tại. Role tự động theo Position/Department/Generation/Team vẫn được giữ độc lập.</p>
+      <footer><button class="button ghost" type="button" data-close="role-assignment-dialog">Hủy</button><button class="button primary" type="submit">Lưu role</button></footer>
     </form>
   </dialog>
 

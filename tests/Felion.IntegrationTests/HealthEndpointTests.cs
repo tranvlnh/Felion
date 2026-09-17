@@ -70,6 +70,7 @@ public sealed class HealthEndpointTests : IClassFixture<HealthEndpointTests.Test
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Probation Admin", body, StringComparison.Ordinal);
+        Assert.Contains("Members &amp; Discord roles", body, StringComparison.Ordinal);
         Assert.Contains("script-src 'self'", response.Headers.GetValues("Content-Security-Policy").Single(), StringComparison.Ordinal);
         Assert.Contains("no-store", response.Headers.GetValues("Cache-Control").Single(), StringComparison.Ordinal);
     }

@@ -2,8 +2,11 @@ const apiBase = "/api/v1";
 const state = {
   references: null,
   candidates: null,
+  roleAssignments: null,
+  roleCatalog: [],
   selectedCandidate: null,
   selectedTeam: null,
+  selectedRoleSubject: null,
   page: 1,
   pageSize: 25,
   activeView: "candidates"
@@ -14,6 +17,8 @@ const elements = {
   currentUser: document.querySelector("#current-user"),
   candidatesView: document.querySelector("#candidates-view"),
   teamsView: document.querySelector("#teams-view"),
+  roleAssignmentsView: document.querySelector("#role-assignments-view"),
+  roleAssignmentsTab: document.querySelector("#role-assignments-tab"),
   candidateFilters: document.querySelector("#candidate-filters"),
   candidateTable: document.querySelector("#candidate-table-body"),
   candidateEmpty: document.querySelector("#candidate-empty"),
@@ -30,6 +35,13 @@ const elements = {
   teamDetailDialog: document.querySelector("#team-detail-dialog"),
   teamChangeDialog: document.querySelector("#team-change-dialog"),
   teamChangeForm: document.querySelector("#team-change-form"),
+  roleAssignmentFilters: document.querySelector("#role-assignment-filters"),
+  roleAssignmentTable: document.querySelector("#role-assignment-table-body"),
+  roleAssignmentEmpty: document.querySelector("#role-assignment-empty"),
+  roleAssignmentDialog: document.querySelector("#role-assignment-dialog"),
+  roleAssignmentForm: document.querySelector("#role-assignment-form"),
+  roleAssignmentSubject: document.querySelector("#role-assignment-subject"),
+  roleAssignmentOptions: document.querySelector("#role-assignment-options"),
   confirmDialog: document.querySelector("#confirm-dialog")
 };
 
@@ -153,6 +165,58 @@ async function loadTeams() {
   elements.teamEmpty.hidden = teams.length !== 0;
 }
 
+async function loadRoleAssignments() {
+  const dashboard = await api("/discord/role-assignments");
+  state.roleAssignments = dashboard.subjects;
+  try {
+    state.roleCatalog = await api("/discord/role-assignments/roles");
+  } catch (error) {
+    state.roleCatalog = [];
+    renderRoleAssignments();
+    throw error;
+  }
+  renderRoleAssignments();
+}
+
+function renderRoleAssignments() {
+  const search = selectedValue("#role-assignment-search").trim().toLocaleLowerCase();
+  const subjects = (state.roleAssignments || []).filter(subject =>
+    !search
+    || subject.studentId.toLocaleLowerCase().includes(search)
+    || subject.fullName.toLocaleLowerCase().includes(search));
+  elements.roleAssignmentTable.replaceChildren();
+  subjects.forEach(subject => {
+    const type = subject.subjectType === "Member" ? "Member" : "Candidate";
+    const statusOrPosition = subject.subjectType === "Member"
+      ? subject.memberPosition
+      : subject.candidateStatus;
+    const assignments = (subject.assignments || [])
+      .map(assignment => `<span class="chip compact-chip">${escapeHtml(assignment.roleNameSnapshot)}</span>`)
+      .join(" ") || "<span class=\"muted\">Chưa gán</span>";
+    const row = document.createElement("tr");
+    row.innerHTML = `<td><div class="candidate-name">${escapeHtml(subject.fullName)}</div><div class="candidate-student">${escapeHtml(subject.studentId)}</div></td><td>${type}</td><td>${statusOrPosition ? statusBadge(statusOrPosition) : "—"}</td><td>${subject.discordUserId ? "Đã liên kết" : "Chưa liên kết"}</td><td><div class="chip-list">${assignments}</div></td><td><button class="button secondary" type="button" data-role-subject-type="${escapeHtml(subject.subjectType)}" data-role-subject-id="${escapeHtml(subject.subjectId)}">Chỉnh role</button></td>`;
+    elements.roleAssignmentTable.append(row);
+  });
+  elements.roleAssignmentEmpty.hidden = subjects.length !== 0;
+}
+
+function openRoleAssignmentForm(subject) {
+  state.selectedRoleSubject = subject;
+  elements.roleAssignmentSubject.textContent = `${subject.fullName} · ${subject.studentId} · ${subject.subjectType === "Member" ? "Member" : "Candidate"}`;
+  elements.roleAssignmentOptions.replaceChildren();
+  const selectedRoleIds = new Set((subject.assignments || []).map(assignment => assignment.discordRoleId));
+  state.roleCatalog.forEach(role => {
+    const label = document.createElement("label");
+    label.className = "role-option";
+    label.innerHTML = `<input type="checkbox" value="${escapeHtml(role.id)}"${selectedRoleIds.has(String(role.id)) ? " checked" : ""}><span>${escapeHtml(role.name)}</span><small>Position ${escapeHtml(role.rawPosition)}</small>`;
+    elements.roleAssignmentOptions.append(label);
+  });
+  if (!state.roleCatalog.length) {
+    elements.roleAssignmentOptions.textContent = "Guild chưa có role có thể gán.";
+  }
+  elements.roleAssignmentDialog.showModal();
+}
+
 async function openCandidateDetail(candidateId) {
   state.selectedCandidate = await api(`/probation/candidates/${candidateId}`);
   renderCandidateDetail();
@@ -251,9 +315,18 @@ async function initialize() {
       return;
     }
     elements.currentUser.textContent = `${currentUser.fullName} · ${currentUser.position}`;
+    const isAdmin = currentUser.position === "Admin";
+    elements.roleAssignmentsTab.hidden = !isAdmin;
     state.references = await api("/probation/candidates/reference-data");
     populateReferences();
     await Promise.all([loadCandidates(), loadTeams()]);
+    if (isAdmin) {
+      try {
+        await loadRoleAssignments();
+      } catch (error) {
+        setMessage(`Không tải được danh sách Discord role: ${error.message}`, "error");
+      }
+    }
   } catch (error) {
     if (error.status === 401) {
       const returnUrl = encodeURIComponent("/admin/probation/");
@@ -269,20 +342,36 @@ document.querySelectorAll("[data-view]").forEach(tab => tab.addEventListener("cl
   document.querySelectorAll("[data-view]").forEach(item => item.classList.toggle("active", item === tab));
   elements.candidatesView.hidden = state.activeView !== "candidates";
   elements.teamsView.hidden = state.activeView !== "teams";
+  elements.roleAssignmentsView.hidden = state.activeView !== "role-assignments";
 }));
 
 document.querySelector("#refresh-button").addEventListener("click", async () => {
   clearMessage();
-  try { await Promise.all([loadCandidates(), loadTeams()]); } catch (error) { setMessage(error.message, "error"); }
+  try {
+    await Promise.all([
+      loadCandidates(),
+      loadTeams(),
+      ...(elements.roleAssignmentsTab.hidden ? [] : [loadRoleAssignments()])
+    ]);
+  } catch (error) { setMessage(error.message, "error"); }
 });
 document.querySelector("#add-candidate-button").addEventListener("click", () => openCandidateForm());
 document.querySelector("#add-team-button").addEventListener("click", () => openTeamForm());
 elements.candidateFilters.addEventListener("submit", async event => { event.preventDefault(); state.page = 1; try { await loadCandidates(); } catch (error) { setMessage(error.message, "error"); } });
 document.querySelector("#clear-filters-button").addEventListener("click", async () => { elements.candidateFilters.reset(); state.page = 1; await loadCandidates(); });
+elements.roleAssignmentFilters.addEventListener("submit", event => { event.preventDefault(); renderRoleAssignments(); });
+document.querySelector("#clear-role-assignment-filter").addEventListener("click", () => { elements.roleAssignmentFilters.reset(); renderRoleAssignments(); });
 elements.previousPage.addEventListener("click", async () => { state.page -= 1; await loadCandidates(); });
 elements.nextPage.addEventListener("click", async () => { state.page += 1; await loadCandidates(); });
 elements.candidateTable.addEventListener("click", event => { const button = event.target.closest("[data-candidate-id]"); if (button) openCandidateDetail(button.dataset.candidateId).catch(error => setMessage(error.message, "error")); });
 elements.teamList.addEventListener("click", event => { const button = event.target.closest("[data-team-id]"); if (button) openTeamDetail(button.dataset.teamId).catch(error => setMessage(error.message, "error")); });
+elements.roleAssignmentTable.addEventListener("click", event => {
+  const button = event.target.closest("[data-role-subject-id]");
+  if (!button) return;
+  const subject = state.roleAssignments.find(item =>
+    item.subjectType === button.dataset.roleSubjectType && item.subjectId === button.dataset.roleSubjectId);
+  if (subject) openRoleAssignmentForm(subject);
+});
 document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => document.querySelector(`#${button.dataset.close}`).close()));
 
 elements.candidateForm.addEventListener("submit", async event => {
@@ -339,6 +428,25 @@ elements.teamForm.addEventListener("submit", async event => {
 });
 
 document.querySelector("#edit-team-button").addEventListener("click", () => openTeamForm(state.selectedTeam));
+elements.roleAssignmentForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  const subject = state.selectedRoleSubject;
+  if (!subject) return;
+  const discordRoleIds = [...elements.roleAssignmentOptions.querySelectorAll("input[type=checkbox]:checked")]
+    .map(input => input.value);
+  try {
+    const updated = await api(`/discord/role-assignments/${subject.subjectType}/${subject.subjectId}`, {
+      method: "PUT",
+      body: JSON.stringify({ discordRoleIds })
+    });
+    const index = state.roleAssignments.findIndex(item =>
+      item.subjectType === updated.subjectType && item.subjectId === updated.subjectId);
+    if (index >= 0) state.roleAssignments[index] = updated;
+    elements.roleAssignmentDialog.close();
+    renderRoleAssignments();
+    setMessage("Đã cập nhật Discord role riêng. Nếu đã link, hệ thống đã xếp hàng sync role.");
+  } catch (error) { setMessage(error.message, "error"); }
+});
 document.querySelector("#mentor-search-form").addEventListener("submit", async event => {
   event.preventDefault();
   try {
