@@ -66,6 +66,7 @@
 - [x] Candidate list/detail with MSSV/name/Department/Generation/Team/Status filters
 - [x] Candidate create/edit, atomic team change and audit/role-sync preservation
 - [x] Team create/edit, mentor assignment/removal and destructive-action confirmations
+- [x] Team detail candidate search, assignment/removal and destructive-action confirmations
 - [x] PASS/FAIL confirmation UI backed by existing decision workflow
 - [x] Candidate application/API/dashboard integration coverage
 - [x] Members & Discord roles dashboard tab with multi-select assignment UI and Admin member creation action
