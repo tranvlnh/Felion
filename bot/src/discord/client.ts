@@ -24,6 +24,7 @@ import {
   type ProbationCandidateMutationResult,
 } from '../db/probation-candidate-management.js';
 import {
+  assignProbationTeamMentor,
   createProbationTeam,
   deactivateProbationTeam,
   editProbationTeam,
@@ -237,6 +238,12 @@ export function createDiscordClient(config: Config, database: NonNullable<Databa
             await deactivateProbationTeam(database, {
               actorDiscordUserId: interaction.user.id,
               teamId: interaction.options.getString('team-id', true),
+            });
+          } else if (interaction.commandName === 'probation-team' && subcommand === 'assign-mentor') {
+            await assignProbationTeamMentor(database, {
+              actorDiscordUserId: interaction.user.id,
+              teamId: interaction.options.getString('team-id', true),
+              memberId: interaction.options.getString('member-id', true),
             });
           } else if (interaction.commandName === 'role' && subcommand === 'map') {
             const role = interaction.options.getRole('role', true);

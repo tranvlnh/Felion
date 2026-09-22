@@ -109,7 +109,12 @@ export const commandDefinitions = [
     .addSubcommand((command) => command
       .setName('deactivate')
       .setDescription('Deactivate a probation team for future assignments.')
-      .addStringOption((option) => option.setName('team-id').setDescription('Probation team UUID').setRequired(true))),
+      .addStringOption((option) => option.setName('team-id').setDescription('Probation team UUID').setRequired(true)))
+    .addSubcommand((command) => command
+      .setName('assign-mentor')
+      .setDescription('Assign an active Member as a mentor for an active probation team.')
+      .addStringOption((option) => option.setName('team-id').setDescription('Probation team UUID').setRequired(true))
+      .addStringOption((option) => option.setName('member-id').setDescription('Member UUID').setRequired(true))),
   new SlashCommandBuilder()
     .setName('role')
     .setDescription('Manage and synchronize Felion Discord roles.')

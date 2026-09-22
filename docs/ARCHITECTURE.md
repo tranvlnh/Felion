@@ -32,7 +32,8 @@ dashboard, browser authentication, or event module.
   evaluation eligibility rules, and managed-role desired-state reconciliation.
 - `src/db/schema.ts`: Drizzle PostgreSQL schema and enums.
 - `src/db/*.ts`: transactional bootstrap, linking, Member/reference/probation-team/
-  probation-candidate administration, authorization, and criterion administration.
+  probation-candidate administration, mentor assignment, authorization, and criterion
+  administration.
 - `drizzle/`: reviewed SQL migrations applied by the runtime/Docker entrypoint.
 - `tests/`: focused Vitest domain tests.
 

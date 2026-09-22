@@ -29,7 +29,7 @@ working Discord workflow.
 - [x] Discord role synchronization and explicit assignment reconciliation
 - [x] Probation team administration
 - [x] Probation candidate creation, team assignment, and lifecycle management
-- [ ] Mentor assignment with active-Member validation
+- [x] Mentor assignment with active-Member validation
 - [ ] Evaluation period open/close commands
 - [ ] Peer and Mentor evaluation submission commands/components
 - [ ] Core/Admin-only raw evaluation reads and reports

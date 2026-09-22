@@ -35,7 +35,8 @@ creation does not require a team. Team assignment accepts only active candidates
 active teams. Candidate lifecycle commands allow only `Active` to `Inactive` and
 `Inactive` to `Active`; `Passed` and `Failed` remain reserved for decision workflows.
 Linked candidates are synchronized immediately after team or lifecycle changes. Mentor
-management workflows are still pending.
+assignment accepts only active Members and active probation teams, rejects duplicate
+team/Member pairs, and writes its audit row in the same transaction.
 
 ## Discord roles and history
 

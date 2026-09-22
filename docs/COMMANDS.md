@@ -23,6 +23,7 @@ specification without being implemented yet.
 | `/probation-team create` | Creates an active probation team | Linked active Felion Admin |
 | `/probation-team edit` | Renames an active probation team by UUID | Linked active Felion Admin |
 | `/probation-team deactivate` | Soft-deactivates a probation team by UUID | Linked active Felion Admin |
+| `/probation-team assign-mentor` | Assigns an active Member to an active probation team | Linked active Felion Admin |
 | `/role map` | Creates or updates a configurable role mapping; reference dimensions use UUID keys and Probation uses `Active` | Linked active Felion Admin |
 | `/role sync` | Reconciles mapped and explicit Felion roles for one linked Discord user | Linked active Felion Admin |
 | `/evaluation-criteria add` | Adds or reactivates a Peer/Mentor criterion | Linked active Felion Admin |
@@ -38,5 +39,5 @@ the link in one transaction.
 
 ## Not registered yet
 
-Mentors, evaluation periods/submissions, evaluation reads, explicit role-assignment
-administration, and PASS/FAIL decisions do not currently have Discord commands.
+Evaluation periods/submissions, evaluation reads, explicit role-assignment administration,
+and PASS/FAIL decisions do not currently have Discord commands.

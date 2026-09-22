@@ -18,6 +18,8 @@ are partially wired.
   creation/edit/deactivation, and Discord role-mapping administration.
 - Probation team creation, rename, and soft-deactivation with Admin authorization and
   transactional audit logging.
+- Active-Member assignment to active probation teams with Admin authorization,
+  duplicate protection, and transactional audit logging.
 - Probation candidate creation without a required team, active-team assignment or
   reassignment, and `Active`/`Inactive` lifecycle management with Admin authorization,
   transactional audit logging, and immediate role synchronization for linked users.
@@ -28,7 +30,7 @@ are partially wired.
   emails, reference names, and evaluation submissions.
 - Dockerfile, Compose deployment, CI build/test workflow, and checked-in migrations.
 - `npm run build` passes.
-- Vitest: 11 files and 43 tests pass.
+- Vitest: 12 files and 47 tests pass.
 
 ## Target data baseline
 
@@ -47,7 +49,6 @@ the current bot test suite.
 
 ## Not implemented yet
 
-- Mentor management commands/workflows.
 - Evaluation periods and Peer/Mentor submission flows.
 - Raw evaluation read/reporting with Core/Admin authorization.
 - Manual PASS/FAIL decisions, identity transfer, role synchronization, and kick retry
