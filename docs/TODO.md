@@ -1,125 +1,41 @@
-# Felion — TODO
+# Felion TODO
 
-## Pre-agent — Manual skeleton (User)
-- [x] Create `Felion.slnx`
-- [x] Create `Felion.Host`, `Felion.Domain`, `Felion.Application`, `Felion.Infrastructure`, `Felion.Api`, `Felion.Bot`
-- [x] Create Domain/Application/Integration test projects
-- [x] Configure approved project references from ADR-013
-- [x] Commit the manual skeleton
+Items marked complete are implemented in the current TypeScript bot. Items marked
+pending may exist in the schema or product specification but are not yet exposed as a
+working Discord workflow.
 
-## Milestone 0 — Foundation Setup (Agent)
-- [x] Verify approved solution structure/references without reorganizing it
-- [x] Add central package management
-- [x] Add formatting/analyzers
-- [x] Add health checks and OpenAPI
-- [x] Configure PostgreSQL/EF Core
-- [x] Add module DI registration and configuration foundation
-- [x] Add structured logging, correlation ID and ProblemDetails handling
-- [x] Add NetCord Gateway integration foundation
-- [x] Add test harness and integration smoke tests
-- [x] Add CI restore/format/build/test workflow
+## Foundation and persistence
 
-## Milestone 1 — Core domain & persistence
-- [x] Department + reserved `Core` department invariant
-- [x] Generation
-- [x] Member + Position/Status
-- [x] ProbationCandidate
-- [x] DiscordIdentityLink uniqueness
-- [x] AuditLog
-- [x] EF Core mappings/migrations
+- [x] TypeScript runtime, configuration validation, and PostgreSQL client
+- [x] Drizzle schema and migrations `0000`–`0003`
+- [x] Remove web/API, browser authentication, and Events from the target
+- [x] Preserve cross-aggregate StudentId and Discord-link uniqueness in the schema
+- [x] Docker deployment and CI build/test workflow
 
-## Milestone 2 — Member import & management
-- [x] Member CRUD API
-- [x] CSV import
-- [x] Excel import
-- [x] Import validation/report
+## Current administration flows
 
-## Milestone 3 — Discord linking & roles
-- [x] Verify button/modal
-- [x] Discord server Administrator bootstrap and linked-Admin slash command to publish the verification message
-- [x] StudentId lookup/link via Discord transport
-- [x] StudentId lookup/link application use case
-- [x] Duplicate-link protection
-- [x] Transactional link audit and immediate role synchronization from current data
-- [x] Role mapping management for existing guild role IDs
-- [x] Role creation
-- [x] Admin Discord slash commands for role creation and name-based role mapping
-- [x] Admin Discord slash commands for Department and Generation creation
-- [x] Position/Department/Generation/Probation/ProbationTeam role sync
-- [x] Unlink/relink/force sync, including immediate sync after linked profile/status changes
-- [x] Admin-only per-subject Discord role assignments with immediate sync and role catalog
-- [x] Filter individual role catalog by bot permission/hierarchy and tolerate no custom bot highest role
-- [x] Show effective automatic roles in the individual-role dashboard without converting them to per-subject assignments
-- [x] Retry synchronization when saving an unchanged assignment set after a previous Discord failure
-- [x] Ignore unrelated unassignable automatic mappings during subject synchronization
+- [x] Initial Admin bootstrap
+- [x] StudentId-based Discord linking with audit logging
+- [x] Regular Member creation with Department/Generation lookup
+- [x] Department creation
+- [x] Name-only Generation creation
+- [x] Discord role mapping storage and administration
+- [x] Configurable evaluation criterion add/reactivate, rename, and deactivate
+- [x] Domain tests for normalization and evaluation invariants
 
-## Milestone 4 — Web identity & authorization
-- [x] Google Workspace OAuth
-- [x] Active Member lookup
-- [x] Admin/Core/Member policies
-- [x] Probation web denial
+## Remaining product work
 
-## Milestone 5 — Probation teams
-- [x] Team CRUD
-- [x] Team Discord role mapping (existing `ProbationTeam` mapping and sync path)
-- [x] Candidate assignment
-- [x] Multi-mentor assignment
-- [x] Discord `/team` commands and interactive team/role administration embed
-
-## Priority MVP — Probation Admin Dashboard
-- [x] Static same-origin dashboard at `/admin/probation/`
-- [x] Candidate list/detail with MSSV/name/Department/Generation/Team/Status filters
-- [x] Candidate create/edit, atomic team change and audit/role-sync preservation
-- [x] Team create/edit, mentor assignment/removal and destructive-action confirmations
-- [x] Team detail candidate search, assignment/removal and destructive-action confirmations
-- [x] PASS/FAIL confirmation UI backed by existing decision workflow
-- [x] Candidate application/API/dashboard integration coverage
-- [x] Members & Discord roles dashboard tab with multi-select assignment UI and Admin member creation action
-- [x] PostgreSQL regression coverage for candidate list projection ordering
-
-## Milestone 6 — Evaluation
-- [x] Fixed Open/Closed EvaluationPeriod lifecycle with Admin-only create/close
-- [x] Fixed Peer criteria (Contribution, Communication, Attitude; 1..5) and Mentor criteria (Attendance, TaskCompletion, LearningInitiative; 1..10)
-- [x] Peer same-team/no-self and Mentor team-membership rules
-- [x] Separate aggregates, progress and missing-submission queries
-- [x] Discord-first commands, select menus and score/note modals
-- [x] Evaluation persistence migration, validation, authorization and audit coverage
-
-## Milestone 7 — Probation decisions
-- [x] Bulk PASS/FAIL
-- [x] PASS promotion to Member
-- [x] Immediate Discord role synchronization; durable retry job retained only for FAIL guild kicks
-- [x] FAIL kick
-- [x] MarkInactive/Delete policy
-- [x] Preserve audit/evaluation history
-
-## Milestone 8 — Events
-- [x] Event CRUD/lifecycle
-- [x] EventPosition + capacity definition
-- [x] Department eligibility
-- [x] `AllowMultiplePositions`
-- [x] Member Pending registration
-- [x] Core/Admin approve/reject
-- [x] Core/Admin direct assignment with eligibility bypass
-- [x] Concurrency-safe capacity enforcement
-- [x] Manual event-level check-in without registration requirement
-- [x] Member participation history
-
-## Cross-cutting
-- [x] README tổng quan dự án, local setup và deployment guide
-- [x] Audit privileged Event, position, registration and attendance mutations
-- [x] Authorization tests
-- [x] Domain invariant tests
-- [x] Scope-safe temporary actor middleware dependency resolution
-- [x] Events API integration tests (authorization, check-in transport and Problem Details mapping)
-- [x] PostgreSQL integration test for EventAttendance uniqueness under concurrent inserts
-- [x] Shared fixed-window rate limits for Discord linking and peer/mentor evaluation submissions
-- [x] HTTP `429`/`Retry-After` integration coverage for rate-limited evaluation submission
-- [x] Cookie/HTTPS/HSTS, Kestrel and security response-header hardening
-- [x] One-shot deploy-safe bootstrap command for initial Admin/Generation with system audit
-- [x] Discord command authorization and audit coverage for Admin administration commands
-- [x] FAIL-only Discord kick retry backoff and reduced idle polling
-- [x] Reorganize `Felion.Bot` into feature/infrastructure namespaces and folders
-- [x] Remove the redundant role-mapping button from the probation team panel
-- [ ] API integration tests
-- [x] Keep specs/status/TODO/decisions synchronized for completed Member management slice
+- [ ] Department and Generation edit/deactivate behavior
+- [ ] Discord role synchronization and explicit assignment reconciliation
+- [ ] Probation team administration
+- [ ] Probation candidate creation, team assignment, and lifecycle management
+- [ ] Mentor assignment with active-Member validation
+- [ ] Evaluation period open/close commands
+- [ ] Peer and Mentor evaluation submission commands/components
+- [ ] Core/Admin-only raw evaluation reads and reports
+- [ ] Manual PASS workflow: create Member, transfer identity, synchronize roles, audit
+- [ ] Manual FAIL workflow: audit, enqueue/kick Discord user, retain history
+- [ ] Kick retry worker and operational retry visibility
+- [ ] Production Discord integration checks
+- [ ] Database-backed integration tests for transactional workflows
+- [ ] Authorization and audit tests for every privileged mutation

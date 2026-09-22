@@ -30,21 +30,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          dotnet-version: 10.0.400
+          node-version: 22
+          cache: npm
+          cache-dependency-path: bot/package-lock.json
 
-      - name: Restore
-        run: dotnet restore Felion.slnx
+      - name: Install bot dependencies
+        working-directory: bot
+        run: npm ci
 
-      - name: Verify formatting
-        run: dotnet format Felion.slnx --verify-no-changes --no-restore
+      - name: Build TypeScript bot
+        working-directory: bot
+        run: npm run build
 
-      - name: Build
-        run: dotnet build Felion.slnx --no-restore --configuration Release
-
-      - name: Test
-        run: dotnet test Felion.slnx --no-build --configuration Release --logger trx --results-directory TestResults
+      - name: Test TypeScript bot
+        working-directory: bot
+        run: npm test -- --run
         env:
-          FELION_POSTGRES_TEST_CONNECTION: Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=postgres
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
