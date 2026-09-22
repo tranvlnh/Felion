@@ -22,3 +22,12 @@ export function assertMentorEvaluationAllowed(
     throw new Error(`Member ${mentorMemberId} is not a mentor of the target candidate's team.`);
   }
 }
+
+export function normalizeProbationTeamName(value: string): string {
+  const name = value.trim().replace(/\s+/g, ' ');
+  if (name.length < 2 || name.length > 100) {
+    throw new Error('Probation team name is invalid.');
+  }
+
+  return name;
+}

@@ -72,8 +72,24 @@ export const commandDefinitions = [
       .setDescription('Deactivate a Generation for future assignments.')
       .addStringOption((option) => option.setName('generation-id').setDescription('Generation UUID').setRequired(true))),
   new SlashCommandBuilder()
+    .setName('probation-team')
+    .setDescription('Manage probation teams.')
+    .addSubcommand((command) => command
+      .setName('create')
+      .setDescription('Create a probation team.')
+      .addStringOption((option) => option.setName('name').setDescription('Team name').setRequired(true)))
+    .addSubcommand((command) => command
+      .setName('edit')
+      .setDescription('Rename an active probation team.')
+      .addStringOption((option) => option.setName('team-id').setDescription('Probation team UUID').setRequired(true))
+      .addStringOption((option) => option.setName('name').setDescription('New team name').setRequired(true)))
+    .addSubcommand((command) => command
+      .setName('deactivate')
+      .setDescription('Deactivate a probation team for future assignments.')
+      .addStringOption((option) => option.setName('team-id').setDescription('Probation team UUID').setRequired(true))),
+  new SlashCommandBuilder()
     .setName('role')
-    .setDescription('Manage Discord role mappings.')
+    .setDescription('Manage and synchronize Felion Discord roles.')
     .addSubcommand((command) => command
       .setName('map')
       .setDescription('Map an existing Discord role.')
@@ -89,7 +105,11 @@ export const commandDefinitions = [
           { name: 'ProbationTeam', value: 'ProbationTeam' },
         ))
       .addStringOption((option) => option.setName('key').setDescription('Mapping key').setRequired(true))
-      .addRoleOption((option) => option.setName('role').setDescription('Guild role').setRequired(true))),
+      .addRoleOption((option) => option.setName('role').setDescription('Guild role').setRequired(true)))
+    .addSubcommand((command) => command
+      .setName('sync')
+      .setDescription('Reconcile Felion-managed roles for a linked Discord user.')
+      .addUserOption((option) => option.setName('user').setDescription('Linked Discord user').setRequired(true))),
   new SlashCommandBuilder()
     .setName('evaluation-criteria')
     .setDescription('Manage configurable score criteria. The note field is always fixed.')

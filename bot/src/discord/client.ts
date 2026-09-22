@@ -10,11 +10,17 @@ import {
   ActionRowBuilder,
 } from 'discord.js';
 import type { Config } from '../config.js';
+import { parseDiscordRoleMappingKind } from '../domain/discord-roles.js';
 import type { Database } from '../db/client.js';
 import { isLinkedAdmin } from '../db/authorization.js';
 import { bootstrapAdmin } from '../db/bootstrap.js';
 import { linkDiscordIdentity } from '../db/linking.js';
 import { createRegularMember } from '../db/member-management.js';
+import {
+  createProbationTeam,
+  deactivateProbationTeam,
+  editProbationTeam,
+} from '../db/probation-team-management.js';
 import {
   createDepartment,
   createGeneration,
@@ -26,6 +32,7 @@ import {
 } from '../db/reference-management.js';
 import { addEvaluationCriterion, deactivateEvaluationCriterion, renameEvaluationCriterion } from '../db/evaluation-criteria.js';
 import { createVerificationMessage } from './commands.js';
+import { synchronizeDiscordRolesForUser } from './role-synchronization.js';
 
 export function createDiscordClient(config: Config, database: NonNullable<Database>): Client {
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -90,7 +97,7 @@ export function createDiscordClient(config: Config, database: NonNullable<Databa
         }
       }
 
-      if (['department', 'generation', 'role'].includes(interaction.commandName)) {
+      if (['department', 'generation', 'probation-team', 'role'].includes(interaction.commandName)) {
         if (!(await isLinkedAdmin(database, interaction.user.id))) {
           await interaction.reply({ content: 'Only a linked active Admin may change reference data.', ephemeral: true });
           return;
@@ -132,6 +139,22 @@ export function createDiscordClient(config: Config, database: NonNullable<Databa
               actorDiscordUserId: interaction.user.id,
               generationId: interaction.options.getString('generation-id', true),
             });
+          } else if (interaction.commandName === 'probation-team' && subcommand === 'create') {
+            await createProbationTeam(database, {
+              actorDiscordUserId: interaction.user.id,
+              name: interaction.options.getString('name', true),
+            });
+          } else if (interaction.commandName === 'probation-team' && subcommand === 'edit') {
+            await editProbationTeam(database, {
+              actorDiscordUserId: interaction.user.id,
+              teamId: interaction.options.getString('team-id', true),
+              name: interaction.options.getString('name', true),
+            });
+          } else if (interaction.commandName === 'probation-team' && subcommand === 'deactivate') {
+            await deactivateProbationTeam(database, {
+              actorDiscordUserId: interaction.user.id,
+              teamId: interaction.options.getString('team-id', true),
+            });
           } else if (interaction.commandName === 'role' && subcommand === 'map') {
             const role = interaction.options.getRole('role', true);
             if (!(role instanceof Role) || role.managed || !role.editable) {
@@ -139,10 +162,24 @@ export function createDiscordClient(config: Config, database: NonNullable<Databa
             }
             await mapDiscordRole(database, {
               actorDiscordUserId: interaction.user.id,
-              kind: interaction.options.getString('kind', true) as 'Position' | 'Probation' | 'Department' | 'Generation' | 'ProbationTeam',
+              kind: parseDiscordRoleMappingKind(interaction.options.getString('kind', true)),
               key: interaction.options.getString('key', true),
               discordRoleId: role.id,
             });
+          } else if (interaction.commandName === 'role' && subcommand === 'sync') {
+            const targetUser = interaction.options.getUser('user', true);
+            const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+            const result = await synchronizeDiscordRolesForUser(
+              database,
+              guild,
+              targetUser.id,
+              interaction.user.id,
+            );
+            await interaction.reply({
+              content: `Roles synchronized: ${result.addedRoleIds.length} added, ${result.removedRoleIds.length} removed.`,
+              ephemeral: true,
+            });
+            return;
           }
           await interaction.reply({ content: 'Operation completed.', ephemeral: true });
         } catch (error: unknown) {
@@ -206,14 +243,32 @@ export function createDiscordClient(config: Config, database: NonNullable<Databa
       const studentId = interaction.fields.getTextInputValue('studentId').trim().toUpperCase();
       try {
         await linkDiscordIdentity(database, interaction.user.id, studentId);
-        await interaction.reply({ content: 'Discord account linked successfully.', ephemeral: true });
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unable to link this Discord account.';
         await interaction.reply({ content: message, ephemeral: true });
+        return;
+      }
+
+      try {
+        const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+        const result = await synchronizeDiscordRolesForUser(
+          database,
+          guild,
+          interaction.user.id,
+          interaction.user.id,
+        );
+        await interaction.reply({
+          content: `Discord account linked successfully. Roles synchronized: ${result.addedRoleIds.length} added, ${result.removedRoleIds.length} removed.`,
+          ephemeral: true,
+        });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unable to synchronize Discord roles.';
+        await interaction.reply({
+          content: `Discord account linked, but role synchronization failed: ${message} Ask an Admin to run /role sync.`,
+          ephemeral: true,
+        });
       }
     }
   });
-
-  void config;
   return client;
 }

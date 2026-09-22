@@ -7,7 +7,7 @@ working Discord workflow.
 ## Foundation and persistence
 
 - [x] TypeScript runtime, configuration validation, and PostgreSQL client
-- [x] Drizzle schema and migrations `0000`–`0003`
+- [x] Drizzle schema and migrations `0000`–`0004`
 - [x] Remove web/API, browser authentication, and Events from the target
 - [x] Preserve cross-aggregate StudentId and Discord-link uniqueness in the schema
 - [x] Docker deployment and CI build/test workflow
@@ -19,15 +19,15 @@ working Discord workflow.
 - [x] Regular Member creation with Department/Generation lookup
 - [x] Department creation
 - [x] Name-only Generation creation
+- [x] Department and Generation edit/deactivate behavior
 - [x] Discord role mapping storage and administration
 - [x] Configurable evaluation criterion add/reactivate, rename, and deactivate
 - [x] Domain tests for normalization and evaluation invariants
 
 ## Remaining product work
 
-- [ ] Department and Generation edit/deactivate behavior
-- [ ] Discord role synchronization and explicit assignment reconciliation
-- [ ] Probation team administration
+- [x] Discord role synchronization and explicit assignment reconciliation
+- [x] Probation team administration
 - [ ] Probation candidate creation, team assignment, and lifecycle management
 - [ ] Mentor assignment with active-Member validation
 - [ ] Evaluation period open/close commands

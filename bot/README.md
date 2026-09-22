@@ -10,14 +10,18 @@ deployment artifact.
 - Initial Admin bootstrap when the database has no Members
 - StudentId-based identity linking with audit logging
 - Member creation with Department/Generation references
-- Department and name-only Generation creation
+- Department and lightweight Generation creation, edit, and soft-deactivation
+- Probation team creation, rename, and soft-deactivation
 - Discord role mapping storage and administration
+- Desired-state Discord role synchronization after identity linking and through an
+  Admin reconciliation command
 - Configurable Peer/Mentor score criteria with rename/deactivate/reactivate support
-- Domain tests for member normalization, probation evaluation rules, and score criteria
+- Domain/workflow tests for authorization, reference lifecycle, member normalization,
+  probation evaluation rules, and score criteria
 
 The following are schema/target scope but are not wired into commands yet: probation
-team/candidate/mentor management, evaluation submission, role synchronization, manual
-PASS/FAIL decisions, and failed-probation kick retries.
+candidate/mentor management, evaluation submission, explicit role-assignment
+administration, manual PASS/FAIL decisions, and failed-probation kick retries.
 
 There is deliberately no HTTP API, web dashboard, browser authentication, Google OAuth,
 Events, EventPosition, EventRegistration, or EventAttendance model in this application.

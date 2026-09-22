@@ -28,11 +28,11 @@ dashboard, browser authentication, or event module.
 - `src/config.ts`: environment validation for Discord, database, and runtime mode.
 - `src/discord`: command definitions, guild registration, interaction handling, and
   verification UI.
-- `src/domain`: Member normalization, evaluation criteria/score rules, and probation
-  evaluation eligibility rules.
+- `src/domain`: Member normalization, evaluation criteria/score rules, probation
+  evaluation eligibility rules, and managed-role desired-state reconciliation.
 - `src/db/schema.ts`: Drizzle PostgreSQL schema and enums.
-- `src/db/*.ts`: transactional bootstrap, linking, Member/reference administration,
-  authorization, and criterion administration.
+- `src/db/*.ts`: transactional bootstrap, linking, Member/reference/probation-team
+  administration, authorization, and criterion administration.
 - `drizzle/`: reviewed SQL migrations applied by the runtime/Docker entrypoint.
 - `tests/`: focused Vitest domain tests.
 
@@ -48,8 +48,10 @@ handlers additionally require a linked active Felion Admin. Felion authorization
 resolved from the linked Discord identity and active Member record; Discord roles alone
 are not the application authorization source.
 
-The future Core/Admin workflows must reuse the same linked-identity model and enforce
-their domain-specific authorization in application modules.
+The `/role sync` workflow is restricted to linked active Admins. Automatic role
+synchronization after StudentId linking uses the configured guild, not a guild inferred
+from the interaction. Future Core/Admin workflows must reuse the same linked-identity
+model and enforce their domain-specific authorization in application modules.
 
 ## Deployment
 

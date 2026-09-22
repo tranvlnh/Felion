@@ -69,7 +69,11 @@ Core/Admin manually decide PASS or FAIL.
 ## Current implementation boundary
 
 The current bot has working foundation/admin flows for bootstrap, StudentId linking,
-regular Member creation, Department/Generation creation, role mapping, and evaluation
-criterion administration. The following target behavior remains pending: probation
-management, evaluation periods/submissions/reads, role synchronization, PASS/FAIL
-decisions, kick retries, and complete Core authorization.
+regular Member creation, Department/Generation creation and lifecycle management,
+probation team administration, role mapping and synchronization, and evaluation
+criterion administration. Reference deactivation preserves historical assignments and
+prevents future assignments. Role synchronization runs after identity linking or through
+an Admin command, preserves explicit assignments, and leaves non-Felion Discord roles
+unchanged. The following target behavior remains pending: probation candidate/mentor
+management, evaluation periods/submissions/reads, PASS/FAIL decisions, kick retries,
+and complete Core authorization.
