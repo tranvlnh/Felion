@@ -6,8 +6,12 @@ import {
   normalizeGenerationName,
   normalizeReferenceId,
 } from '../domain/reference-data.js';
+import {
+  normalizeDiscordRoleMappingKey,
+  type DiscordRoleMappingKind,
+} from '../domain/discord-roles.js';
 import type { Database } from './client.js';
-import { auditLogs, departments, discordRoleMappings, generations } from './schema.js';
+import { auditLogs, departments, discordRoleMappings, generations, probationTeams } from './schema.js';
 
 export async function createDepartment(
   database: NonNullable<Database>,
@@ -206,25 +210,57 @@ export async function deactivateGeneration(
 
 export async function mapDiscordRole(
   database: NonNullable<Database>,
-  input: { kind: 'Position' | 'Probation' | 'Department' | 'Generation' | 'ProbationTeam'; key: string; discordRoleId: string; actorDiscordUserId: string },
+  input: { kind: DiscordRoleMappingKind; key: string; discordRoleId: string; actorDiscordUserId: string },
 ): Promise<void> {
-  const key = input.key.trim();
-  if (!key || !/^\d+$/.test(input.discordRoleId)) {
-    throw new Error('Role mapping key or Discord role ID is invalid.');
+  const key = normalizeDiscordRoleMappingKey(input.kind, input.key);
+  if (!/^\d+$/.test(input.discordRoleId)) {
+    throw new Error('Discord role ID is invalid.');
   }
 
   await database.db.transaction(async (transaction) => {
+    if (input.kind === 'Department') {
+      const reference = await transaction
+        .select({ id: departments.id })
+        .from(departments)
+        .where(eq(departments.id, key))
+        .limit(1);
+      if (!reference[0]) {
+        throw new Error('The Department role mapping reference was not found.');
+      }
+    } else if (input.kind === 'Generation') {
+      const reference = await transaction
+        .select({ id: generations.id })
+        .from(generations)
+        .where(eq(generations.id, key))
+        .limit(1);
+      if (!reference[0]) {
+        throw new Error('The Generation role mapping reference was not found.');
+      }
+    } else if (input.kind === 'ProbationTeam') {
+      const reference = await transaction
+        .select({ id: probationTeams.id })
+        .from(probationTeams)
+        .where(eq(probationTeams.id, key))
+        .limit(1);
+      if (!reference[0]) {
+        throw new Error('The ProbationTeam role mapping reference was not found.');
+      }
+    }
+
     const existing = (await transaction
-      .select({ id: discordRoleMappings.id })
+      .select({ id: discordRoleMappings.id, discordRoleId: discordRoleMappings.discordRoleId })
       .from(discordRoleMappings)
-      .where(eq(discordRoleMappings.key, key))
+      .where(and(
+        eq(discordRoleMappings.kind, input.kind),
+        eq(discordRoleMappings.key, key),
+      ))
       .limit(1))[0];
 
     let mappingId: string;
     if (existing) {
       const updated = (await transaction
         .update(discordRoleMappings)
-        .set({ kind: input.kind, discordRoleId: input.discordRoleId, updatedAt: new Date() })
+        .set({ discordRoleId: input.discordRoleId, updatedAt: new Date() })
         .where(eq(discordRoleMappings.id, existing.id))
         .returning({ id: discordRoleMappings.id }))[0];
       if (!updated) {
@@ -247,7 +283,12 @@ export async function mapDiscordRole(
       action: existing ? 'DiscordRoleMappingUpdated' : 'DiscordRoleMappingCreated',
       entityType: 'DiscordRoleMapping',
       entityId: mappingId,
-      metadata: { kind: input.kind, key, discordRoleId: input.discordRoleId },
+      metadata: {
+        kind: input.kind,
+        key,
+        discordRoleId: input.discordRoleId,
+        ...(existing ? { previousDiscordRoleId: existing.discordRoleId } : {}),
+      },
     });
   });
 }
