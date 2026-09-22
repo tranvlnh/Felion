@@ -15,7 +15,15 @@ import { isLinkedAdmin } from '../db/authorization.js';
 import { bootstrapAdmin } from '../db/bootstrap.js';
 import { linkDiscordIdentity } from '../db/linking.js';
 import { createRegularMember } from '../db/member-management.js';
-import { createDepartment, createGeneration, mapDiscordRole } from '../db/reference-management.js';
+import {
+  createDepartment,
+  createGeneration,
+  deactivateDepartment,
+  deactivateGeneration,
+  editDepartment,
+  editGeneration,
+  mapDiscordRole,
+} from '../db/reference-management.js';
 import { addEvaluationCriterion, deactivateEvaluationCriterion, renameEvaluationCriterion } from '../db/evaluation-criteria.js';
 import { createVerificationMessage } from './commands.js';
 
@@ -96,10 +104,33 @@ export function createDiscordClient(config: Config, database: NonNullable<Databa
               name: interaction.options.getString('name', true),
               slug: interaction.options.getString('slug', true),
             });
+          } else if (interaction.commandName === 'department' && subcommand === 'edit') {
+            await editDepartment(database, {
+              actorDiscordUserId: interaction.user.id,
+              departmentId: interaction.options.getString('department-id', true),
+              name: interaction.options.getString('name', true),
+              slug: interaction.options.getString('slug', true),
+            });
+          } else if (interaction.commandName === 'department' && subcommand === 'deactivate') {
+            await deactivateDepartment(database, {
+              actorDiscordUserId: interaction.user.id,
+              departmentId: interaction.options.getString('department-id', true),
+            });
           } else if (interaction.commandName === 'generation' && subcommand === 'create') {
             await createGeneration(database, {
               actorDiscordUserId: interaction.user.id,
               name: interaction.options.getString('name', true),
+            });
+          } else if (interaction.commandName === 'generation' && subcommand === 'edit') {
+            await editGeneration(database, {
+              actorDiscordUserId: interaction.user.id,
+              generationId: interaction.options.getString('generation-id', true),
+              name: interaction.options.getString('name', true),
+            });
+          } else if (interaction.commandName === 'generation' && subcommand === 'deactivate') {
+            await deactivateGeneration(database, {
+              actorDiscordUserId: interaction.user.id,
+              generationId: interaction.options.getString('generation-id', true),
             });
           } else if (interaction.commandName === 'role' && subcommand === 'map') {
             const role = interaction.options.getRole('role', true);

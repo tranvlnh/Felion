@@ -12,10 +12,12 @@ the Discord guild route, never discovered from incoming request data.
 create a Member and transfer the Discord link; it will not mutate a candidate into a
 Member row.
 
-## ADR-003 — Name-only Generation tags
+## ADR-003 — Lightweight Generation tags
 
-Generation stores only a stable ID and display name. It exists to select the configured
-Generation Discord role and has no code or lifecycle timestamps.
+Generation stores a stable ID, display name, and active flag. It exists to select the
+configured Generation Discord role and has no code or lifecycle timestamps. Department
+and Generation deactivation is soft: historical Member/Candidate references remain
+valid, while inactive references cannot be assigned to new people.
 
 ## ADR-004 — Database-enforced identity uniqueness
 

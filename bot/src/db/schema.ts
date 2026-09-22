@@ -31,12 +31,14 @@ export const departments = pgTable('departments', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: varchar('name', { length: 100 }).notNull(),
   slug: varchar('slug', { length: 100 }).notNull(),
+  active: boolean('active').notNull().default(true),
   ...timestamps,
 }, (table) => [uniqueIndex('departments_slug_unique').on(table.slug)]);
 
 export const generations = pgTable('generations', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: varchar('name', { length: 100 }).notNull(),
+  active: boolean('active').notNull().default(true),
 }, (table) => [uniqueIndex('generations_name_unique').on(table.name)]);
 
 export const members = pgTable('members', {

@@ -20,17 +20,20 @@ export async function createRegularMember(
     const department = (await transaction
       .select()
       .from(departments)
-      .where(or(eq(departments.slug, input.department.trim().toLowerCase()), eq(departments.name, input.department.trim())))
+      .where(and(
+        eq(departments.active, true),
+        or(eq(departments.slug, input.department.trim().toLowerCase()), eq(departments.name, input.department.trim())),
+      ))
       .limit(1))[0];
 
     const generation = (await transaction
       .select()
       .from(generations)
-      .where(eq(generations.name, input.generation.trim()))
+      .where(and(eq(generations.name, input.generation.trim()), eq(generations.active, true)))
       .limit(1))[0];
 
     if (!department || !generation) {
-      throw new Error('Department or generation was not found.');
+      throw new Error('An active Department or Generation was not found.');
     }
 
     if (department.slug === 'core') {

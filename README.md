@@ -10,7 +10,7 @@ probation workflows are tracked in [`docs/TODO.md`](docs/TODO.md).
 
 ## Product scope
 
-- Members, Departments, and name-only Generation tags
+- Members, Departments, and lightweight Generation tags with soft-deactivation
 - StudentId-based Discord identity linking
 - Configurable Discord role mappings
 - Probation candidates, teams, mentors, evaluations, and manual PASS/FAIL decisions

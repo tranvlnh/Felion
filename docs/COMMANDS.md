@@ -11,6 +11,8 @@ specification without being implemented yet.
 | `/bootstrap-admin` | Creates the first Admin when no Member exists | Discord Administrator permission; database guard also applies |
 | `/member create` | Creates an active regular Member | Linked active Felion Admin |
 | `/department create` | Creates a Department; `core` is reserved | Linked active Felion Admin |
+| `/department edit` | Renames an active Department by UUID and changes its slug; `core` is reserved | Linked active Felion Admin |
+| `/department deactivate` | Soft-deactivates a Department by UUID for future assignments; `core` is reserved | Linked active Felion Admin |
 | `/generation create` | Creates a name-only Generation | Linked active Felion Admin |
 | `/role map` | Creates or updates a configurable role mapping | Linked active Felion Admin |
 | `/evaluation-criteria add` | Adds or reactivates a Peer/Mentor criterion | Linked active Felion Admin |

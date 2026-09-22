@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789972163015,
+      "tag": "0000_cold_vengeance",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789972244467,
+      "tag": "0001_mysterious_harrier",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789973324458,
+      "tag": "0002_configurable_evaluation_criteria",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789986715775,
+      "tag": "0003_simplify_generations",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790041833528,
+      "tag": "0004_reference_lifecycle",
+      "breakpoints": true
+    }
+  ]
+}

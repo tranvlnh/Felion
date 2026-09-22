@@ -1,5 +1,6 @@
 import { count, eq } from 'drizzle-orm';
 import { createMember } from '../domain/member.js';
+import { normalizeGenerationName } from '../domain/reference-data.js';
 import type { Database } from './client.js';
 import { auditLogs, departments, generations, identityRegistry, members } from './schema.js';
 
@@ -15,6 +16,8 @@ export async function bootstrapAdmin(
   database: NonNullable<Database>,
   input: BootstrapAdminInput,
 ): Promise<void> {
+  const generationName = normalizeGenerationName(input.generationName);
+
   await database.db.transaction(async (transaction) => {
     const existingMembers = await transaction.select({ value: count() }).from(members);
     if ((existingMembers[0]?.value ?? 0) > 0) {
@@ -33,18 +36,24 @@ export async function bootstrapAdmin(
         .values({ name: 'Core', slug: 'core' })
         .returning())[0];
     }
+    if (coreDepartment && !coreDepartment.active) {
+      throw new Error('The Core Department is inactive.');
+    }
 
     let generation = (await transaction
       .select()
       .from(generations)
-      .where(eq(generations.name, input.generationName.trim()))
+      .where(eq(generations.name, generationName))
       .limit(1))[0];
 
     if (!generation) {
       generation = (await transaction
         .insert(generations)
-        .values({ name: input.generationName.trim() })
+        .values({ name: generationName })
         .returning())[0];
+    }
+    if (generation && !generation.active) {
+      throw new Error('The bootstrap Generation is inactive.');
     }
 
     if (!coreDepartment || !generation) {
