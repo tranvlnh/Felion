@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "discord": {
+      "source": "firecrawl/openclaw",
+      "sourceType": "github",
+      "skillPath": "skills/discord/SKILL.md",
+      "computedHash": "92a82a8b558dce67a63b3815ef58d12d9bd6afe698340c44d9ee7b9461da5df9"
+    }
+  }
+}

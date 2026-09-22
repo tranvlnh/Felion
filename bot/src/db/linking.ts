@@ -1,0 +1,58 @@
+import { eq } from 'drizzle-orm';
+import { normalizeStudentId } from '../domain/member.js';
+import type { Database } from './client.js';
+import { auditLogs, discordIdentityLinks, identityRegistry } from './schema.js';
+
+export async function linkDiscordIdentity(
+  database: NonNullable<Database>,
+  discordUserId: string,
+  rawStudentId: string,
+): Promise<void> {
+  const studentId = normalizeStudentId(rawStudentId);
+
+  await database.db.transaction(async (transaction) => {
+    const existingUserLink = await transaction
+      .select({ id: discordIdentityLinks.id })
+      .from(discordIdentityLinks)
+      .where(eq(discordIdentityLinks.discordUserId, discordUserId))
+      .limit(1);
+
+    if (existingUserLink[0]) {
+      throw new Error('This Discord account is already linked.');
+    }
+
+    const identity = await transaction
+      .select({ subjectType: identityRegistry.subjectType, subjectId: identityRegistry.subjectId })
+      .from(identityRegistry)
+      .where(eq(identityRegistry.studentId, studentId))
+      .limit(1);
+
+    if (!identity[0]) {
+      throw new Error('No active Member or ProbationCandidate matches this StudentId.');
+    }
+
+    const existingSubjectLink = await transaction
+      .select({ id: discordIdentityLinks.id })
+      .from(discordIdentityLinks)
+      .where(eq(discordIdentityLinks.subjectId, identity[0].subjectId))
+      .limit(1);
+
+    if (existingSubjectLink[0]) {
+      throw new Error('This identity is already linked to another Discord account.');
+    }
+
+    await transaction.insert(discordIdentityLinks).values({
+      discordUserId,
+      subjectType: identity[0].subjectType,
+      subjectId: identity[0].subjectId,
+    });
+
+    await transaction.insert(auditLogs).values({
+      actorDiscordUserId: discordUserId,
+      action: 'DiscordIdentityLinked',
+      entityType: identity[0].subjectType,
+      entityId: identity[0].subjectId,
+      metadata: { studentId },
+    });
+  });
+}
