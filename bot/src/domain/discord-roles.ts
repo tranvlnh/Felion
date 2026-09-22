@@ -25,6 +25,7 @@ export type DiscordRoleSubject =
   }
   | {
     subjectType: 'ProbationCandidate';
+    active: boolean;
     departmentId: string;
     generationId: string;
     teamId: string | null;
@@ -87,7 +88,7 @@ export function resolveDiscordRoleState(
     desiredMappingKeys.add(mappingIdentity('Position', subject.position));
     desiredMappingKeys.add(mappingIdentity('Department', subject.departmentId));
     desiredMappingKeys.add(mappingIdentity('Generation', subject.generationId));
-  } else {
+  } else if (subject.active) {
     desiredMappingKeys.add(mappingIdentity('Probation', 'Active'));
     desiredMappingKeys.add(mappingIdentity('Department', subject.departmentId));
     desiredMappingKeys.add(mappingIdentity('Generation', subject.generationId));
@@ -97,7 +98,9 @@ export function resolveDiscordRoleState(
   }
 
   const managedRoleIds = new Set(mappings.map((mapping) => mapping.discordRoleId));
-  const desiredRoleIds = new Set(explicitRoleIds);
+  const desiredRoleIds = new Set(subject.subjectType === 'ProbationCandidate' && !subject.active
+    ? []
+    : explicitRoleIds);
 
   for (const mapping of mappings) {
     if (desiredMappingKeys.has(mappingIdentity(mapping.kind, mapping.key))) {

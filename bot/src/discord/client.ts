@@ -17,6 +17,13 @@ import { bootstrapAdmin } from '../db/bootstrap.js';
 import { linkDiscordIdentity } from '../db/linking.js';
 import { createRegularMember } from '../db/member-management.js';
 import {
+  assignProbationCandidateTeam,
+  createActiveProbationCandidate,
+  deactivateProbationCandidate,
+  reactivateProbationCandidate,
+  type ProbationCandidateMutationResult,
+} from '../db/probation-candidate-management.js';
+import {
   createProbationTeam,
   deactivateProbationTeam,
   editProbationTeam,
@@ -95,6 +102,82 @@ export function createDiscordClient(config: Config, database: NonNullable<Databa
           const message = error instanceof Error ? error.message : 'Unable to create Member.';
           await interaction.reply({ content: message, ephemeral: true });
         }
+      }
+
+      if (interaction.commandName === 'probation-candidate') {
+        if (!(await isLinkedAdmin(database, interaction.user.id))) {
+          await interaction.reply({ content: 'Only a linked active Admin may manage ProbationCandidates.', ephemeral: true });
+          return;
+        }
+
+        try {
+          const subcommand = interaction.options.getSubcommand();
+          if (subcommand === 'create') {
+            await createActiveProbationCandidate(database, {
+              actorDiscordUserId: interaction.user.id,
+              studentId: interaction.options.getString('student-id', true),
+              fullName: interaction.options.getString('full-name', true),
+              department: interaction.options.getString('department', true),
+              generation: interaction.options.getString('generation', true),
+            });
+            await interaction.reply({
+              content: 'ProbationCandidate created successfully. A team can be assigned later.',
+              ephemeral: true,
+            });
+            return;
+          }
+
+          let result: ProbationCandidateMutationResult;
+          if (subcommand === 'assign-team') {
+            result = await assignProbationCandidateTeam(database, {
+              actorDiscordUserId: interaction.user.id,
+              candidateId: interaction.options.getString('candidate-id', true),
+              teamId: interaction.options.getString('team-id', true),
+            });
+          } else if (subcommand === 'deactivate') {
+            result = await deactivateProbationCandidate(database, {
+              actorDiscordUserId: interaction.user.id,
+              candidateId: interaction.options.getString('candidate-id', true),
+            });
+          } else {
+            result = await reactivateProbationCandidate(database, {
+              actorDiscordUserId: interaction.user.id,
+              candidateId: interaction.options.getString('candidate-id', true),
+            });
+          }
+
+          if (!result.discordUserId) {
+            await interaction.reply({
+              content: 'ProbationCandidate updated successfully. No linked Discord account required role synchronization.',
+              ephemeral: true,
+            });
+            return;
+          }
+
+          try {
+            const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+            const roleSync = await synchronizeDiscordRolesForUser(
+              database,
+              guild,
+              result.discordUserId,
+              interaction.user.id,
+            );
+            await interaction.reply({
+              content: `ProbationCandidate updated and roles synchronized: ${roleSync.addedRoleIds.length} added, ${roleSync.removedRoleIds.length} removed.`,
+              ephemeral: true,
+            });
+          } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Unable to synchronize Discord roles.';
+            await interaction.reply({
+              content: `ProbationCandidate was updated in the database, but Discord role synchronization failed: ${message}`,
+              ephemeral: true,
+            });
+          }
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : 'Unable to manage ProbationCandidate.';
+          await interaction.reply({ content: message, ephemeral: true });
+        }
+        return;
       }
 
       if (['department', 'generation', 'probation-team', 'role'].includes(interaction.commandName)) {

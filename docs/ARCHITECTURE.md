@@ -31,8 +31,8 @@ dashboard, browser authentication, or event module.
 - `src/domain`: Member normalization, evaluation criteria/score rules, probation
   evaluation eligibility rules, and managed-role desired-state reconciliation.
 - `src/db/schema.ts`: Drizzle PostgreSQL schema and enums.
-- `src/db/*.ts`: transactional bootstrap, linking, Member/reference/probation-team
-  administration, authorization, and criterion administration.
+- `src/db/*.ts`: transactional bootstrap, linking, Member/reference/probation-team/
+  probation-candidate administration, authorization, and criterion administration.
 - `drizzle/`: reviewed SQL migrations applied by the runtime/Docker entrypoint.
 - `tests/`: focused Vitest domain tests.
 
@@ -50,8 +50,11 @@ are not the application authorization source.
 
 The `/role sync` workflow is restricted to linked active Admins. Automatic role
 synchronization after StudentId linking uses the configured guild, not a guild inferred
-from the interaction. Future Core/Admin workflows must reuse the same linked-identity
-model and enforce their domain-specific authorization in application modules.
+from the interaction. Probation-candidate team and lifecycle changes are also restricted
+to linked active Admins and immediately synchronize a linked candidate through that same
+configured-guild boundary. Future Core/Admin workflows must reuse the same
+linked-identity model and enforce their domain-specific authorization in application
+modules.
 
 ## Deployment
 

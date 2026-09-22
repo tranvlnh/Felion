@@ -48,3 +48,14 @@ boundaries and persistence belong in `db/`.
 Development may use Drizzle Kit to generate migrations, but production receives reviewed
 SQL files committed under `bot/drizzle/`. The Docker entrypoint applies those files
 before starting the bot.
+
+## ADR-009 — Administrative candidate lifecycle
+
+Only linked active Admins manage ProbationCandidates in the current command surface. A
+candidate is created active without requiring a team and may later be assigned or moved
+to an active team. General lifecycle management is limited to `Active`/`Inactive`;
+`Passed` and `Failed` are reserved for the separate manual decision workflows. Team and
+lifecycle changes immediately synchronize Discord roles for linked candidates and audit
+both the database mutation and synchronization outcome. Inactive candidates retain
+their identity link and stored explicit assignments but have no desired Felion-managed
+Discord roles.

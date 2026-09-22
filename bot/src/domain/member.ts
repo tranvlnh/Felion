@@ -32,15 +32,19 @@ export function normalizeClubEmail(value: string): string {
   return normalized;
 }
 
+export function normalizeFullName(value: string): string {
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (normalized.length < 2 || normalized.length > 200) {
+    throw new Error('Full name must contain between 2 and 200 characters.');
+  }
+
+  return normalized;
+}
+
 export function createMember(input: Omit<Member, 'id' | 'studentId' | 'clubEmail' | 'active'> & {
   studentId: string;
   clubEmail: string;
 }): Member {
-  const fullName = input.fullName.trim().replace(/\s+/g, ' ');
-  if (fullName.length < 2 || fullName.length > 200) {
-    throw new Error('Full name must contain between 2 and 200 characters.');
-  }
-
   if (!input.departmentId || !input.generationId) {
     throw new Error('Department and generation are required.');
   }
@@ -48,7 +52,7 @@ export function createMember(input: Omit<Member, 'id' | 'studentId' | 'clubEmail
   return {
     id: randomUUID(),
     studentId: normalizeStudentId(input.studentId),
-    fullName,
+    fullName: normalizeFullName(input.fullName),
     clubEmail: normalizeClubEmail(input.clubEmail),
     departmentId: input.departmentId,
     generationId: input.generationId,

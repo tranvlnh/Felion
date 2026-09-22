@@ -1,7 +1,13 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { normalizeStudentId } from '../domain/member.js';
 import type { Database } from './client.js';
-import { auditLogs, discordIdentityLinks, identityRegistry } from './schema.js';
+import {
+  auditLogs,
+  discordIdentityLinks,
+  identityRegistry,
+  members,
+  probationCandidates,
+} from './schema.js';
 
 export async function linkDiscordIdentity(
   database: NonNullable<Database>,
@@ -28,6 +34,25 @@ export async function linkDiscordIdentity(
       .limit(1);
 
     if (!identity[0]) {
+      throw new Error('No active Member or ProbationCandidate matches this StudentId.');
+    }
+
+    const activeSubject = identity[0].subjectType === 'Member'
+      ? (await transaction
+        .select({ id: members.id })
+        .from(members)
+        .where(and(eq(members.id, identity[0].subjectId), eq(members.status, 'Active')))
+        .limit(1))[0]
+      : (await transaction
+        .select({ id: probationCandidates.id })
+        .from(probationCandidates)
+        .where(and(
+          eq(probationCandidates.id, identity[0].subjectId),
+          eq(probationCandidates.status, 'Active'),
+        ))
+        .limit(1))[0];
+
+    if (!activeSubject) {
       throw new Error('No active Member or ProbationCandidate matches this StudentId.');
     }
 

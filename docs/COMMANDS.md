@@ -10,6 +10,10 @@ specification without being implemented yet.
 | `/verification publish` | Publishes the StudentId-linking message in the current sendable channel | Discord Administrator permission |
 | `/bootstrap-admin` | Creates the first Admin when no Member exists | Discord Administrator permission; database guard also applies |
 | `/member create` | Creates an active regular Member | Linked active Felion Admin |
+| `/probation-candidate create` | Creates an active candidate without requiring a team | Linked active Felion Admin |
+| `/probation-candidate assign-team` | Assigns or moves an active candidate to an active team and immediately synchronizes roles when linked | Linked active Felion Admin |
+| `/probation-candidate deactivate` | Changes an active candidate to Inactive and immediately removes Felion-managed roles when linked | Linked active Felion Admin |
+| `/probation-candidate reactivate` | Changes an inactive candidate to Active and immediately restores desired Felion-managed roles when linked | Linked active Felion Admin |
 | `/department create` | Creates a Department; `core` is reserved | Linked active Felion Admin |
 | `/department edit` | Renames an active Department by UUID and changes its slug; `core` is reserved | Linked active Felion Admin |
 | `/department deactivate` | Soft-deactivates a Department by UUID for future assignments; `core` is reserved | Linked active Felion Admin |
@@ -34,6 +38,5 @@ the link in one transaction.
 
 ## Not registered yet
 
-Probation candidates/mentors, evaluation periods/submissions, evaluation reads, explicit
-role-assignment administration, and PASS/FAIL decisions do not currently have Discord
-commands.
+Mentors, evaluation periods/submissions, evaluation reads, explicit role-assignment
+administration, and PASS/FAIL decisions do not currently have Discord commands.

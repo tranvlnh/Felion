@@ -1,9 +1,37 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assertProbationCandidateTransition,
   assertMentorEvaluationAllowed,
   assertPeerEvaluationAllowed,
+  createProbationCandidate,
   normalizeProbationTeamName,
 } from '../src/domain/probation.js';
+
+describe('probation candidate lifecycle rules', () => {
+  it('creates an active unassigned candidate with normalized identity fields', () => {
+    const candidate = createProbationCandidate({
+      studentId: ' sv-001 ',
+      fullName: '  Example   Candidate ',
+      departmentId: 'department-id',
+      generationId: 'generation-id',
+    });
+
+    expect(candidate).toMatchObject({
+      studentId: 'SV-001',
+      fullName: 'Example Candidate',
+      teamId: null,
+      status: 'Active',
+    });
+  });
+
+  it('allows only Active and Inactive lifecycle transitions', () => {
+    expect(() => assertProbationCandidateTransition('Active', 'Inactive')).not.toThrow();
+    expect(() => assertProbationCandidateTransition('Inactive', 'Active')).not.toThrow();
+    expect(() => assertProbationCandidateTransition('Active', 'Active')).toThrow('already Active');
+    expect(() => assertProbationCandidateTransition('Passed', 'Inactive')).toThrow('decided');
+    expect(() => assertProbationCandidateTransition('Failed', 'Active')).toThrow('decided');
+  });
+});
 
 describe('probation evaluation rules', () => {
   it('rejects self peer evaluation', () => {

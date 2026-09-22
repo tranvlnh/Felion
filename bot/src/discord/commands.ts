@@ -38,6 +38,29 @@ export const commandDefinitions = [
       .addStringOption((option) => option.setName('department').setDescription('Department name or slug').setRequired(true))
       .addStringOption((option) => option.setName('generation').setDescription('Generation name').setRequired(true))),
   new SlashCommandBuilder()
+    .setName('probation-candidate')
+    .setDescription('Manage ProbationCandidates.')
+    .addSubcommand((command) => command
+      .setName('create')
+      .setDescription('Create an active ProbationCandidate without a team.')
+      .addStringOption((option) => option.setName('student-id').setDescription('StudentId').setRequired(true))
+      .addStringOption((option) => option.setName('full-name').setDescription('Full name').setRequired(true))
+      .addStringOption((option) => option.setName('department').setDescription('Department name or slug').setRequired(true))
+      .addStringOption((option) => option.setName('generation').setDescription('Generation name').setRequired(true)))
+    .addSubcommand((command) => command
+      .setName('assign-team')
+      .setDescription('Assign or move an active candidate to an active team.')
+      .addStringOption((option) => option.setName('candidate-id').setDescription('ProbationCandidate UUID').setRequired(true))
+      .addStringOption((option) => option.setName('team-id').setDescription('Probation team UUID').setRequired(true)))
+    .addSubcommand((command) => command
+      .setName('deactivate')
+      .setDescription('Deactivate an active candidate.')
+      .addStringOption((option) => option.setName('candidate-id').setDescription('ProbationCandidate UUID').setRequired(true)))
+    .addSubcommand((command) => command
+      .setName('reactivate')
+      .setDescription('Reactivate an inactive candidate.')
+      .addStringOption((option) => option.setName('candidate-id').setDescription('ProbationCandidate UUID').setRequired(true))),
+  new SlashCommandBuilder()
     .setName('department')
     .setDescription('Manage Departments.')
     .addSubcommand((command) => command

@@ -1,3 +1,52 @@
+import { randomUUID } from 'node:crypto';
+import { normalizeFullName, normalizeStudentId } from './member.js';
+
+export type ProbationCandidateStatus = 'Active' | 'Passed' | 'Failed' | 'Inactive';
+
+export type ProbationCandidate = {
+  id: string;
+  studentId: string;
+  fullName: string;
+  departmentId: string;
+  generationId: string;
+  teamId: string | null;
+  status: ProbationCandidateStatus;
+};
+
+export function createProbationCandidate(input: {
+  studentId: string;
+  fullName: string;
+  departmentId: string;
+  generationId: string;
+}): ProbationCandidate {
+  if (!input.departmentId || !input.generationId) {
+    throw new Error('Department and generation are required.');
+  }
+
+  return {
+    id: randomUUID(),
+    studentId: normalizeStudentId(input.studentId),
+    fullName: normalizeFullName(input.fullName),
+    departmentId: input.departmentId,
+    generationId: input.generationId,
+    teamId: null,
+    status: 'Active',
+  };
+}
+
+export function assertProbationCandidateTransition(
+  currentStatus: ProbationCandidateStatus,
+  targetStatus: 'Active' | 'Inactive',
+): void {
+  if (currentStatus === 'Passed' || currentStatus === 'Failed') {
+    throw new Error('A decided ProbationCandidate cannot change lifecycle status.');
+  }
+
+  if (currentStatus === targetStatus) {
+    throw new Error(`ProbationCandidate is already ${targetStatus}.`);
+  }
+}
+
 export function assertPeerEvaluationAllowed(
   evaluatorCandidateId: string,
   targetCandidateId: string,

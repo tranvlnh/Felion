@@ -29,9 +29,13 @@ The current schema uses strong all-row uniqueness for Member/Candidate StudentId
 intended product rule is “at most one active identity”; relaxing that to historical-row
 reuse requires an explicit migration and decision.
 
-Probation team create, rename, and soft-deactivation workflows are exposed to linked
-active Admins and write their audit row in the same transaction as the team mutation.
-Candidate and mentor management workflows are still pending.
+Probation team and candidate management workflows are exposed to linked active Admins
+and write their audit row in the same transaction as each database mutation. Candidate
+creation does not require a team. Team assignment accepts only active candidates and
+active teams. Candidate lifecycle commands allow only `Active` to `Inactive` and
+`Inactive` to `Active`; `Passed` and `Failed` remain reserved for decision workflows.
+Linked candidates are synchronized immediately after team or lifecycle changes. Mentor
+management workflows are still pending.
 
 ## Discord roles and history
 

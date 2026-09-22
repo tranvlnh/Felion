@@ -50,12 +50,26 @@ describe('Discord role desired state', () => {
   it('resolves active Probation, Department, Generation, and team roles', () => {
     const state = resolveDiscordRoleState({
       subjectType: 'ProbationCandidate',
+      active: true,
       departmentId,
       generationId,
       teamId,
     }, mappings, []);
 
     expect(state.desiredRoleIds).toEqual(['102', '103', '104', '105']);
+  });
+
+  it('removes all Felion-managed roles while preserving stored explicit assignments for an inactive candidate', () => {
+    const state = resolveDiscordRoleState({
+      subjectType: 'ProbationCandidate',
+      active: false,
+      departmentId,
+      generationId,
+      teamId,
+    }, mappings, ['999']);
+
+    expect(state.desiredRoleIds).toEqual([]);
+    expect(state.managedRoleIds).toEqual(['100', '101', '102', '103', '104', '105', '999']);
   });
 
   it('adds missing roles, removes obsolete managed roles, and preserves unrelated roles', () => {

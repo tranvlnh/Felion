@@ -5,7 +5,8 @@ Last verified: 2026-09-22
 ## Current milestone
 
 TypeScript Discord-only bot — foundation and target-schema migration complete; core
-administration and managed-role synchronization flows are partially wired.
+administration, probation-candidate lifecycle, and managed-role synchronization flows
+are partially wired.
 
 ## Verified in the repository
 
@@ -17,6 +18,9 @@ administration and managed-role synchronization flows are partially wired.
   creation/edit/deactivation, and Discord role-mapping administration.
 - Probation team creation, rename, and soft-deactivation with Admin authorization and
   transactional audit logging.
+- Probation candidate creation without a required team, active-team assignment or
+  reassignment, and `Active`/`Inactive` lifecycle management with Admin authorization,
+  transactional audit logging, and immediate role synchronization for linked users.
 - Desired-state Discord role synchronization for linked Members/Candidates, including
   explicit assignment preservation, manual Admin reconciliation, and outcome auditing.
 - Criterion add/reactivate, rename, and deactivate workflows with audit rows.
@@ -24,7 +28,7 @@ administration and managed-role synchronization flows are partially wired.
   emails, reference names, and evaluation submissions.
 - Dockerfile, Compose deployment, CI build/test workflow, and checked-in migrations.
 - `npm run build` passes.
-- Vitest: 9 files and 35 tests pass.
+- Vitest: 11 files and 43 tests pass.
 
 ## Target data baseline
 
@@ -43,7 +47,7 @@ the current bot test suite.
 
 ## Not implemented yet
 
-- Probation candidate and mentor management commands/workflows.
+- Mentor management commands/workflows.
 - Evaluation periods and Peer/Mentor submission flows.
 - Raw evaluation read/reporting with Core/Admin authorization.
 - Manual PASS/FAIL decisions, identity transfer, role synchronization, and kick retry

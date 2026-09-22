@@ -66,21 +66,28 @@ export async function loadDiscordRoleSyncTarget(
     } else {
       const candidate = (await transaction
         .select({
+          status: probationCandidates.status,
           departmentId: probationCandidates.departmentId,
           generationId: probationCandidates.generationId,
           teamId: probationCandidates.teamId,
         })
         .from(probationCandidates)
-        .where(and(
-          eq(probationCandidates.id, link.subjectId),
-          eq(probationCandidates.status, 'Active'),
-        ))
+        .where(eq(probationCandidates.id, link.subjectId))
         .limit(1))[0];
 
       if (!candidate) {
-        throw new Error('The linked ProbationCandidate is not active.');
+        throw new Error('The linked ProbationCandidate was not found.');
       }
-      subject = { subjectType: 'ProbationCandidate', ...candidate };
+      if (candidate.status === 'Passed' || candidate.status === 'Failed') {
+        throw new Error('The linked ProbationCandidate has a final decision.');
+      }
+      subject = {
+        subjectType: 'ProbationCandidate',
+        active: candidate.status === 'Active',
+        departmentId: candidate.departmentId,
+        generationId: candidate.generationId,
+        teamId: candidate.teamId,
+      };
     }
 
     const mappings = await transaction

@@ -70,10 +70,12 @@ Core/Admin manually decide PASS or FAIL.
 
 The current bot has working foundation/admin flows for bootstrap, StudentId linking,
 regular Member creation, Department/Generation creation and lifecycle management,
-probation team administration, role mapping and synchronization, and evaluation
-criterion administration. Reference deactivation preserves historical assignments and
-prevents future assignments. Role synchronization runs after identity linking or through
-an Admin command, preserves explicit assignments, and leaves non-Felion Discord roles
-unchanged. The following target behavior remains pending: probation candidate/mentor
-management, evaluation periods/submissions/reads, PASS/FAIL decisions, kick retries,
-and complete Core authorization.
+probation team administration, probation candidate creation/team assignment and
+`Active`/`Inactive` lifecycle management, role mapping and synchronization, and
+evaluation criterion administration. Reference deactivation preserves historical
+assignments and prevents future assignments. Role synchronization runs after identity
+linking, after linked-candidate team/lifecycle changes, or through an Admin command. It
+preserves stored explicit assignments, removes all Felion-managed roles from inactive
+candidates, and leaves non-Felion Discord roles unchanged. The following target behavior
+remains pending: mentor management, evaluation periods/submissions/reads, PASS/FAIL
+decisions, kick retries, and complete Core authorization.
