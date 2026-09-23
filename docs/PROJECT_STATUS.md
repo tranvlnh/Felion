@@ -31,10 +31,17 @@ submission/reporting flows.
   audit logging.
 - Peer and Mentor evaluation submission workflows with eligibility checks, score
   snapshots, duplicate protection, and audit logging.
-- Core/Admin-only raw evaluation views with pagination and full-period CSV exports,
+- Core/Admin-only raw evaluation views with pagination and full-period Excel exports,
   including evaluator identity, score snapshots, notes, and UTC submission timestamps.
 - Feature-owned Discord command definitions and interaction handlers composed through
   a small first-match interaction router.
+- Authorization-aware Discord autocomplete for entity references; operators no longer
+  need to know or enter UUIDs for teams, candidates, Members, references, criteria,
+  periods, or role mappings.
+- Read-only management commands for candidate/team/member/reference/evaluation
+  summaries and details, plus `/role inspect` for current-vs-desired role diagnostics.
+- Peer/Mentor evaluation commands now open an ephemeral period/candidate selector and
+  Modal-based score entry, with a next-candidate workflow after submission.
 - Typed linked-identity actor resolvers for Admin, Core/Admin, Candidate, and Mentor
   authorization boundaries, plus centralized Discord error-response handling.
 - Shared `Database` and `DbTransaction` types keep persistence signatures consistent

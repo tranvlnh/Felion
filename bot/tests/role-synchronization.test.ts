@@ -23,6 +23,7 @@ const target: DiscordRoleSyncTarget = {
   discordUserId: '123',
   subjectType: 'Member',
   subjectId: '550e8400-e29b-41d4-a716-446655440000',
+  explicitRoleIds: [],
   desiredRoleIds: ['10'],
   managedRoleIds: ['10', '20'],
 };

@@ -40,6 +40,8 @@ dashboard, browser authentication, or event module.
 - `src/features/*/discord`: feature-owned slash-command definitions and thin
   interaction handlers for system, identity, members, probation, reference data,
   roles, and evaluations.
+- `src/db/management-read-model.ts`: read-only management projections used by list and
+  detail commands; these queries do not replace feature-owned mutation workflows.
 - `src/features/evaluations/application`: evaluation use-case sequencing and its
   feature-specific persistence contract. This is the first application-layer vertical
   slice; remaining features continue to migrate incrementally.
@@ -85,9 +87,15 @@ resolved from linked identity records; Discord roles alone are not the applicati
 authorization source.
 
 Raw evaluation views and exports require a linked active Core/Admin actor. The view is
-ephemeral and keeps short-lived pagination state in the evaluation Discord adapter; CSV
-exports contain the full period. These reads expose stored evaluator identity and raw
-snapshots but do not create audit mutations.
+ephemeral and keeps short-lived pagination state in the evaluation Discord adapter; Excel
+exports contain a readable summary and full-period raw score sheet. These reads expose
+stored evaluator names and raw snapshots without displaying UUIDs or creating audit
+mutations.
+
+Read-only management commands use the same linked-identity boundaries: Core/Admin may
+inspect probation, teams, and evaluation operations; Admin may inspect Members and
+reference/role administration; a probation candidate may inspect only their own
+candidate profile. These reads do not create audit mutations.
 
 The `/role sync` workflow is restricted to linked active Admins. Automatic role
 synchronization after StudentId linking uses the configured guild, not a guild inferred

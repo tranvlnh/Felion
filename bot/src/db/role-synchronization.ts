@@ -18,6 +18,7 @@ export type DiscordRoleSyncTarget = DiscordRoleState & {
   discordUserId: string;
   subjectType: 'Member' | 'ProbationCandidate';
   subjectId: string;
+  explicitRoleIds: string[];
 };
 
 export type DiscordRoleSyncAuditInput = {
@@ -116,6 +117,7 @@ export async function loadDiscordRoleSyncTarget(
       discordUserId,
       subjectType: link.subjectType,
       subjectId: link.subjectId,
+      explicitRoleIds: assignments.map((assignment) => assignment.discordRoleId),
       ...state,
     };
   });

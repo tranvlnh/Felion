@@ -85,12 +85,21 @@ repository abstraction, service locator, or dependency-injection framework.
 Linked active Core/Admin actors may read raw evaluations for both Open and Closed
 periods. `/evaluation-report view` requires a period and candidate, supports an optional
 Peer/Mentor filter, and returns an ephemeral paged response. `/evaluation-report export`
-returns an ephemeral CSV attachment containing all Peer and Mentor evaluations in the
-period.
+returns an ephemeral Excel workbook containing a readable summary and raw score sheet
+for all Peer and Mentor evaluations in the period. The workbook uses names instead of
+UUIDs in reader-facing cells.
 
-Reports include evaluator ID/name, target ID/name, score snapshots, the fixed note, and
-the UTC submission timestamp. Read access does not create an `AuditLog`; the current
-audit requirement remains scoped to privileged mutations.
+Reports include evaluator and target names, score snapshots, the fixed note, and the UTC
+submission timestamp. Read access does not create an `AuditLog`; the current audit
+requirement remains scoped to privileged mutations.
+
+## ADR-013 — Evaluation interaction workflow
+
+Peer and Mentor evaluation commands do not take a target candidate or period argument.
+They open an ephemeral selection workflow, followed by Modal score entry. The workflow
+offers the next eligible candidate after a successful submission, so evaluators do not
+need to invoke one command per person. Discord Modal limits require candidate/period
+selection to remain in select menus and score entry to be split into pages when needed.
 
 ## ADR-012 — Node-native internal import alias
 

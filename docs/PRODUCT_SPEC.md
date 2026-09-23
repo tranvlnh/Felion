@@ -78,6 +78,6 @@ assignments and prevents future assignments. Role synchronization runs after ide
 linking, after linked-candidate team/lifecycle changes, or through an Admin command. It
 preserves stored explicit assignments, removes all Felion-managed roles from inactive
 candidates, and leaves non-Felion Discord roles unchanged. Core/Admin-only raw
-evaluation views and full-period CSV exports are available. The following target
+evaluation views and full-period Excel exports are available. The following target
 behavior remains pending: PASS/FAIL decisions, kick retries, and complete Core
 authorization.

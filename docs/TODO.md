@@ -37,7 +37,7 @@ working Discord workflow.
 - [x] Mentor assignment with active-Member validation
 - [x] Evaluation period open/close commands
 - [x] Peer and Mentor evaluation submission commands/components
-- [x] Core/Admin-only raw evaluation views and full-period CSV reports
+- [x] Core/Admin-only raw evaluation views and full-period Excel reports
 - [ ] Manual PASS workflow: create Member, transfer identity, synchronize roles, audit
 - [ ] Manual FAIL workflow: audit, enqueue/kick Discord user, retain history
 - [ ] Kick retry worker and operational retry visibility

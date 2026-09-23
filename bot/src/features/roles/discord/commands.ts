@@ -5,6 +5,10 @@ export const roleCommandDefinitions = [
     .setName('role')
     .setDescription('Manage and synchronize Felion Discord roles.')
     .addSubcommand((command) => command
+      .setName('inspect')
+      .setDescription('Inspect current, desired, and managed Felion roles for a linked user.')
+      .addUserOption((option) => option.setName('user').setDescription('Linked Discord user').setRequired(true)))
+    .addSubcommand((command) => command
       .setName('map')
       .setDescription('Map an existing Discord role.')
       .addStringOption((option) => option
@@ -18,7 +22,7 @@ export const roleCommandDefinitions = [
           { name: 'Generation', value: 'Generation' },
           { name: 'ProbationTeam', value: 'ProbationTeam' },
         ))
-      .addStringOption((option) => option.setName('key').setDescription('Mapping key').setRequired(true))
+      .addStringOption((option) => option.setName('key').setDescription('Choose the mapping target').setRequired(true).setAutocomplete(true))
       .addRoleOption((option) => option.setName('role').setDescription('Guild role').setRequired(true)))
     .addSubcommand((command) => command
       .setName('sync')

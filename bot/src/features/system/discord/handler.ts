@@ -1,3 +1,4 @@
+import { MessageFlags } from 'discord.js';
 import type { InteractionHandler } from '#app/discord/interaction-router.js';
 
 export const handleSystemInteraction: InteractionHandler = async (interaction) => {
@@ -5,6 +6,6 @@ export const handleSystemInteraction: InteractionHandler = async (interaction) =
     return false;
   }
 
-  await interaction.reply({ content: 'Felion is online.', ephemeral: true });
+  await interaction.reply({ content: 'Felion is online.',flags: MessageFlags.Ephemeral });
   return true;
 };

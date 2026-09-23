@@ -4,6 +4,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from 'discord.js';
+import ExcelJS from 'exceljs';
 import type { RawEvaluationReport } from '../application/evaluation-service.js';
 
 const reportLifetimeMs = 15 * 60 * 1000;
@@ -109,48 +110,181 @@ export function renderEvaluationReportView(view: EvaluationReportView): {
   };
 }
 
-function escapeCsvCell(value: string | number): string {
-  const raw = String(value);
-  const text = typeof value === 'string' && /^\s*[=+\-@]/.test(raw)
-    ? `'${raw}`
-    : raw;
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+type ReportCellValue = string | number | Date | null;
+
+function safeSpreadsheetText(value: string): string {
+  return /^\s*[=+\-@]/.test(value) ? `'${value}` : value;
 }
 
-export function createEvaluationReportCsv(report: RawEvaluationReport): string {
-  const headers = [
-    'period_id',
-    'period_name',
-    'evaluation_id',
-    'kind',
-    'submitted_at_utc',
-    'target_candidate_id',
-    'target_name',
-    'evaluator_id',
-    'evaluator_name',
-    'criterion_id',
-    'criterion_name',
-    'score',
-    'note',
-  ];
-  const rows = report.evaluations.flatMap((evaluation) =>
-    evaluation.scores.map((score) => [
-      report.period.id,
-      report.period.name,
-      evaluation.id,
-      evaluation.kind,
-      evaluation.submittedAt.toISOString(),
-      evaluation.targetCandidateId,
-      evaluation.targetName,
-      evaluation.evaluatorId,
-      evaluation.evaluatorName,
-      score.criterionId,
-      score.criterionName,
-      score.score,
-      evaluation.note ?? '',
-    ]));
+function getCriterionColumns(report: RawEvaluationReport): readonly { key: string; header: string }[] {
+  const namesByKey = new Map<string, { kind: string; name: string }>();
+  for (const evaluation of report.evaluations) {
+    for (const score of evaluation.scores) {
+      namesByKey.set(`${evaluation.kind}:${score.criterionName}`, {
+        kind: evaluation.kind,
+        name: score.criterionName,
+      });
+    }
+  }
 
-  return `\uFEFF${[headers, ...rows]
-    .map((row) => row.map(escapeCsvCell).join(','))
-    .join('\r\n')}\r\n`;
+  const nameCounts = new Map<string, number>();
+  for (const criterion of namesByKey.values()) {
+    nameCounts.set(criterion.name, (nameCounts.get(criterion.name) ?? 0) + 1);
+  }
+
+  return [...namesByKey.entries()].map(([key, criterion]) => ({
+    key,
+    header: (nameCounts.get(criterion.name) ?? 0) > 1
+      ? `${criterion.kind}: ${criterion.name}`
+      : criterion.name,
+  }));
+}
+
+function formatReportWorksheet(
+  worksheet: ExcelJS.Worksheet,
+  headers: readonly string[],
+  rows: ReadonlyArray<ReadonlyArray<ReportCellValue>>,
+  widths: readonly number[],
+): void {
+  worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+  worksheet.columns = headers.map((header, index) => ({
+    header,
+    key: `column${index}`,
+    width: widths[index] ?? 18,
+  }));
+  for (const row of rows) {
+    worksheet.addRow([...row]);
+  }
+  worksheet.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: Math.max(1, rows.length + 1), column: headers.length },
+  };
+  worksheet.getRow(1).height = 24;
+  worksheet.getRow(1).eachCell((cell) => {
+    cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F4E78' } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  });
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+    row.alignment = { vertical: 'middle', wrapText: true };
+    row.eachCell((cell) => {
+      cell.font = { name: 'Arial', size: 10, color: { argb: 'FF1F1F1F' } };
+    });
+  });
+}
+
+function formatRawScoresGroups(
+  worksheet: ExcelJS.Worksheet,
+  groups: readonly { startRow: number; endRow: number }[],
+): void {
+  const mergedColumns = [1, 2, 3, 4, 5, 6, 9];
+  for (const group of groups) {
+    if (group.endRow <= group.startRow) continue;
+    for (const column of mergedColumns) {
+      worksheet.mergeCells(group.startRow, column, group.endRow, column);
+    }
+  }
+
+  for (const column of [1, 2, 3, 4, 5, 6, 8, 9]) {
+    worksheet.getColumn(column).alignment = {
+      horizontal: 'center',
+      vertical: 'middle',
+      wrapText: true,
+    };
+  }
+  worksheet.getColumn(7).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+  worksheet.getColumn(8).numFmt = '0';
+  for (const group of groups) {
+    const bottomRow = worksheet.getRow(group.endRow);
+    bottomRow.eachCell((cell) => {
+      cell.border = {
+        ...cell.border,
+        bottom: { style: 'thin', color: { argb: 'FFB7C9D6' } },
+      };
+    });
+  }
+}
+
+export async function createEvaluationReportWorkbook(report: RawEvaluationReport): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Felion';
+  workbook.created = new Date();
+  workbook.modified = new Date();
+
+  const criterionColumns = getCriterionColumns(report);
+  const summaryHeaders = [
+    'Evaluation period',
+    'Period status',
+    'Evaluation type',
+    'Submitted at (UTC)',
+    'Candidate',
+    'Evaluator',
+    ...criterionColumns.map((criterion) => criterion.header),
+    'Total score',
+    'Average score',
+    'Note',
+  ];
+  const summaryRows = report.evaluations.map((evaluation) => {
+    const scoreByKey = new Map(
+      evaluation.scores.map((score) => [`${evaluation.kind}:${score.criterionName}`, score.score]),
+    );
+    const total = evaluation.scores.reduce((sum, score) => sum + score.score, 0);
+    return [
+      safeSpreadsheetText(report.period.name),
+      report.period.status,
+      evaluation.kind,
+      evaluation.submittedAt,
+      safeSpreadsheetText(evaluation.targetName),
+      safeSpreadsheetText(evaluation.evaluatorName),
+      ...criterionColumns.map((criterion) => scoreByKey.get(criterion.key) ?? null),
+      evaluation.scores.length > 0 ? total : null,
+      evaluation.scores.length > 0 ? total / evaluation.scores.length : null,
+      safeSpreadsheetText(evaluation.note ?? ''),
+    ] satisfies ReportCellValue[];
+  });
+  const summary = workbook.addWorksheet('Summary');
+  formatReportWorksheet(summary, summaryHeaders, summaryRows, [24, 14, 16, 22, 28, 28, ...criterionColumns.map(() => 18), 14, 14, 40]);
+  summary.getColumn(4).numFmt = 'yyyy-mm-dd hh:mm';
+  summary.getColumn(summaryHeaders.length - 1).alignment = { vertical: 'top', wrapText: true };
+  summary.getColumn(summaryHeaders.length - 2).numFmt = '0.00';
+
+  const rawHeaders = [
+    'Evaluation period',
+    'Period status',
+    'Evaluation type',
+    'Submitted at (UTC)',
+    'Candidate',
+    'Evaluator',
+    'Criterion',
+    'Score',
+    'Note',
+  ];
+  const rawRows = report.evaluations.flatMap((evaluation) =>
+    evaluation.scores.map((score) => [
+      safeSpreadsheetText(report.period.name),
+      report.period.status,
+      evaluation.kind,
+      evaluation.submittedAt,
+      safeSpreadsheetText(evaluation.targetName),
+      safeSpreadsheetText(evaluation.evaluatorName),
+      safeSpreadsheetText(score.criterionName),
+      score.score,
+      safeSpreadsheetText(evaluation.note ?? ''),
+    ] satisfies ReportCellValue[]));
+  const raw = workbook.addWorksheet('Raw Scores');
+  formatReportWorksheet(raw, rawHeaders, rawRows, [24, 18, 18, 22, 28, 28, 32, 12, 40]);
+  raw.getColumn(4).numFmt = 'yyyy-mm-dd hh:mm';
+  const rawGroups: { startRow: number; endRow: number }[] = [];
+  let rawRow = 2;
+  for (const evaluation of report.evaluations) {
+    const endRow = rawRow + evaluation.scores.length - 1;
+    if (evaluation.scores.length > 0) {
+      rawGroups.push({ startRow: rawRow, endRow });
+      rawRow = endRow + 1;
+    }
+  }
+  formatRawScoresGroups(raw, rawGroups);
+
+  return Buffer.from(await workbook.xlsx.writeBuffer());
 }

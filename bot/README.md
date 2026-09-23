@@ -19,6 +19,9 @@ deployment artifact.
 - Evaluation-period administration and Peer/Mentor submissions through a feature-owned
   application service with a dedicated Drizzle persistence adapter
 - Core/Admin-only paged raw evaluation views and full-period CSV exports
+- Authorization-aware Discord autocomplete for entity references; UUIDs are internal
+  and are not required in command input
+- Read-only list/detail management commands and `/role inspect` diagnostics
 - Domain/workflow tests for authorization, reference lifecycle, member normalization,
   probation evaluation rules, and score criteria
 

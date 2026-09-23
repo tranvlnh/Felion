@@ -13,6 +13,13 @@ export const memberCommandDefinitions = [
     .setName('member')
     .setDescription('Manage Felion Members.')
     .addSubcommand((command) => command
+      .setName('list')
+      .setDescription('List Members.'))
+    .addSubcommand((command) => command
+      .setName('view')
+      .setDescription('Show detailed information for a Member.')
+      .addStringOption((option) => option.setName('member').setDescription('Choose a Member').setRequired(true).setAutocomplete(true)))
+    .addSubcommand((command) => command
       .setName('create')
       .setDescription('Create an active regular Member.')
       .addStringOption((option) => option.setName('student-id').setDescription('StudentId').setRequired(true))

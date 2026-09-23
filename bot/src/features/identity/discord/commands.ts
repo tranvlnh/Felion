@@ -24,12 +24,12 @@ export function createVerificationMessage(): {
   return {
     embeds: [new EmbedBuilder()
       .setTitle('Felion verification')
-      .setDescription('Press the button below and enter your StudentId to link your Discord account.')
+      .setDescription('Nhấn nút bên dưới và nhập Mã sinh viên của bạn để liên kết tài khoản Discord.')
       .setColor(0x5865f2)],
     components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId('verification:open')
-        .setLabel('Link StudentId')
+        .setLabel('Nhấn để mở')
         .setStyle(ButtonStyle.Primary),
     )],
   };
