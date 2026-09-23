@@ -62,7 +62,9 @@ Explicit assignment creation/removal commands are not yet exposed.
 - `mentor_evaluations`: mentor-to-candidate scores and one optional note.
 
 Evaluation rows store score snapshots so later criterion changes do not rewrite history.
-The current bot manages criteria but does not yet create or read evaluation submissions.
+The current bot manages periods, criteria, and evaluation submissions. Linked active
+Core/Admin actors may view raw historical rows for one candidate or export all raw rows
+for a period; reports use stored name/criterion snapshots and do not alter data.
 
 ## Migration ownership
 

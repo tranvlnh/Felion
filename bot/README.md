@@ -16,12 +16,15 @@ deployment artifact.
 - Desired-state Discord role synchronization after identity linking and through an
   Admin reconciliation command
 - Configurable Peer/Mentor score criteria with rename/deactivate/reactivate support
+- Evaluation-period administration and Peer/Mentor submissions through a feature-owned
+  application service with a dedicated Drizzle persistence adapter
+- Core/Admin-only paged raw evaluation views and full-period CSV exports
 - Domain/workflow tests for authorization, reference lifecycle, member normalization,
   probation evaluation rules, and score criteria
 
-The following are schema/target scope but are not wired into commands yet: probation
-candidate/mentor management, evaluation submission, explicit role-assignment
-administration, manual PASS/FAIL decisions, and failed-probation kick retries.
+The following are schema/target scope but are not wired into commands yet: explicit
+role-assignment administration, manual PASS/FAIL decisions, and failed-probation kick
+retries.
 
 There is deliberately no HTTP API, web dashboard, browser authentication, Google OAuth,
 Events, EventPosition, EventRegistration, or EventAttendance model in this application.
@@ -55,6 +58,9 @@ npm test -- --run
 `npm run db:migrate` applies migrations directly through Drizzle Kit. The runtime
 `npm run migrate` script applies the checked-in migrations from `dist/drizzle` and is
 what the Docker image uses after compiling.
+
+Cross-module imports use the Node-native `#app/*` alias. TypeScript and Vitest resolve
+it to `src/*`; compiled Node ESM resolves it to `dist/*` through `package.json#imports`.
 
 ## Docker deployment
 

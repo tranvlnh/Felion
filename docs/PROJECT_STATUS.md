@@ -1,12 +1,13 @@
 # Felion project status
 
-Last verified: 2026-09-22
+Last verified: 2026-09-23
 
 ## Current milestone
 
 TypeScript Discord-only bot — foundation and target-schema migration complete; core
 administration, probation-candidate lifecycle, and managed-role synchronization flows
-are partially wired.
+are partially wired, including evaluation-period administration and evaluation
+submission/reporting flows.
 
 ## Verified in the repository
 
@@ -26,11 +27,28 @@ are partially wired.
 - Desired-state Discord role synchronization for linked Members/Candidates, including
   explicit assignment preservation, manual Admin reconciliation, and outcome auditing.
 - Criterion add/reactivate, rename, and deactivate workflows with audit rows.
+- Evaluation period open/close workflows with Admin authorization and transactional
+  audit logging.
+- Peer and Mentor evaluation submission workflows with eligibility checks, score
+  snapshots, duplicate protection, and audit logging.
+- Core/Admin-only raw evaluation views with pagination and full-period CSV exports,
+  including evaluator identity, score snapshots, notes, and UTC submission timestamps.
+- Feature-owned Discord command definitions and interaction handlers composed through
+  a small first-match interaction router.
+- Typed linked-identity actor resolvers for Admin, Core/Admin, Candidate, and Mentor
+  authorization boundaries, plus centralized Discord error-response handling.
+- Shared `Database` and `DbTransaction` types keep persistence signatures consistent
+  without repeating inferred Drizzle transaction types.
+- Cross-module imports use the Node-native `#app/*` package alias consistently in
+  source and tests; local files within one feature retain relative imports.
+- Evaluation commands now use a feature-owned application service and a dedicated
+  persistence contract implemented by a Drizzle adapter; Discord UI state is owned by
+  the evaluation feature.
 - PostgreSQL uniqueness constraints for Member/Candidate StudentIds, Discord links,
   emails, reference names, and evaluation submissions.
 - Dockerfile, Compose deployment, CI build/test workflow, and checked-in migrations.
 - `npm run build` passes.
-- Vitest: 12 files and 47 tests pass.
+- Vitest: 19 files and 73 tests pass.
 
 ## Target data baseline
 
@@ -49,8 +67,6 @@ the current bot test suite.
 
 ## Not implemented yet
 
-- Evaluation periods and Peer/Mentor submission flows.
-- Raw evaluation read/reporting with Core/Admin authorization.
 - Manual PASS/FAIL decisions, identity transfer, role synchronization, and kick retry
   processing.
 - Production Discord integration checks and database-backed integration tests.

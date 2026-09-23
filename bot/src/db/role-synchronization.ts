@@ -3,7 +3,7 @@ import {
   resolveDiscordRoleState,
   type DiscordRoleState,
   type DiscordRoleSubject,
-} from '../domain/discord-roles.js';
+} from '#app/domain/discord-roles.js';
 import type { Database } from './client.js';
 import {
   auditLogs,
@@ -30,7 +30,7 @@ export type DiscordRoleSyncAuditInput = {
 };
 
 export async function loadDiscordRoleSyncTarget(
-  database: NonNullable<Database>,
+  database: Database,
   discordUserId: string,
 ): Promise<DiscordRoleSyncTarget> {
   return database.db.transaction(async (transaction) => {
@@ -122,7 +122,7 @@ export async function loadDiscordRoleSyncTarget(
 }
 
 export async function recordDiscordRoleSync(
-  database: NonNullable<Database>,
+  database: Database,
   input: DiscordRoleSyncAuditInput,
 ): Promise<void> {
   await database.db.insert(auditLogs).values({

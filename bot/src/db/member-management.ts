@@ -1,5 +1,5 @@
 import { and, eq, or } from 'drizzle-orm';
-import { createMember } from '../domain/member.js';
+import { createMember } from '#app/domain/member.js';
 import type { Database } from './client.js';
 import { auditLogs, departments, generations, identityRegistry, members } from './schema.js';
 
@@ -13,7 +13,7 @@ export type CreateMemberInput = {
 };
 
 export async function createRegularMember(
-  database: NonNullable<Database>,
+  database: Database,
   input: CreateMemberInput,
 ): Promise<string> {
   return database.db.transaction(async (transaction) => {

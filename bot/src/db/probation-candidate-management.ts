@@ -2,9 +2,9 @@ import { and, eq, or } from 'drizzle-orm';
 import {
   assertProbationCandidateTransition,
   createProbationCandidate,
-} from '../domain/probation.js';
-import { normalizeReferenceId } from '../domain/reference-data.js';
-import type { Database } from './client.js';
+} from '#app/domain/probation.js';
+import { normalizeReferenceId } from '#app/domain/reference-data.js';
+import type { Database, DbTransaction } from './client.js';
 import {
   auditLogs,
   departments,
@@ -29,7 +29,7 @@ export type ProbationCandidateMutationResult = {
 };
 
 export async function createActiveProbationCandidate(
-  database: NonNullable<Database>,
+  database: Database,
   input: CreateProbationCandidateInput,
 ): Promise<string> {
   return database.db.transaction(async (transaction) => {
@@ -80,7 +80,7 @@ export async function createActiveProbationCandidate(
 }
 
 export async function assignProbationCandidateTeam(
-  database: NonNullable<Database>,
+  database: Database,
   input: { candidateId: string; teamId: string; actorDiscordUserId: string },
 ): Promise<ProbationCandidateMutationResult> {
   const candidateId = normalizeReferenceId(input.candidateId);
@@ -136,21 +136,21 @@ export async function assignProbationCandidateTeam(
 }
 
 export async function deactivateProbationCandidate(
-  database: NonNullable<Database>,
+  database: Database,
   input: { candidateId: string; actorDiscordUserId: string },
 ): Promise<ProbationCandidateMutationResult> {
   return changeProbationCandidateStatus(database, input, 'Inactive');
 }
 
 export async function reactivateProbationCandidate(
-  database: NonNullable<Database>,
+  database: Database,
   input: { candidateId: string; actorDiscordUserId: string },
 ): Promise<ProbationCandidateMutationResult> {
   return changeProbationCandidateStatus(database, input, 'Active');
 }
 
 async function changeProbationCandidateStatus(
-  database: NonNullable<Database>,
+  database: Database,
   input: { candidateId: string; actorDiscordUserId: string },
   targetStatus: 'Active' | 'Inactive',
 ): Promise<ProbationCandidateMutationResult> {
@@ -194,7 +194,7 @@ async function changeProbationCandidateStatus(
 }
 
 async function findCandidateDiscordUserId(
-  transaction: Parameters<Parameters<NonNullable<Database>['db']['transaction']>[0]>[0],
+  transaction: DbTransaction,
   candidateId: string,
 ): Promise<string | null> {
   const link = (await transaction

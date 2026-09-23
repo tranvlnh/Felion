@@ -1,177 +1,21 @@
+import { evaluationCommandDefinitions } from '#app/features/evaluations/discord/commands.js';
+import { identityCommandDefinitions } from '#app/features/identity/discord/commands.js';
+import { memberCommandDefinitions } from '#app/features/members/discord/commands.js';
 import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-  PermissionFlagsBits,
-  SlashCommandBuilder,
-} from 'discord.js';
+  probationCandidateCommandDefinition,
+  probationTeamCommandDefinition,
+} from '#app/features/probation/discord/commands.js';
+import { referenceDataCommandDefinitions } from '#app/features/reference-data/discord/commands.js';
+import { roleCommandDefinitions } from '#app/features/roles/discord/commands.js';
+import { systemCommandDefinitions } from '#app/features/system/discord/commands.js';
 
 export const commandDefinitions = [
-  new SlashCommandBuilder()
-    .setName('ping')
-    .setDescription('Check whether the Felion bot is online.'),
-  new SlashCommandBuilder()
-    .setName('verification')
-    .setDescription('Manage the StudentId verification message.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator.toString())
-    .addSubcommand((command) => command
-      .setName('publish')
-      .setDescription('Publish the StudentId verification message in this channel.')),
-  new SlashCommandBuilder()
-    .setName('bootstrap-admin')
-    .setDescription('Create the first Felion Admin when the database is empty.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator.toString())
-    .addStringOption((option) => option.setName('student-id').setDescription('Initial Admin StudentId').setRequired(true))
-    .addStringOption((option) => option.setName('full-name').setDescription('Initial Admin full name').setRequired(true))
-    .addStringOption((option) => option.setName('club-email').setDescription('Initial Admin Workspace email').setRequired(true))
-    .addStringOption((option) => option.setName('generation-name').setDescription('Generation display name').setRequired(true)),
-  new SlashCommandBuilder()
-    .setName('member')
-    .setDescription('Manage Felion Members.')
-    .addSubcommand((command) => command
-      .setName('create')
-      .setDescription('Create an active regular Member.')
-      .addStringOption((option) => option.setName('student-id').setDescription('StudentId').setRequired(true))
-      .addStringOption((option) => option.setName('full-name').setDescription('Full name').setRequired(true))
-      .addStringOption((option) => option.setName('club-email').setDescription('Workspace email').setRequired(true))
-      .addStringOption((option) => option.setName('department').setDescription('Department name or slug').setRequired(true))
-      .addStringOption((option) => option.setName('generation').setDescription('Generation name').setRequired(true))),
-  new SlashCommandBuilder()
-    .setName('probation-candidate')
-    .setDescription('Manage ProbationCandidates.')
-    .addSubcommand((command) => command
-      .setName('create')
-      .setDescription('Create an active ProbationCandidate without a team.')
-      .addStringOption((option) => option.setName('student-id').setDescription('StudentId').setRequired(true))
-      .addStringOption((option) => option.setName('full-name').setDescription('Full name').setRequired(true))
-      .addStringOption((option) => option.setName('department').setDescription('Department name or slug').setRequired(true))
-      .addStringOption((option) => option.setName('generation').setDescription('Generation name').setRequired(true)))
-    .addSubcommand((command) => command
-      .setName('assign-team')
-      .setDescription('Assign or move an active candidate to an active team.')
-      .addStringOption((option) => option.setName('candidate-id').setDescription('ProbationCandidate UUID').setRequired(true))
-      .addStringOption((option) => option.setName('team-id').setDescription('Probation team UUID').setRequired(true)))
-    .addSubcommand((command) => command
-      .setName('deactivate')
-      .setDescription('Deactivate an active candidate.')
-      .addStringOption((option) => option.setName('candidate-id').setDescription('ProbationCandidate UUID').setRequired(true)))
-    .addSubcommand((command) => command
-      .setName('reactivate')
-      .setDescription('Reactivate an inactive candidate.')
-      .addStringOption((option) => option.setName('candidate-id').setDescription('ProbationCandidate UUID').setRequired(true))),
-  new SlashCommandBuilder()
-    .setName('department')
-    .setDescription('Manage Departments.')
-    .addSubcommand((command) => command
-      .setName('create')
-      .setDescription('Create a Department.')
-      .addStringOption((option) => option.setName('name').setDescription('Department name').setRequired(true))
-      .addStringOption((option) => option.setName('slug').setDescription('Department slug').setRequired(true)))
-    .addSubcommand((command) => command
-      .setName('edit')
-      .setDescription('Edit an active Department.')
-      .addStringOption((option) => option.setName('department-id').setDescription('Department UUID').setRequired(true))
-      .addStringOption((option) => option.setName('name').setDescription('New Department name').setRequired(true))
-      .addStringOption((option) => option.setName('slug').setDescription('New Department slug').setRequired(true)))
-    .addSubcommand((command) => command
-      .setName('deactivate')
-      .setDescription('Deactivate a Department for future assignments.')
-      .addStringOption((option) => option.setName('department-id').setDescription('Department UUID').setRequired(true))),
-  new SlashCommandBuilder()
-    .setName('generation')
-    .setDescription('Manage Generations.')
-    .addSubcommand((command) => command
-      .setName('create')
-      .setDescription('Create a Generation.')
-      .addStringOption((option) => option.setName('name').setDescription('Generation name').setRequired(true)))
-    .addSubcommand((command) => command
-      .setName('edit')
-      .setDescription('Edit an active Generation.')
-      .addStringOption((option) => option.setName('generation-id').setDescription('Generation UUID').setRequired(true))
-      .addStringOption((option) => option.setName('name').setDescription('New Generation name').setRequired(true)))
-    .addSubcommand((command) => command
-      .setName('deactivate')
-      .setDescription('Deactivate a Generation for future assignments.')
-      .addStringOption((option) => option.setName('generation-id').setDescription('Generation UUID').setRequired(true))),
-  new SlashCommandBuilder()
-    .setName('probation-team')
-    .setDescription('Manage probation teams.')
-    .addSubcommand((command) => command
-      .setName('create')
-      .setDescription('Create a probation team.')
-      .addStringOption((option) => option.setName('name').setDescription('Team name').setRequired(true)))
-    .addSubcommand((command) => command
-      .setName('edit')
-      .setDescription('Rename an active probation team.')
-      .addStringOption((option) => option.setName('team-id').setDescription('Probation team UUID').setRequired(true))
-      .addStringOption((option) => option.setName('name').setDescription('New team name').setRequired(true)))
-    .addSubcommand((command) => command
-      .setName('deactivate')
-      .setDescription('Deactivate a probation team for future assignments.')
-      .addStringOption((option) => option.setName('team-id').setDescription('Probation team UUID').setRequired(true)))
-    .addSubcommand((command) => command
-      .setName('assign-mentor')
-      .setDescription('Assign an active Member as a mentor for an active probation team.')
-      .addStringOption((option) => option.setName('team-id').setDescription('Probation team UUID').setRequired(true))
-      .addStringOption((option) => option.setName('member-id').setDescription('Member UUID').setRequired(true))),
-  new SlashCommandBuilder()
-    .setName('role')
-    .setDescription('Manage and synchronize Felion Discord roles.')
-    .addSubcommand((command) => command
-      .setName('map')
-      .setDescription('Map an existing Discord role.')
-      .addStringOption((option) => option
-        .setName('kind')
-        .setDescription('Mapping dimension')
-        .setRequired(true)
-        .addChoices(
-          { name: 'Position', value: 'Position' },
-          { name: 'Probation', value: 'Probation' },
-          { name: 'Department', value: 'Department' },
-          { name: 'Generation', value: 'Generation' },
-          { name: 'ProbationTeam', value: 'ProbationTeam' },
-        ))
-      .addStringOption((option) => option.setName('key').setDescription('Mapping key').setRequired(true))
-      .addRoleOption((option) => option.setName('role').setDescription('Guild role').setRequired(true)))
-    .addSubcommand((command) => command
-      .setName('sync')
-      .setDescription('Reconcile Felion-managed roles for a linked Discord user.')
-      .addUserOption((option) => option.setName('user').setDescription('Linked Discord user').setRequired(true))),
-  new SlashCommandBuilder()
-    .setName('evaluation-criteria')
-    .setDescription('Manage configurable score criteria. The note field is always fixed.')
-    .addSubcommand((command) => command
-      .setName('add')
-      .setDescription('Add or reactivate a score criterion.')
-      .addStringOption((option) => option
-        .setName('kind')
-        .setDescription('Evaluation kind')
-        .setRequired(true)
-        .addChoices({ name: 'Peer', value: 'Peer' }, { name: 'Mentor', value: 'Mentor' }))
-      .addStringOption((option) => option.setName('name').setDescription('Criterion name').setRequired(true)))
-    .addSubcommand((command) => command
-      .setName('rename')
-      .setDescription('Rename an active criterion without changing its identity.')
-      .addStringOption((option) => option.setName('criterion-id').setDescription('Criterion UUID').setRequired(true))
-      .addStringOption((option) => option.setName('name').setDescription('New criterion name').setRequired(true)))
-    .addSubcommand((command) => command
-      .setName('remove')
-      .setDescription('Deactivate a score criterion while preserving history.')
-      .addStringOption((option) => option.setName('criterion-id').setDescription('Criterion UUID').setRequired(true))),
+  ...systemCommandDefinitions,
+  ...identityCommandDefinitions,
+  ...memberCommandDefinitions,
+  probationCandidateCommandDefinition,
+  ...referenceDataCommandDefinitions,
+  probationTeamCommandDefinition,
+  ...roleCommandDefinitions,
+  ...evaluationCommandDefinitions,
 ].map((command) => command.toJSON());
-
-export function createVerificationMessage() {
-  return {
-    embeds: [new EmbedBuilder()
-      .setTitle('Felion verification')
-      .setDescription('Press the button below and enter your StudentId to link your Discord account.')
-      .setColor(0x5865f2)],
-    components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId('verification:open')
-        .setLabel('Link StudentId')
-        .setStyle(ButtonStyle.Primary),
-    )],
-  };
-}

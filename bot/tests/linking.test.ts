@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { Database } from '../src/db/client.js';
-import { linkDiscordIdentity } from '../src/db/linking.js';
+import type { Database } from '#app/db/client.js';
+import { linkDiscordIdentity } from '#app/db/linking.js';
 import {
   discordIdentityLinks,
   identityRegistry,
   probationCandidates,
-} from '../src/db/schema.js';
+} from '#app/db/schema.js';
 
 describe('Discord identity linking lifecycle guard', () => {
   it('does not link an inactive ProbationCandidate retained in the identity registry', async () => {
@@ -42,7 +42,7 @@ describe('Discord identity linking lifecycle guard', () => {
       db: {
         transaction: async <T>(callback: (value: typeof transaction) => Promise<T>) => callback(transaction),
       },
-    } as unknown as NonNullable<Database>;
+    } as unknown as Database;
 
     await expect(linkDiscordIdentity(database, 'discord-user', 'sv-001'))
       .rejects.toThrow('No active Member or ProbationCandidate');

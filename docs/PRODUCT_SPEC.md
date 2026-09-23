@@ -72,10 +72,12 @@ The current bot has working foundation/admin flows for bootstrap, StudentId link
 regular Member creation, Department/Generation creation and lifecycle management,
 probation team administration, probation candidate creation/team assignment and
 `Active`/`Inactive` lifecycle management, active-Member mentor assignment, role mapping
-and synchronization, and evaluation criterion administration. Reference deactivation preserves historical
+and synchronization, evaluation criterion administration, evaluation-period
+administration, and Peer/Mentor evaluation submission. Reference deactivation preserves historical
 assignments and prevents future assignments. Role synchronization runs after identity
 linking, after linked-candidate team/lifecycle changes, or through an Admin command. It
 preserves stored explicit assignments, removes all Felion-managed roles from inactive
-candidates, and leaves non-Felion Discord roles unchanged. The following target behavior
-remains pending: evaluation periods/submissions/reads, PASS/FAIL decisions, kick retries,
-and complete Core authorization.
+candidates, and leaves non-Felion Discord roles unchanged. Core/Admin-only raw
+evaluation views and full-period CSV exports are available. The following target
+behavior remains pending: PASS/FAIL decisions, kick retries, and complete Core
+authorization.

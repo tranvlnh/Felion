@@ -10,11 +10,20 @@ provide persistence and transaction boundaries.
 Discord Gateway
       |
       v
-bot/src/discord       slash commands, buttons, modals, responses
+bot/src/discord       client composition, interaction router, registration
       |
       v
+bot/src/features/*/discord
+                      feature command definitions, handlers, responses
+      |
+      v
+bot/src/features/*/application
+                      use cases and feature-specific persistence contracts
+      |
+      v
+bot/src/shared        transport-independent application errors
 bot/src/domain        normalization and business invariants
-bot/src/db            application workflows and PostgreSQL access
+bot/src/db            Drizzle adapters, PostgreSQL access, transaction execution
       |
       v
 PostgreSQL            schema, constraints, audit history, migrations
@@ -26,14 +35,23 @@ dashboard, browser authentication, or event module.
 ## Modules
 
 - `src/config.ts`: environment validation for Discord, database, and runtime mode.
-- `src/discord`: command definitions, guild registration, interaction handling, and
-  verification UI.
+- `src/discord`: Discord client composition, first-match interaction routing, guild
+  registration, and shared Discord integration helpers.
+- `src/features/*/discord`: feature-owned slash-command definitions and thin
+  interaction handlers for system, identity, members, probation, reference data,
+  roles, and evaluations.
+- `src/features/evaluations/application`: evaluation use-case sequencing and its
+  feature-specific persistence contract. This is the first application-layer vertical
+  slice; remaining features continue to migrate incrementally.
 - `src/domain`: Member normalization, evaluation criteria/score rules, probation
   evaluation eligibility rules, and managed-role desired-state reconciliation.
+- `src/shared/errors`: application error codes and safe public-message extraction.
 - `src/db/schema.ts`: Drizzle PostgreSQL schema and enums.
 - `src/db/*.ts`: transactional bootstrap, linking, Member/reference/probation-team/
-  probation-candidate administration, mentor assignment, authorization, and criterion
-  administration.
+  probation-candidate administration, mentor assignment, authorization, and shared
+  PostgreSQL access.
+- `src/db/evaluations`: Drizzle implementation of the evaluation persistence contract;
+  it owns schema queries and executes application-requested transactions.
 - `drizzle/`: reviewed SQL migrations applied by the runtime/Docker entrypoint.
 - `tests/`: focused Vitest domain tests.
 
@@ -41,13 +59,35 @@ Business rules must not be placed only in Discord handlers or inferred from Disc
 role possession. Database constraints are required for identity uniqueness and
 idempotent mutation boundaries.
 
+The interaction router evaluates feature handlers in an explicit composition order and
+stops after the first handler accepts an interaction. The central client does not
+contain command-specific branching.
+
+The Discord client is the explicit composition root for application services and their
+Drizzle adapters. Application modules do not import Discord or Drizzle modules, and
+persistence adapters depend on feature-specific contracts rather than generic
+repositories.
+
+Cross-module source imports use the private Node package alias `#app/*`. TypeScript maps
+the alias to `src/*`, Vitest resolves it to source, and production Node resolves it to
+`dist/*` through `package.json#imports`. Relative imports remain appropriate for files
+inside the same feature boundary.
+
 ## Authorization boundary
 
 Discord's Administrator permission gates the bootstrap and verification-publish command
-definitions. The implemented Member, reference-data, role-mapping, and criterion
-handlers additionally require a linked active Felion Admin. Felion authorization is
-resolved from the linked Discord identity and active Member record; Discord roles alone
-are not the application authorization source.
+definitions. Administrative Member, reference-data, role-mapping, criterion, and
+evaluation-period handlers require a typed linked active Felion Admin actor. Shared
+resolvers also define Core/Admin, Candidate, and Mentor actor boundaries for current and
+next workflows. Evaluation submission handlers resolve a linked active candidate or
+Member mentor and apply their domain eligibility rules. Felion authorization is
+resolved from linked identity records; Discord roles alone are not the application
+authorization source.
+
+Raw evaluation views and exports require a linked active Core/Admin actor. The view is
+ephemeral and keeps short-lived pagination state in the evaluation Discord adapter; CSV
+exports contain the full period. These reads expose stored evaluator identity and raw
+snapshots but do not create audit mutations.
 
 The `/role sync` workflow is restricted to linked active Admins. Automatic role
 synchronization after StudentId linking uses the configured guild, not a guild inferred

@@ -5,16 +5,16 @@ import {
   normalizeDepartmentReference,
   normalizeGenerationName,
   normalizeReferenceId,
-} from '../domain/reference-data.js';
+} from '#app/domain/reference-data.js';
 import {
   normalizeDiscordRoleMappingKey,
   type DiscordRoleMappingKind,
-} from '../domain/discord-roles.js';
+} from '#app/domain/discord-roles.js';
 import type { Database } from './client.js';
 import { auditLogs, departments, discordRoleMappings, generations, probationTeams } from './schema.js';
 
 export async function createDepartment(
-  database: NonNullable<Database>,
+  database: Database,
   input: { name: string; slug: string; actorDiscordUserId: string },
 ): Promise<void> {
   const { name, slug } = normalizeDepartmentReference(input);
@@ -35,7 +35,7 @@ export async function createDepartment(
 }
 
 export async function createGeneration(
-  database: NonNullable<Database>,
+  database: Database,
   input: { name: string; actorDiscordUserId: string },
 ): Promise<void> {
   const name = normalizeGenerationName(input.name);
@@ -56,7 +56,7 @@ export async function createGeneration(
 }
 
 export async function editDepartment(
-  database: NonNullable<Database>,
+  database: Database,
   input: { departmentId: string; name: string; slug: string; actorDiscordUserId: string },
 ): Promise<void> {
   const departmentId = normalizeReferenceId(input.departmentId);
@@ -97,7 +97,7 @@ export async function editDepartment(
 }
 
 export async function deactivateDepartment(
-  database: NonNullable<Database>,
+  database: Database,
   input: { departmentId: string; actorDiscordUserId: string },
 ): Promise<void> {
   const departmentId = normalizeReferenceId(input.departmentId);
@@ -134,7 +134,7 @@ export async function deactivateDepartment(
 }
 
 export async function editGeneration(
-  database: NonNullable<Database>,
+  database: Database,
   input: { generationId: string; name: string; actorDiscordUserId: string },
 ): Promise<void> {
   const generationId = normalizeReferenceId(input.generationId);
@@ -172,7 +172,7 @@ export async function editGeneration(
 }
 
 export async function deactivateGeneration(
-  database: NonNullable<Database>,
+  database: Database,
   input: { generationId: string; actorDiscordUserId: string },
 ): Promise<void> {
   const generationId = normalizeReferenceId(input.generationId);
@@ -209,7 +209,7 @@ export async function deactivateGeneration(
 }
 
 export async function mapDiscordRole(
-  database: NonNullable<Database>,
+  database: Database,
   input: { kind: DiscordRoleMappingKind; key: string; discordRoleId: string; actorDiscordUserId: string },
 ): Promise<void> {
   const key = normalizeDiscordRoleMappingKey(input.kind, input.key);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Database } from '../src/db/client.js';
-import { assignProbationTeamMentor } from '../src/db/probation-team-management.js';
-import { auditLogs, members, probationTeams, teamMentors } from '../src/db/schema.js';
+import type { Database } from '#app/db/client.js';
+import { assignProbationTeamMentor } from '#app/db/probation-team-management.js';
+import { auditLogs, members, probationTeams, teamMentors } from '#app/db/schema.js';
 
 type RecordedMutation = Record<string, unknown>;
 
@@ -55,7 +55,7 @@ function createWorkflowDatabase(options: {
     db: {
       transaction: async <T>(callback: (value: typeof transaction) => Promise<T>) => callback(transaction),
     },
-  } as unknown as NonNullable<Database>;
+  } as unknown as Database;
 
   return { database, assignments, audits };
 }

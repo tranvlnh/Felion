@@ -1,11 +1,12 @@
 import type { Guild } from 'discord.js';
-import { planDiscordRoleReconciliation, type DiscordRoleReconciliationPlan } from '../domain/discord-roles.js';
-import type { Database } from '../db/client.js';
+import type { Database } from '#app/db/client.js';
 import {
   loadDiscordRoleSyncTarget,
   recordDiscordRoleSync,
   type DiscordRoleSyncTarget,
-} from '../db/role-synchronization.js';
+} from '#app/db/role-synchronization.js';
+import { planDiscordRoleReconciliation, type DiscordRoleReconciliationPlan } from '#app/domain/discord-roles.js';
+import { getPublicErrorMessage } from '#app/shared/errors/app-error.js';
 
 export type AppliedDiscordRoleSync = DiscordRoleReconciliationPlan & {
   addedRoleIds: string[];
@@ -63,7 +64,7 @@ export async function applyDiscordRoleSync(
       removedRoleIds.push(...plan.rolesToRemove);
     }
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Discord rejected the role synchronization.';
+    const message = getPublicErrorMessage(error, 'Discord rejected the role synchronization.');
     throw new DiscordRoleSyncError(message, addedRoleIds, removedRoleIds, { cause: error });
   }
 
@@ -71,7 +72,7 @@ export async function applyDiscordRoleSync(
 }
 
 export async function synchronizeDiscordRolesForUser(
-  database: NonNullable<Database>,
+  database: Database,
   guild: Guild,
   discordUserId: string,
   actorDiscordUserId: string,
@@ -82,7 +83,7 @@ export async function synchronizeDiscordRolesForUser(
   try {
     result = await applyDiscordRoleSync(guild, target);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unable to synchronize Discord roles.';
+    const message = getPublicErrorMessage(error, 'Unable to synchronize Discord roles.');
     await recordDiscordRoleSync(database, {
       target,
       actorDiscordUserId,

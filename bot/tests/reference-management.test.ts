@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { Database } from '../src/db/client.js';
+import type { Database } from '#app/db/client.js';
 import {
   deactivateDepartment,
   editGeneration,
-} from '../src/db/reference-management.js';
+} from '#app/db/reference-management.js';
 
 type RecordedMutation = Record<string, unknown>;
 
@@ -40,7 +40,7 @@ function createWorkflowDatabase(row: Record<string, unknown>) {
     db: {
       transaction: async <T>(callback: (value: typeof transaction) => Promise<T>) => callback(transaction),
     },
-  } as unknown as NonNullable<Database>;
+  } as unknown as Database;
 
   return { database, audits, updates };
 }

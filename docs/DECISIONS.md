@@ -43,6 +43,14 @@ Discord handlers parse interactions, resolve the actor, call application/databas
 workflows, and format responses. Domain invariants belong in `domain/`; transaction
 boundaries and persistence belong in `db/`.
 
+Command definitions and handlers are owned by feature modules. A small explicit router
+composes them at the Discord client boundary and stops at the first matching handler.
+Linked identities are resolved through typed actor boundaries (`Admin`, `Core/Admin`,
+`Candidate`, and `Mentor`) rather than transport-level boolean checks. Expected
+authorization failures use application errors with a safe public message, and Discord
+handlers use a shared response helper while legacy workflow errors are migrated
+incrementally.
+
 ## ADR-008 — Checked-in migration artifacts
 
 Development may use Drizzle Kit to generate migrations, but production receives reviewed
@@ -59,3 +67,34 @@ lifecycle changes immediately synchronize Discord roles for linked candidates an
 both the database mutation and synchronization outcome. Inactive candidates retain
 their identity link and stored explicit assignments but have no desired Felion-managed
 Discord roles.
+
+## ADR-010 — Feature-specific application boundaries
+
+Complex features are migrated incrementally from transport-to-database calls to an
+explicit application service. The application layer owns use-case sequencing,
+transaction intent, domain-rule invocation, and audit intent. It depends on a
+feature-specific persistence contract; a Drizzle adapter implements that contract and
+owns SQL/schema details and the physical transaction.
+
+The evaluation feature is the first migrated vertical slice. Dependency composition is
+explicit in the Discord client composition root. Felion does not use a generic
+repository abstraction, service locator, or dependency-injection framework.
+
+## ADR-011 — Raw evaluation reporting
+
+Linked active Core/Admin actors may read raw evaluations for both Open and Closed
+periods. `/evaluation-report view` requires a period and candidate, supports an optional
+Peer/Mentor filter, and returns an ephemeral paged response. `/evaluation-report export`
+returns an ephemeral CSV attachment containing all Peer and Mentor evaluations in the
+period.
+
+Reports include evaluator ID/name, target ID/name, score snapshots, the fixed note, and
+the UTC submission timestamp. Read access does not create an `AuditLog`; the current
+audit requirement remains scoped to privileged mutations.
+
+## ADR-012 — Node-native internal import alias
+
+Cross-module imports use `#app/*`, mapped to `src/*` for TypeScript/Vitest and `dist/*`
+for the compiled Node ESM runtime. Relative imports are retained only for local modules
+within the same feature boundary. This uses Node's private package-import mechanism and
+does not require an emitted-path rewriter such as `tsc-alias`.

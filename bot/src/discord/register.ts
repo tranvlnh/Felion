@@ -1,5 +1,5 @@
 import { REST, Routes } from 'discord.js';
-import type { Config } from '../config.js';
+import type { Config } from '#app/config.js';
 import { commandDefinitions } from './commands.js';
 
 export async function registerGuildCommands(config: Config): Promise<void> {

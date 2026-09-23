@@ -1,11 +1,11 @@
 import { and, eq } from 'drizzle-orm';
-import { normalizeProbationTeamName } from '../domain/probation.js';
-import { assertActiveReference, normalizeReferenceId } from '../domain/reference-data.js';
+import { normalizeProbationTeamName } from '#app/domain/probation.js';
+import { assertActiveReference, normalizeReferenceId } from '#app/domain/reference-data.js';
 import type { Database } from './client.js';
 import { auditLogs, members, probationTeams, teamMentors } from './schema.js';
 
 export async function assignProbationTeamMentor(
-  database: NonNullable<Database>,
+  database: Database,
   input: { teamId: string; memberId: string; actorDiscordUserId: string },
 ): Promise<void> {
   const teamId = normalizeReferenceId(input.teamId);
@@ -50,7 +50,7 @@ export async function assignProbationTeamMentor(
 }
 
 export async function createProbationTeam(
-  database: NonNullable<Database>,
+  database: Database,
   input: { name: string; actorDiscordUserId: string },
 ): Promise<void> {
   const name = normalizeProbationTeamName(input.name);
@@ -75,7 +75,7 @@ export async function createProbationTeam(
 }
 
 export async function editProbationTeam(
-  database: NonNullable<Database>,
+  database: Database,
   input: { teamId: string; name: string; actorDiscordUserId: string },
 ): Promise<void> {
   const teamId = normalizeReferenceId(input.teamId);
@@ -113,7 +113,7 @@ export async function editProbationTeam(
 }
 
 export async function deactivateProbationTeam(
-  database: NonNullable<Database>,
+  database: Database,
   input: { teamId: string; actorDiscordUserId: string },
 ): Promise<void> {
   const teamId = normalizeReferenceId(input.teamId);

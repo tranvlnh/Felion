@@ -5,7 +5,7 @@ import {
   planDiscordRoleReconciliation,
   resolveDiscordRoleState,
   type DiscordRoleMapping,
-} from '../src/domain/discord-roles.js';
+} from '#app/domain/discord-roles.js';
 
 const departmentId = '550e8400-e29b-41d4-a716-446655440000';
 const generationId = '10b2a3c4-d5e6-4789-8abc-1234567890ab';

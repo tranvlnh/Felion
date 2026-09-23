@@ -11,6 +11,11 @@ working Discord workflow.
 - [x] Remove web/API, browser authentication, and Events from the target
 - [x] Preserve cross-aggregate StudentId and Discord-link uniqueness in the schema
 - [x] Docker deployment and CI build/test workflow
+- [x] Feature-owned Discord handlers and first-match interaction router
+- [x] Typed actor authorization resolvers and shared application-error responses
+- [x] Shared database and transaction types
+- [x] Node-native `#app/*` alias for cross-module TypeScript imports
+- [x] Evaluation application boundary with a feature-specific Drizzle persistence adapter
 
 ## Current administration flows
 
@@ -30,9 +35,9 @@ working Discord workflow.
 - [x] Probation team administration
 - [x] Probation candidate creation, team assignment, and lifecycle management
 - [x] Mentor assignment with active-Member validation
-- [ ] Evaluation period open/close commands
-- [ ] Peer and Mentor evaluation submission commands/components
-- [ ] Core/Admin-only raw evaluation reads and reports
+- [x] Evaluation period open/close commands
+- [x] Peer and Mentor evaluation submission commands/components
+- [x] Core/Admin-only raw evaluation views and full-period CSV reports
 - [ ] Manual PASS workflow: create Member, transfer identity, synchronize roles, audit
 - [ ] Manual FAIL workflow: audit, enqueue/kick Discord user, retain history
 - [ ] Kick retry worker and operational retry visibility

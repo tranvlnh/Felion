@@ -1,6 +1,6 @@
 import { count, eq } from 'drizzle-orm';
-import { createMember } from '../domain/member.js';
-import { normalizeGenerationName } from '../domain/reference-data.js';
+import { createMember } from '#app/domain/member.js';
+import { normalizeGenerationName } from '#app/domain/reference-data.js';
 import type { Database } from './client.js';
 import { auditLogs, departments, generations, identityRegistry, members } from './schema.js';
 
@@ -13,7 +13,7 @@ export type BootstrapAdminInput = {
 };
 
 export async function bootstrapAdmin(
-  database: NonNullable<Database>,
+  database: Database,
   input: BootstrapAdminInput,
 ): Promise<void> {
   const generationName = normalizeGenerationName(input.generationName);

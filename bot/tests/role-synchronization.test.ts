@@ -1,10 +1,10 @@
 import type { Guild } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
-import type { Database } from '../src/db/client.js';
-import { recordDiscordRoleSync, type DiscordRoleSyncTarget } from '../src/db/role-synchronization.js';
-import { applyDiscordRoleSync } from '../src/discord/role-synchronization.js';
+import type { Database } from '#app/db/client.js';
+import { recordDiscordRoleSync, type DiscordRoleSyncTarget } from '#app/db/role-synchronization.js';
+import { applyDiscordRoleSync } from '#app/discord/role-synchronization.js';
 
-function createAuditDatabase(): { database: NonNullable<Database>; audits: Record<string, unknown>[] } {
+function createAuditDatabase(): { database: Database; audits: Record<string, unknown>[] } {
   const audits: Record<string, unknown>[] = [];
   const database = {
     db: {
@@ -14,7 +14,7 @@ function createAuditDatabase(): { database: NonNullable<Database>; audits: Recor
         },
       }),
     },
-  } as unknown as NonNullable<Database>;
+  } as unknown as Database;
 
   return { database, audits };
 }

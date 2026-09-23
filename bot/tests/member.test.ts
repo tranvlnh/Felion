@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createMember, normalizeClubEmail, normalizeStudentId } from '../src/domain/member.js';
+import { createMember, normalizeClubEmail, normalizeStudentId } from '#app/domain/member.js';
 
 describe('member domain', () => {
   it('normalizes StudentId and club email', () => {

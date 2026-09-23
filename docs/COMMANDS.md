@@ -29,6 +29,12 @@ specification without being implemented yet.
 | `/evaluation-criteria add` | Adds or reactivates a Peer/Mentor criterion | Linked active Felion Admin |
 | `/evaluation-criteria rename` | Renames an active criterion while preserving its ID | Linked active Felion Admin |
 | `/evaluation-criteria remove` | Deactivates a criterion without deleting history | Linked active Felion Admin |
+| `/evaluation-period open` | Opens a named evaluation period | Linked active Felion Admin |
+| `/evaluation-period close` | Closes an open evaluation period by UUID | Linked active Felion Admin |
+| `/evaluation peer` | Opens a paged Peer evaluation form for another candidate in the evaluator's team | Linked active ProbationCandidate |
+| `/evaluation mentor` | Opens a paged Mentor evaluation form for a candidate in a mentored team | Linked active Member mentor |
+| `/evaluation-report view` | Shows a paged ephemeral raw report for one candidate in a period, optionally filtered by Peer/Mentor kind | Linked active Core or Admin |
+| `/evaluation-report export` | Exports every raw Peer/Mentor evaluation in a period as an ephemeral CSV attachment | Linked active Core or Admin |
 
 ## Verification interaction
 
@@ -39,5 +45,5 @@ the link in one transaction.
 
 ## Not registered yet
 
-Evaluation periods/submissions, evaluation reads, explicit role-assignment administration,
-and PASS/FAIL decisions do not currently have Discord commands.
+Explicit role-assignment administration and PASS/FAIL decisions do not currently have
+Discord commands.

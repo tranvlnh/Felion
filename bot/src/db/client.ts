@@ -1,6 +1,6 @@
 import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
-import type { Config } from '../config.js';
+import type { Config } from '#app/config.js';
 import * as schema from './schema.js';
 
 export function createDatabase(config: Config) {
@@ -12,3 +12,4 @@ export function createDatabase(config: Config) {
 }
 
 export type Database = ReturnType<typeof createDatabase>;
+export type DbTransaction = Parameters<Parameters<Database['db']['transaction']>[0]>[0];

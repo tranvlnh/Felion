@@ -5,7 +5,7 @@ import {
   assertPeerEvaluationAllowed,
   createProbationCandidate,
   normalizeProbationTeamName,
-} from '../src/domain/probation.js';
+} from '#app/domain/probation.js';
 
 describe('probation candidate lifecycle rules', () => {
   it('creates an active unassigned candidate with normalized identity fields', () => {

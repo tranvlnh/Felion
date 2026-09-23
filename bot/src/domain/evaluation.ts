@@ -18,6 +18,29 @@ export type EvaluationScoreSnapshot = {
   score: number;
 };
 
+export function normalizeEvaluationNote(rawNote: string | null | undefined): string | null {
+  if (rawNote === null || rawNote === undefined) {
+    return null;
+  }
+
+  const note = rawNote.trim();
+  if (note.length === 0) {
+    return null;
+  }
+  if (note.length > 2000) {
+    throw new Error('Evaluation note must not exceed 2000 characters.');
+  }
+  return note;
+}
+
+export function normalizeEvaluationPeriodName(rawName: string): string {
+  const name = rawName.trim().replace(/\s+/g, ' ');
+  if (name.length < 2 || name.length > 100) {
+    throw new Error('Evaluation period name must contain between 2 and 100 characters.');
+  }
+  return name;
+}
+
 export function normalizeCriterionName(rawName: string): string {
   const name = rawName.trim().replace(/\s+/g, ' ');
   if (name.length < 2 || name.length > 100) {

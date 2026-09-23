@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { normalizeStudentId } from '../domain/member.js';
+import { normalizeStudentId } from '#app/domain/member.js';
 import type { Database } from './client.js';
 import {
   auditLogs,
@@ -10,7 +10,7 @@ import {
 } from './schema.js';
 
 export async function linkDiscordIdentity(
-  database: NonNullable<Database>,
+  database: Database,
   discordUserId: string,
   rawStudentId: string,
 ): Promise<void> {

@@ -5,7 +5,7 @@ import {
   normalizeDepartmentReference,
   normalizeGenerationName,
   normalizeReferenceId,
-} from '../src/domain/reference-data.js';
+} from '#app/domain/reference-data.js';
 
 describe('reference data domain', () => {
   it('normalizes Department names and slugs', () => {

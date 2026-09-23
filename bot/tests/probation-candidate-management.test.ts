@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { Database } from '../src/db/client.js';
+import type { Database } from '#app/db/client.js';
 import {
   assignProbationCandidateTeam,
   createActiveProbationCandidate,
   deactivateProbationCandidate,
   reactivateProbationCandidate,
-} from '../src/db/probation-candidate-management.js';
+} from '#app/db/probation-candidate-management.js';
 import {
   auditLogs,
   departments,
@@ -14,7 +14,7 @@ import {
   identityRegistry,
   probationCandidates,
   probationTeams,
-} from '../src/db/schema.js';
+} from '#app/db/schema.js';
 
 type RecordedMutation = Record<string, unknown>;
 
@@ -58,7 +58,7 @@ function createWorkflowDatabase(rows: Map<unknown, RecordedMutation[]>) {
     db: {
       transaction: async <T>(callback: (value: typeof transaction) => Promise<T>) => callback(transaction),
     },
-  } as unknown as NonNullable<Database>;
+  } as unknown as Database;
 
   return { database, audits, inserts, updates };
 }

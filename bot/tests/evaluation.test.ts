@@ -3,10 +3,12 @@ import {
   assertUniqueActiveCriterionName,
   assertCanDeactivateCriterion,
   criterionKey,
+  normalizeEvaluationPeriodName,
+  normalizeEvaluationNote,
   normalizeCriterionName,
   validateScoreSnapshots,
   type EvaluationCriterion,
-} from '../src/domain/evaluation.js';
+} from '#app/domain/evaluation.js';
 
 const criteria: EvaluationCriterion[] = [
   { id: 'one', kind: 'Peer', key: 'contribution', name: 'Contribution', minScore: 1, maxScore: 5, sortOrder: 0, active: true },
@@ -14,6 +16,18 @@ const criteria: EvaluationCriterion[] = [
 ];
 
 describe('configurable evaluation criteria', () => {
+  it('normalizes evaluation period names', () => {
+    expect(normalizeEvaluationPeriodName('  Fall   Review  ')).toBe('Fall Review');
+    expect(() => normalizeEvaluationPeriodName(' ')).toThrow('between 2 and 100');
+  });
+
+  it('normalizes optional notes and enforces the Discord text limit', () => {
+    expect(normalizeEvaluationNote(undefined)).toBeNull();
+    expect(normalizeEvaluationNote('  Clear feedback  ')).toBe('Clear feedback');
+    expect(normalizeEvaluationNote('   ')).toBeNull();
+    expect(() => normalizeEvaluationNote('x'.repeat(2001))).toThrow('2000');
+  });
+
   it('normalizes names and creates stable keys', () => {
     expect(normalizeCriterionName('  Task   Completion ')).toBe('Task Completion');
     expect(criterionKey('Task Completion')).toBe('task-completion');
