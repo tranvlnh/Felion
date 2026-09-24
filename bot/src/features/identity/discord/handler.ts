@@ -66,8 +66,9 @@ export const handleIdentityInteraction: InteractionHandler = async (
     .getTextInputValue("studentId")
     .trim()
     .toUpperCase();
+  let linkResult: 'Linked' | 'AlreadyLinked';
   try {
-    await linkDiscordIdentity(context.database, interaction.user.id, studentId);
+    linkResult = await linkDiscordIdentity(context.database, interaction.user.id, studentId);
   } catch (error: unknown) {
     await replyWithError(
       interaction,
@@ -88,7 +89,7 @@ export const handleIdentityInteraction: InteractionHandler = async (
       interaction.user.id,
     );
     await interaction.reply({
-      content: `Discord account linked successfully. Roles synchronized: ${result.addedRoleIds.length} added, ${result.removedRoleIds.length} removed.`,
+      content: `${linkResult === 'AlreadyLinked' ? 'Discord account was already linked.' : 'Discord account linked successfully.'} Roles synchronized: ${result.addedRoleIds.length} added, ${result.removedRoleIds.length} removed.`,
       flags: MessageFlags.Ephemeral,
     });
   } catch (error: unknown) {

@@ -17,6 +17,8 @@ submission/reporting flows.
   configurable evaluation criteria, and soft-deactivation for reference data.
 - Initial Admin bootstrap, StudentId linking, Member creation, Department/Generation
   creation/edit/deactivation, and Discord role-mapping administration.
+- Verification is idempotent for an already linked account: re-entering the same
+  StudentId synchronizes roles again without creating a duplicate link.
 - Probation team creation, rename, and soft-deactivation with Admin authorization and
   transactional audit logging.
 - Active-Member assignment to active probation teams with Admin authorization,

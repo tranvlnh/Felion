@@ -58,8 +58,9 @@ database values and are not required as user input.
 
 `/verification publish` sends a button. The button opens a modal that accepts only a
 StudentId. The bot normalizes the value, resolves it through `identity_registry`,
-ensures both sides are not already linked, writes `discord_identity_links`, and audits
-the link in one transaction.
+links new identities and audits them in one transaction. Re-entering the same StudentId
+for the same Discord account is idempotent and runs role synchronization again; a
+different account or identity is still rejected.
 
 ## Not registered yet
 

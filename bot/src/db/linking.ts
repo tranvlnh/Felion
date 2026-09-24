@@ -13,20 +13,10 @@ export async function linkDiscordIdentity(
   database: Database,
   discordUserId: string,
   rawStudentId: string,
-): Promise<void> {
+): Promise<'Linked' | 'AlreadyLinked'> {
   const studentId = normalizeStudentId(rawStudentId);
 
-  await database.db.transaction(async (transaction) => {
-    const existingUserLink = await transaction
-      .select({ id: discordIdentityLinks.id })
-      .from(discordIdentityLinks)
-      .where(eq(discordIdentityLinks.discordUserId, discordUserId))
-      .limit(1);
-
-    if (existingUserLink[0]) {
-      throw new Error('This Discord account is already linked.');
-    }
-
+  return database.db.transaction(async (transaction) => {
     const identity = await transaction
       .select({ subjectType: identityRegistry.subjectType, subjectId: identityRegistry.subjectId })
       .from(identityRegistry)
@@ -56,6 +46,23 @@ export async function linkDiscordIdentity(
       throw new Error('No active Member or ProbationCandidate matches this StudentId.');
     }
 
+    const [existingUserLink] = await transaction
+      .select({
+        subjectType: discordIdentityLinks.subjectType,
+        subjectId: discordIdentityLinks.subjectId,
+      })
+      .from(discordIdentityLinks)
+      .where(eq(discordIdentityLinks.discordUserId, discordUserId))
+      .limit(1);
+
+    if (existingUserLink) {
+      if (existingUserLink.subjectType === identity[0].subjectType
+        && existingUserLink.subjectId === identity[0].subjectId) {
+        return 'AlreadyLinked';
+      }
+      throw new Error('This Discord account is already linked to another identity.');
+    }
+
     const existingSubjectLink = await transaction
       .select({ id: discordIdentityLinks.id })
       .from(discordIdentityLinks)
@@ -79,6 +86,8 @@ export async function linkDiscordIdentity(
       entityId: identity[0].subjectId,
       metadata: { studentId },
     });
+
+    return 'Linked';
   });
 }
 
