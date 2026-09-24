@@ -170,6 +170,7 @@ describe('Discord command contract', () => {
     expect(subcommands('role')).toEqual([
       'inspect',
       'map',
+      'assign',
       'sync',
     ]);
 

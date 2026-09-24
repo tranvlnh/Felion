@@ -11,7 +11,16 @@ import {
   type DiscordRoleMappingKind,
 } from '#app/domain/discord-roles.js';
 import type { Database } from './client.js';
-import { auditLogs, departments, discordRoleMappings, generations, probationTeams } from './schema.js';
+import {
+  auditLogs,
+  departments,
+  discordIdentityLinks,
+  discordRoleAssignments,
+  discordRoleMappings,
+  generations,
+  members,
+  probationTeams,
+} from './schema.js';
 
 export async function createDepartment(
   database: Database,
@@ -288,6 +297,62 @@ export async function mapDiscordRole(
         key,
         discordRoleId: input.discordRoleId,
         ...(existing ? { previousDiscordRoleId: existing.discordRoleId } : {}),
+      },
+    });
+  });
+}
+
+export async function assignExplicitDiscordRole(
+  database: Database,
+  input: { discordUserId: string; discordRoleId: string; actorDiscordUserId: string },
+): Promise<void> {
+  if (!/^\d+$/.test(input.discordRoleId)) {
+    throw new Error('Discord role ID is invalid.');
+  }
+
+  await database.db.transaction(async (transaction) => {
+    const [link] = await transaction
+      .select({ subjectType: discordIdentityLinks.subjectType, subjectId: discordIdentityLinks.subjectId })
+      .from(discordIdentityLinks)
+      .where(eq(discordIdentityLinks.discordUserId, input.discordUserId))
+      .limit(1);
+
+    if (!link || link.subjectType !== 'Member') {
+      throw new Error('The Discord user is not linked to a Member.');
+    }
+
+    const [member] = await transaction
+      .select({ id: members.id })
+      .from(members)
+      .where(and(eq(members.id, link.subjectId), eq(members.status, 'Active')))
+      .limit(1);
+
+    if (!member) {
+      throw new Error('The linked Member is not active.');
+    }
+
+    const [assignment] = await transaction
+      .insert(discordRoleAssignments)
+      .values({
+        subjectType: 'Member',
+        subjectId: member.id,
+        discordRoleId: input.discordRoleId,
+      })
+      .onConflictDoNothing()
+      .returning({ subjectId: discordRoleAssignments.subjectId });
+
+    if (!assignment) {
+      throw new Error('This role is already explicitly assigned to the Member.');
+    }
+
+    await transaction.insert(auditLogs).values({
+      actorDiscordUserId: input.actorDiscordUserId,
+      action: 'DiscordRoleExplicitlyAssigned',
+      entityType: 'Member',
+      entityId: member.id,
+      metadata: {
+        discordUserId: input.discordUserId,
+        discordRoleId: input.discordRoleId,
       },
     });
   });

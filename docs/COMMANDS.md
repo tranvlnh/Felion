@@ -31,6 +31,7 @@ specification without being implemented yet.
 | `/probation-team deactivate` | Soft-deactivates an active probation team selected by name | Linked active Felion Admin |
 | `/probation-team assign-mentor` | Assigns an active Member to an active probation team | Linked active Felion Admin |
 | `/role map` | Creates or updates a configurable role mapping; references and teams are selected by name, while Probation uses `Active` | Linked active Felion Admin |
+| `/role assign` | Explicitly assigns an existing Discord role to an active linked Member, preserves it during synchronization, and synchronizes immediately | Linked active Felion Admin |
 | `/role sync` | Reconciles mapped and explicit Felion roles for one linked Discord user | Linked active Felion Admin |
 | `/role inspect` | Shows current Felion-managed roles, desired roles, explicit assignments, and add/remove plan | Linked active Felion Admin |
 | `/evaluation-criteria add` | Adds or reactivates a Peer/Mentor criterion | Linked active Felion Admin |
@@ -62,5 +63,4 @@ the link in one transaction.
 
 ## Not registered yet
 
-Explicit role-assignment administration and PASS/FAIL decisions do not currently have
-Discord commands.
+PASS/FAIL decisions do not currently have Discord commands.

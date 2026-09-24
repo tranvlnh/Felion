@@ -52,7 +52,8 @@ Role mapping storage and desired-state synchronization exist today. Reconciliati
 combines subject dimensions with existing explicit assignment rows, removes only roles
 covered by Felion mappings, and preserves unrelated Discord roles. Department,
 Generation, and ProbationTeam mapping keys use stable UUIDs; Probation uses `Active`.
-Explicit assignment creation/removal commands are not yet exposed.
+Explicit assignment creation is exposed through `/role assign`; removal remains
+unexposed and assignments are preserved during synchronization.
 
 ## Evaluation
 

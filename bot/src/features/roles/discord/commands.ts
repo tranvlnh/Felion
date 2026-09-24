@@ -25,6 +25,11 @@ export const roleCommandDefinitions = [
       .addStringOption((option) => option.setName('key').setDescription('Choose the mapping target').setRequired(true).setAutocomplete(true))
       .addRoleOption((option) => option.setName('role').setDescription('Guild role').setRequired(true)))
     .addSubcommand((command) => command
+      .setName('assign')
+      .setDescription('Explicitly assign a role to an active linked Member.')
+      .addUserOption((option) => option.setName('user').setDescription('Linked Member').setRequired(true))
+      .addRoleOption((option) => option.setName('role').setDescription('Guild role').setRequired(true)))
+    .addSubcommand((command) => command
       .setName('sync')
       .setDescription('Reconcile Felion-managed roles for a linked Discord user.')
       .addUserOption((option) => option.setName('user').setDescription('Linked Discord user').setRequired(true))),

@@ -2,7 +2,7 @@ import { Role, MessageFlags } from 'discord.js';
 import { requireAdminActor } from '#app/db/authorization.js';
 import { listRoleMappingKeys } from '#app/db/discord-autocomplete.js';
 import { loadDiscordRoleSyncTarget } from '#app/db/role-synchronization.js';
-import { mapDiscordRole } from '#app/db/reference-management.js';
+import { assignExplicitDiscordRole, mapDiscordRole } from '#app/db/reference-management.js';
 import { parseDiscordRoleMappingKind } from '#app/domain/discord-roles.js';
 import type { InteractionHandler } from '#app/discord/interaction-router.js';
 import { respondWithAutocomplete } from '#app/discord/autocomplete.js';
@@ -90,6 +90,41 @@ export const handleRoleInteraction: InteractionHandler = async (interaction, con
         discordRoleId: role.id,
       });
       await interaction.reply({ content: 'Operation completed.',flags: MessageFlags.Ephemeral });
+      return true;
+    }
+
+    if (subcommand === 'assign') {
+      const targetUser = interaction.options.getUser('user', true);
+      const role = interaction.options.getRole('role', true);
+      if (!(role instanceof Role) || role.managed || !role.editable) {
+        throw new Error('This Discord role cannot be managed by Felion.');
+      }
+
+      await assignExplicitDiscordRole(context.database, {
+        discordUserId: targetUser.id,
+        discordRoleId: role.id,
+        actorDiscordUserId: interaction.user.id,
+      });
+
+      try {
+        const guild = await context.client.guilds.fetch(context.config.DISCORD_GUILD_ID);
+        const result = await synchronizeDiscordRolesForUser(
+          context.database,
+          guild,
+          targetUser.id,
+          interaction.user.id,
+        );
+        await interaction.reply({
+          content: `Role assigned and synchronized: ${result.addedRoleIds.length} added, ${result.removedRoleIds.length} removed.`,
+          flags: MessageFlags.Ephemeral,
+        });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unable to synchronize Discord roles.';
+        await interaction.reply({
+          content: `Role assignment was saved, but Discord synchronization failed: ${message}`,
+          flags: MessageFlags.Ephemeral,
+        });
+      }
       return true;
     }
 

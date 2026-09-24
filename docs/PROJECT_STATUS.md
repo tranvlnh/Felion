@@ -27,6 +27,8 @@ submission/reporting flows.
 - Desired-state Discord role synchronization for linked Members/Candidates, including
   explicit assignment preservation, manual Admin reconciliation, mentor team-role
   synchronization, and outcome auditing.
+- Admin explicit role assignment for active linked Members, including persistence,
+  audit logging, and immediate synchronization.
 - Criterion add/reactivate, rename, and deactivate workflows with audit rows.
 - Evaluation period open/close workflows with Admin authorization and transactional
   audit logging.
