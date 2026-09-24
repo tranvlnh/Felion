@@ -7,11 +7,11 @@ import { auditLogs, members, probationTeams, teamMentors } from './schema.js';
 export async function assignProbationTeamMentor(
   database: Database,
   input: { teamId: string; memberId: string; actorDiscordUserId: string },
-): Promise<void> {
+): Promise<string> {
   const teamId = normalizeReferenceId(input.teamId);
   const memberId = normalizeReferenceId(input.memberId);
 
-  await database.db.transaction(async (transaction) => {
+  return database.db.transaction(async (transaction) => {
     const team = (await transaction
       .select({ id: probationTeams.id })
       .from(probationTeams)
@@ -46,6 +46,8 @@ export async function assignProbationTeamMentor(
       entityId: teamId,
       metadata: { memberId },
     });
+
+    return memberId;
   });
 }
 

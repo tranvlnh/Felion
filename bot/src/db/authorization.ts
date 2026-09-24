@@ -6,6 +6,7 @@ import {
   discordIdentityLinks,
   members,
   probationCandidates,
+  probationTeams,
   teamMentors,
 } from './schema.js';
 
@@ -118,7 +119,11 @@ export async function requireMentorActor(
   const teams = await database.db
     .select({ teamId: teamMentors.teamId })
     .from(teamMentors)
-    .where(eq(teamMentors.memberId, actor.memberId));
+    .innerJoin(probationTeams, eq(probationTeams.id, teamMentors.teamId))
+    .where(and(
+      eq(teamMentors.memberId, actor.memberId),
+      eq(probationTeams.active, true),
+    ));
 
   if (teams.length === 0) {
     throw new AppError('FORBIDDEN', publicMessage);

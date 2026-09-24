@@ -12,6 +12,8 @@ import {
   discordRoleMappings,
   members,
   probationCandidates,
+  probationTeams,
+  teamMentors,
 } from './schema.js';
 
 export type DiscordRoleSyncTarget = DiscordRoleState & {
@@ -63,7 +65,20 @@ export async function loadDiscordRoleSyncTarget(
       if (!member) {
         throw new Error('The linked Member is not active.');
       }
-      subject = { subjectType: 'Member', ...member };
+      const mentorTeams = await transaction
+        .select({ teamId: teamMentors.teamId })
+        .from(teamMentors)
+        .innerJoin(probationTeams, eq(probationTeams.id, teamMentors.teamId))
+        .where(and(
+          eq(teamMentors.memberId, link.subjectId),
+          eq(probationTeams.active, true),
+        ));
+
+      subject = {
+        subjectType: 'Member',
+        ...member,
+        teamIds: mentorTeams.map(({ teamId }) => teamId),
+      };
     } else {
       const candidate = (await transaction
         .select({

@@ -41,6 +41,7 @@ describe('Discord role desired state', () => {
       position: 'Admin',
       departmentId,
       generationId,
+      teamIds: [],
     }, mappings, ['999']);
 
     expect(state.desiredRoleIds).toEqual(['100', '103', '104', '999']);
@@ -57,6 +58,18 @@ describe('Discord role desired state', () => {
     }, mappings, []);
 
     expect(state.desiredRoleIds).toEqual(['102', '103', '104', '105']);
+  });
+
+  it('resolves ProbationTeam mappings for active Member mentors', () => {
+    const state = resolveDiscordRoleState({
+      subjectType: 'Member',
+      position: 'Member',
+      departmentId,
+      generationId,
+      teamIds: [teamId],
+    }, mappings, []);
+
+    expect(state.desiredRoleIds).toEqual(['101', '103', '104', '105']);
   });
 
   it('removes all Felion-managed roles while preserving stored explicit assignments for an inactive candidate', () => {
@@ -90,6 +103,7 @@ describe('Discord role desired state', () => {
       position: 'Member',
       departmentId,
       generationId,
+      teamIds: [],
     }, [
       { kind: 'Position', key: 'Member', discordRoleId: '200' },
       { kind: 'Department', key: departmentId, discordRoleId: '200' },

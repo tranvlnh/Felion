@@ -1,6 +1,6 @@
 # Felion project status
 
-Last verified: 2026-09-23
+Last verified: 2026-09-24
 
 ## Current milestone
 
@@ -25,7 +25,8 @@ submission/reporting flows.
   reassignment, and `Active`/`Inactive` lifecycle management with Admin authorization,
   transactional audit logging, and immediate role synchronization for linked users.
 - Desired-state Discord role synchronization for linked Members/Candidates, including
-  explicit assignment preservation, manual Admin reconciliation, and outcome auditing.
+  explicit assignment preservation, manual Admin reconciliation, mentor team-role
+  synchronization, and outcome auditing.
 - Criterion add/reactivate, rename, and deactivate workflows with audit rows.
 - Evaluation period open/close workflows with Admin authorization and transactional
   audit logging.
@@ -42,6 +43,8 @@ submission/reporting flows.
   summaries and details, plus `/role inspect` for current-vs-desired role diagnostics.
 - Peer/Mentor evaluation commands now open an ephemeral period/candidate selector and
   Modal-based score entry, with a next-candidate workflow after submission.
+- Mentor assignment now immediately synchronizes mapped ProbationTeam roles for the
+  linked Member, and Mentor authorization/evaluation queries ignore inactive teams.
 - Typed linked-identity actor resolvers for Admin, Core/Admin, Candidate, and Mentor
   authorization boundaries, plus centralized Discord error-response handling.
 - Shared `Database` and `DbTransaction` types keep persistence signatures consistent

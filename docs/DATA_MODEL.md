@@ -36,7 +36,8 @@ active teams. Candidate lifecycle commands allow only `Active` to `Inactive` and
 `Inactive` to `Active`; `Passed` and `Failed` remain reserved for decision workflows.
 Linked candidates are synchronized immediately after team or lifecycle changes. Mentor
 assignment accepts only active Members and active probation teams, rejects duplicate
-team/Member pairs, and writes its audit row in the same transaction.
+team/Member pairs, writes its audit row in the same transaction, and synchronizes the
+linked mentor's role state immediately after the assignment.
 
 ## Discord roles and history
 

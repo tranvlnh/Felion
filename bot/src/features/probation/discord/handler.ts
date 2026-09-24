@@ -24,6 +24,7 @@ import {
   deactivateProbationTeam,
   editProbationTeam,
 } from '#app/db/probation-team-management.js';
+import { findLinkedMemberDiscordUserId } from '#app/db/linking.js';
 import {
   getCandidateDetail,
   getTeamDetail,
@@ -197,11 +198,41 @@ async function handleTeamCommand(
         teamId: interaction.options.getString('team', true),
       });
     } else {
-      await assignProbationTeamMentor(context.database, {
+      const memberId = await assignProbationTeamMentor(context.database, {
         actorDiscordUserId: interaction.user.id,
         teamId: interaction.options.getString('team', true),
         memberId: interaction.options.getString('member', true),
       });
+
+      const discordUserId = await findLinkedMemberDiscordUserId(context.database, memberId);
+      if (!discordUserId) {
+        await interaction.reply({
+          content: 'Mentor assignment completed. The Member has no linked Discord account, so no role was synchronized.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      try {
+        const guild = await context.client.guilds.fetch(context.config.DISCORD_GUILD_ID);
+        const roleSync = await synchronizeDiscordRolesForUser(
+          context.database,
+          guild,
+          discordUserId,
+          interaction.user.id,
+        );
+        await interaction.reply({
+          content: `Mentor assignment completed and roles synchronized: ${roleSync.addedRoleIds.length} added, ${roleSync.removedRoleIds.length} removed.`,
+          flags: MessageFlags.Ephemeral,
+        });
+      } catch (error: unknown) {
+        const message = getPublicErrorMessage(error, 'Unable to synchronize Discord roles.');
+        await interaction.reply({
+          content: `Mentor assignment completed, but Discord role synchronization failed: ${message}`,
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+      return;
     }
     await interaction.reply({ content: 'Operation completed.', flags: MessageFlags.Ephemeral });
   } catch (error: unknown) {

@@ -22,6 +22,7 @@ export type DiscordRoleSubject =
     position: 'Admin' | 'Core' | 'Member';
     departmentId: string;
     generationId: string;
+    teamIds: readonly string[];
   }
   | {
     subjectType: 'ProbationCandidate';
@@ -88,6 +89,9 @@ export function resolveDiscordRoleState(
     desiredMappingKeys.add(mappingIdentity('Position', subject.position));
     desiredMappingKeys.add(mappingIdentity('Department', subject.departmentId));
     desiredMappingKeys.add(mappingIdentity('Generation', subject.generationId));
+    for (const teamId of subject.teamIds) {
+      desiredMappingKeys.add(mappingIdentity('ProbationTeam', teamId));
+    }
   } else if (subject.active) {
     desiredMappingKeys.add(mappingIdentity('Probation', 'Active'));
     desiredMappingKeys.add(mappingIdentity('Department', subject.departmentId));

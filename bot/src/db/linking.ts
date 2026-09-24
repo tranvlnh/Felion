@@ -81,3 +81,19 @@ export async function linkDiscordIdentity(
     });
   });
 }
+
+export async function findLinkedMemberDiscordUserId(
+  database: Database,
+  memberId: string,
+): Promise<string | null> {
+  const [link] = await database.db
+    .select({ discordUserId: discordIdentityLinks.discordUserId })
+    .from(discordIdentityLinks)
+    .where(and(
+      eq(discordIdentityLinks.subjectType, 'Member'),
+      eq(discordIdentityLinks.subjectId, memberId),
+    ))
+    .limit(1);
+
+  return link?.discordUserId ?? null;
+}

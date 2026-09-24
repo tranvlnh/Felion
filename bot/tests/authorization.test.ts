@@ -35,6 +35,9 @@ function createAuthorizationDatabase(input: {
             return query;
           },
           where: () => {
+            if ('teamId' in selection && !('candidateId' in selection)) {
+              return Promise.resolve(input.mentorTeamRows ?? []);
+            }
             if (!joinedIdentity) {
               return Promise.resolve(input.mentorTeamRows ?? []);
             }

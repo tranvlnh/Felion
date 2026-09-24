@@ -17,6 +17,7 @@ import {
   mentorEvaluations,
   peerEvaluations,
   probationCandidates,
+  probationTeams,
   teamMentors,
 } from '#app/db/schema.js';
 
@@ -217,7 +218,11 @@ function createTransaction(transaction: DbTransaction): EvaluationTransaction {
       const rows = await transaction
         .select({ teamId: teamMentors.teamId })
         .from(teamMentors)
-        .where(eq(teamMentors.memberId, memberId));
+        .innerJoin(probationTeams, eq(probationTeams.id, teamMentors.teamId))
+        .where(and(
+          eq(teamMentors.memberId, memberId),
+          eq(probationTeams.active, true),
+        ));
       return rows.map(({ teamId }) => teamId);
     },
 
