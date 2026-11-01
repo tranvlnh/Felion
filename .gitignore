@@ -1,9 +1,12 @@
 # Node.js
 node_modules/
-bot/dist/
-bot/.env
-bot/.env.migration
+dist/
+backend/src/generated/
 *.log
+
+# Secrets
+.env
+.env.migration
 
 # Local tooling
 .idea/

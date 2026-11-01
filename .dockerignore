@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/.env
+backend/src/generated
+backend/scripts
+backend/tests
+.git
+.github
+.codex
+docs
+*.md

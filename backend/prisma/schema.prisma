@@ -1,0 +1,131 @@
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  importFileExtension    = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PersonKind {
+  Candidate
+  Member
+}
+
+enum PersonStatus {
+  Active
+  Inactive
+}
+
+enum WebPermission {
+  ViewPeople
+  ManagePeople
+  AssignRoles
+  KickMembers
+}
+
+model Department {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique @db.VarChar(100)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  people    Person[]
+
+  @@map("departments")
+}
+
+model Person {
+  id            String       @id @default(uuid()) @db.Uuid
+  kind          PersonKind
+  status        PersonStatus @default(Active)
+  studentId     String       @unique @map("student_id") @db.VarChar(32)
+  fullName      String       @map("full_name") @db.VarChar(200)
+  // Lowercase; having one is what lets a person sign in.
+  clubEmail     String?      @unique @map("club_email") @db.VarChar(320)
+  discordUserId String?      @unique @map("discord_user_id") @db.VarChar(32)
+  isAdmin       Boolean      @default(false) @map("is_admin")
+  departmentId  String       @map("department_id") @db.Uuid
+  department    Department   @relation(fields: [departmentId], references: [id])
+  generation    Int
+  // Only Candidates have a team; mentors are linked through ProbationTeamMentor.
+  teamId        String?        @map("team_id") @db.Uuid
+  // Marks a candidate to become a Member when the round ends; nothing changes before that.
+  probationApproved Boolean    @default(false) @map("probation_approved")
+  team          ProbationTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  roles         PersonRole[]
+  auditLogs     AuditLog[]
+  mentoring     ProbationTeamMentor[]
+
+  @@index([teamId])
+  @@map("people")
+}
+
+// One probation round at a time; ending the round deletes every team and remaining candidate.
+model ProbationTeam {
+  id            String                @id @default(uuid()) @db.Uuid
+  name          String                @unique @db.VarChar(100)
+  // Unique so removing one team's role never strips it from another team's people.
+  discordRoleId String?               @unique @map("discord_role_id") @db.VarChar(32)
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  candidates    Person[]
+  mentors       ProbationTeamMentor[]
+
+  @@map("probation_teams")
+}
+
+model ProbationTeamMentor {
+  teamId   String        @map("team_id") @db.Uuid
+  team     ProbationTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  personId String        @map("person_id") @db.Uuid
+  person   Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, personId])
+  @@index([personId])
+  @@map("probation_team_mentors")
+}
+
+// Desired Discord roles; sync pushes these to the guild.
+model PersonRole {
+  personId      String @map("person_id") @db.Uuid
+  person        Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  discordRoleId String @map("discord_role_id") @db.VarChar(32)
+
+  @@id([personId, discordRoleId])
+  @@index([discordRoleId])
+  @@map("person_roles")
+}
+
+// Name, color and Discord permissions live in Discord; only web permissions are stored.
+model RolePermission {
+  discordRoleId  String          @id @map("discord_role_id") @db.VarChar(32)
+  webPermissions WebPermission[] @map("web_permissions")
+
+  @@map("role_permissions")
+}
+
+model Settings {
+  id              Int     @id @default(1)
+  probationRoleId String? @map("probation_role_id") @db.VarChar(32)
+  memberRoleId    String? @map("member_role_id") @db.VarChar(32)
+
+  @@map("settings")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  actor      Person?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String   @db.VarChar(100)
+  entityType String   @map("entity_type") @db.VarChar(100)
+  entityId   String?  @map("entity_id") @db.VarChar(100)
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([createdAt])
+  @@map("audit_logs")
+}

@@ -1,12 +1,10 @@
 # CI workflows
 
-The repository CI workflow runs in `bot/` and:
+`ci.yml` runs at the repository root (npm workspaces) and:
 
-1. starts PostgreSQL 16 as a service;
-2. installs the locked npm dependency tree;
-3. compiles the TypeScript bot; and
-4. runs the Vitest suite.
+1. installs the locked dependency tree for `backend/` and `frontend/`;
+2. generates the Prisma client, compiles the backend and builds the frontend;
+3. type-checks `backend/scripts` and `backend/tests`; and
+4. runs the Vitest suite (pure logic, no database or Discord needed).
 
-The workflow does not connect to Discord or apply production migrations. Changes that
-need a live guild still require the production Discord integration checklist in
-[`docs/TODO.md`](../../docs/TODO.md).
+It does not connect to Discord, Google or a database, and does not apply migrations.

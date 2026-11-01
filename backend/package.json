@@ -1,0 +1,43 @@
+{
+  "name": "felion-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#app/*": "./dist/*"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "prisma generate && tsc",
+    "start": "node --enable-source-maps dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.check.json",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "migrate:legacy": "tsx scripts/migrate-legacy.ts",
+    "bootstrap-admin": "tsx scripts/bootstrap-admin.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.5",
+    "@fastify/static": "^10.1.8",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "discord.js": "^14.22.1",
+    "dotenv": "^17.2.2",
+    "fastify": "^5.12.7",
+    "google-auth-library": "^11.3.2",
+    "prisma": "^7.10.1",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "postgres": "^3.4.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

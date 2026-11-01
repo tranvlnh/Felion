@@ -1,74 +1,101 @@
-# Felion Discord Bot
+# Felion
 
-Felion is a TypeScript Discord bot for managing one configured Discord guild.
-PostgreSQL is the system of record and Discord is the only application transport.
+One Node process for one Discord guild:
 
-The repository currently contains the bot foundation: database migrations, domain
-validation, bootstrap/linking, reference-data administration, configurable evaluation
-criteria, guild-scoped command registration, and focused domain tests. The remaining
-probation workflows are tracked in [`docs/TODO.md`](docs/TODO.md).
+- **Web admin** (Fastify API in `backend/`, React SPA in `frontend/`): people, probation → member,
+  Discord roles and their permissions, role sync, kick, departments, audit log. Sign-in is Google
+  Workspace OAuth for anyone whose club email an admin has added.
+- **Discord bot** (discord.js, in `backend/`): only `/verification publish` and the StudentId
+  button/modal that links a Discord account to a person. It also restores roles when a linked person
+  rejoins and forgets roles deleted in Discord.
+- **PostgreSQL via Prisma 7** (`backend/prisma/schema.prisma`, migrations next to it).
 
-## Product scope
+In production the backend also serves `frontend/dist`, so the UI and the API share one origin.
 
-- Members, Departments, and lightweight Generation tags with soft-deactivation
-- StudentId-based Discord identity linking
-- Configurable Discord role mappings
-- Probation candidates, teams, mentors, evaluations, and manual PASS/FAIL decisions
-  as the target product scope
-- PostgreSQL audit history and retryable failed-probation kicks as the target scope
+## Layout
 
-There is deliberately no web dashboard, HTTP API, browser authentication, Google OAuth,
-Events, attendance, registration, or .NET runtime in this target.
+```
+package.json        npm workspaces: backend, frontend
+backend/
+  prisma/           schema.prisma + migrations
+  src/
+    index.ts        starts Discord client + web server
+    config.ts       env validation
+    errors.ts       AppError + public error messages
+    api/            Fastify: server, Google auth, permission rules, routes/
+    db/             Prisma queries (people, roles, settings, departments, audit, linking)
+    discord/        client, /verification, role sync, guild role CRUD, kick
+    domain/         pure helpers (normalization, role sync plan)
+    generated/      Prisma client (generated, ignored)
+  scripts/          one-off: legacy migration, bootstrap admin
+  tests/            Vitest
+frontend/           React app (Vite)
+Dockerfile, compose.yaml
+```
 
-## Local setup
+## Model
 
-Requirements: Node.js 20+, npm, and PostgreSQL.
+- `Person` is both probation candidates (`kind=Candidate`) and members (`kind=Member`). Departments are
+  just a unique name.
+- Roles are the guild's real roles. `PersonRole` stores the roles each person *should* have; sync makes
+  Discord match (only roles the bot can manage: not `@everyone`, not integration roles, below the bot).
+- `RolePermission` gives a Discord role web permissions (`ViewPeople`, `ManagePeople`, `AssignRoles`,
+  `KickMembers`). `Person.isAdmin` is the only web-only role and grants everything.
+- Non-admins never act on admins, and cannot assign roles that carry web permissions or moderation
+  Discord permissions. The last admin cannot be removed. See `backend/src/api/permissions.ts`.
+- Generation is a number. The Probation page holds one round at a time: `ProbationTeam` (optional Discord
+  role), candidates via `Person.teamId`, mentors (Members, any number of teams) via `ProbationTeamMentor`.
+  Joining or leaving a team adds or removes its role. "Approve" only marks a candidate
+  (`probationApproved`); nothing changes until "End round" (admin): approved candidates become Members
+  (Probation and team roles swapped for the Member role chosen in Settings), every other candidate and every
+  team is deleted and their Probation/team roles are stripped in Discord. The next round starts empty.
+
+## Configuration
+
+Copy `backend/.env.example` to `backend/.env` and fill it in. Discord: enable the **Server Members
+Intent** for the bot, and put the bot's role above every role it should manage. Google: create an OAuth
+client (Web application, consent screen *Internal*) with redirect URI
+`<WEB_PUBLIC_URL>/auth/google/callback`.
+
+## Development
+
+From the repository root:
 
 ```powershell
-cd bot
-npm ci
+npm ci                                         # both workspaces
+docker compose --profile dev up -d postgres    # or any PostgreSQL
+npm run db:deploy -w backend                   # apply migrations
+npm run bootstrap-admin -w backend '--' you@club.edu --create --student-id SV001 --name "Your Name" --department "Tech" --generation 1
+npm run dev                                    # bot + API on :3000
+npm run dev:frontend                           # UI on :5173 (set WEB_PUBLIC_URL=http://localhost:5173)
+npm test
+npm run typecheck
+npm run build                                  # backend/dist + frontend/dist
 ```
 
-Create `bot/.env` (it is ignored by Git) with:
+`npm run db:migrate -w backend` creates a new migration after a schema change; commit the SQL.
 
-```dotenv
-DISCORD_TOKEN=replace-me
-DISCORD_APPLICATION_ID=123456789012345678
-DISCORD_GUILD_ID=123456789012345678
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/felion
-NODE_ENV=development
-```
+## Migrating from the old Drizzle database
 
-Build before applying migrations because the migration script runs from `dist`:
+Run once, with `LEGACY_DATABASE_URL` (old DB), `DATABASE_URL` (new, migrated DB), `DISCORD_TOKEN` and
+`DISCORD_GUILD_ID` set in `backend/.env`:
 
 ```powershell
-npm run build
-npm run migrate
-npm run dev
+pg_dump <old database> > felion-legacy.sql             # keep it: evaluations are not migrated
+npm run migrate:legacy -w backend '--' --dry-run         # counts, warnings and blocking problems
+npm run migrate:legacy -w backend                      # writes; safe to re-run
 ```
 
-The bot registers slash commands only for `DISCORD_GUILD_ID` and does not expose an
-HTTP port.
+Each active person's roles are seeded from their **current Discord roles**, so nothing is stripped on
+the first sync; people not in the server get the roles the old bot would have synced. The script ends
+with a sync preview that should report 0 changes. Generation names must end in a number ("Gen 3"). Old probation
+teams and mentors are not imported.
 
 ## Docker
 
 ```powershell
-cd bot
-# Create and edit .env using the variables shown above.
 docker compose up -d --build
-docker compose logs -f felion-bot
 ```
 
-The image applies checked-in Drizzle migrations before starting the bot. Generate and
-review migrations during development; do not generate migrations in production.
-
-## Verification
-
-```powershell
-cd bot
-npm run build
-npm test -- --run
-```
-
-See [`bot/README.md`](bot/README.md), [`docs/COMMANDS.md`](docs/COMMANDS.md), and
-[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) for operational details.
+The image builds both workspaces, runs `prisma migrate deploy`, then starts on port 3000.
+Configuration comes from `backend/.env`.
