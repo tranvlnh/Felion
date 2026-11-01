@@ -18,7 +18,6 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "migrate:legacy": "tsx scripts/migrate-legacy.ts",
     "bootstrap-admin": "tsx scripts/bootstrap-admin.ts"
   },
   "dependencies": {
@@ -35,7 +34,6 @@
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
-    "postgres": "^3.4.7",
     "tsx": "^4.19.2",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"

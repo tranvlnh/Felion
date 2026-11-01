@@ -42,7 +42,7 @@ async function main(): Promise<void> {
     });
     console.log(`Created admin ${person.fullName}.`);
   } else {
-    console.error(`No person with club email ${email}. Run the legacy migration first or pass --create with details.`);
+    console.error(`No person with club email ${email}. Pass --create with details.`);
     process.exitCode = 1;
   }
   await prisma.$disconnect();

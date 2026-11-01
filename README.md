@@ -27,7 +27,7 @@ backend/
     discord/        client, /verification, role sync, guild role CRUD, kick
     domain/         pure helpers (normalization, role sync plan)
     generated/      Prisma client (generated, ignored)
-  scripts/          one-off: legacy migration, bootstrap admin
+  scripts/          one-off: bootstrap admin
   tests/            Vitest
 frontend/           React app (Vite)
 Dockerfile, compose.yaml
@@ -74,22 +74,6 @@ npm run build                                  # backend/dist + frontend/dist
 ```
 
 `npm run db:migrate -w backend` creates a new migration after a schema change; commit the SQL.
-
-## Migrating from the old Drizzle database
-
-Run once, with `LEGACY_DATABASE_URL` (old DB), `DATABASE_URL` (new, migrated DB), `DISCORD_TOKEN` and
-`DISCORD_GUILD_ID` set in `backend/.env`:
-
-```powershell
-pg_dump <old database> > felion-legacy.sql             # keep it: evaluations are not migrated
-npm run migrate:legacy -w backend '--' --dry-run         # counts, warnings and blocking problems
-npm run migrate:legacy -w backend                      # writes; safe to re-run
-```
-
-Each active person's roles are seeded from their **current Discord roles**, so nothing is stripped on
-the first sync; people not in the server get the roles the old bot would have synced. The script ends
-with a sync preview that should report 0 changes. Generation names must end in a number ("Gen 3"). Old probation
-teams and mentors are not imported.
 
 ## Docker
 

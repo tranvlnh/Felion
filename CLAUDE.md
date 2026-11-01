@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Felion is one Node process for one Discord guild (a GDG club): a Fastify web admin API + discord.js bot +
 Prisma/PostgreSQL in `backend/`, and a Vite React SPA in `frontend/`. In production the backend serves
-`frontend/dist`, so UI and API share one origin. `README.md` covers setup, Discord/Google configuration,
-legacy migration and Docker in detail.
+`frontend/dist`, so UI and API share one origin. `README.md` covers setup, Discord/Google configuration
+and Docker in detail.
 
 ## Commands
 
@@ -74,8 +74,7 @@ to HTTP status and returns `{ error }`; zod errors become 400.
 the backend response types (no shared package), so update both sides when an API shape changes. UI text is
 Vietnamese.
 
-**Scripts** (`backend/scripts/`): `bootstrap-admin.ts` creates the first admin; `migrate-legacy.ts` is a one-time,
-re-runnable import from the old Drizzle DB (`LEGACY_DATABASE_URL`), with pure logic in `legacy-transform.ts`.
+**Scripts** (`backend/scripts/`): `bootstrap-admin.ts` creates the first admin.
 
 ## Design decisions
 
