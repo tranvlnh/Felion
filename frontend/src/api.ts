@@ -80,6 +80,8 @@ export type SyncAllReport = {
   failed: { personId: string; fullName: string; error: string }[];
 };
 export type Page<T> = { items: T[]; total: number };
+// Dry run or rejected file: valid + errors. Real import: created.
+export type ImportResult = { valid?: number; errors?: { row: number; error: string }[]; created?: number };
 
 export class ApiError extends Error {
   constructor(readonly status: number, message: string) {

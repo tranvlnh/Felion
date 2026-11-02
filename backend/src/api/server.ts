@@ -12,6 +12,7 @@ import { registerAuth, requireSession } from './auth.js';
 import type { Actor } from './permissions.js';
 import { registerMiscRoutes } from './routes/misc.js';
 import { registerPeopleRoutes } from './routes/people.js';
+import { registerPeopleCsvRoutes } from './routes/people-csv.js';
 import { registerProbationRoutes } from './routes/probation.js';
 import { registerRoleRoutes } from './routes/roles.js';
 
@@ -51,6 +52,12 @@ export function buildWebServer(context: WebContext): FastifyInstance {
     }
   });
 
+  app.addHook('onSend', async (_request, reply) => {
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('x-frame-options', 'DENY');
+    reply.header('referrer-policy', 'same-origin');
+  });
+
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {
       return reply.code(statusByCode[error.code]).send({ error: error.publicMessage });
@@ -69,9 +76,21 @@ export function buildWebServer(context: WebContext): FastifyInstance {
 
   registerAuth(app, context);
 
+  // For the Docker HEALTHCHECK; no session needed.
+  app.get('/healthz', async (request, reply) => {
+    try {
+      await context.db.$queryRaw`SELECT 1`;
+      return { ok: true };
+    } catch (error) {
+      request.log.error({ err: error }, 'Health check failed');
+      return reply.code(503).send({ ok: false });
+    }
+  });
+
   app.register(async (api) => {
     api.addHook('preHandler', (request, reply) => requireSession(context, request, reply));
     registerPeopleRoutes(api, context);
+    registerPeopleCsvRoutes(api, context);
     registerProbationRoutes(api, context);
     registerRoleRoutes(api, context);
     registerMiscRoutes(api, context);

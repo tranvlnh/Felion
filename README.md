@@ -83,3 +83,15 @@ docker compose up -d --build
 
 The image builds both workspaces, runs `prisma migrate deploy`, then starts on port 3000.
 Configuration comes from `backend/.env`.
+`GET /healthz` checks the database and backs the image's `HEALTHCHECK`.
+
+## CSV
+
+- **Import** ("Nhập từ CSV" on the Members and Probation pages, needs `ManagePeople`): the first row names
+  the columns, using API field names: `studentId, fullName, department, generation` (required) and
+  `phone, personalEmail, birthDate, facebookUrl, clubEmail` (optional; `clubEmail` is admin-only).
+  `department` is a department name, `birthDate` is `YYYY-MM-DD`. The file is checked first (dry run); one bad
+  row means nobody is added. Imported people get the default Probation/Member role from Settings, like
+  people added by hand. Save from Excel as "CSV UTF-8". At most 500 rows.
+- **Export** ("Xuất CSV" on the Members page, needs `ViewPeople`) uses the current filters and writes UTF-8 with
+  a BOM. Cells starting with `= + - @` get a leading `'` so spreadsheets don't run them as formulas.

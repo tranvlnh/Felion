@@ -44,7 +44,7 @@ routes call Discord directly.
 - `db/` — Prisma queries per area; `writeAudit` records actions in `AuditLog`.
 - `discord/` — client, verification (no slash commands; the web Settings page publishes the StudentId button/modal message that links a Discord
   account to a Person), role sync, guild role CRUD, kick.
-- `domain/` — pure helpers (e.g. `planRoleSync`), the main target for unit tests.
+- `domain/` — pure helpers (e.g. `planRoleSync`; `csv.ts` is a hand-written CSV parser/writer, no dependency), the main target for unit tests.
 - Imports use the `#app/*` alias: tsconfig `paths` → `src/*` for tsc/tsx/vitest, and package.json `imports`
   → `dist/*` at runtime. Use `.js` extensions (NodeNext ESM).
 

@@ -146,33 +146,52 @@ async function assertDepartmentActive(tx: Tx, departmentId: string): Promise<voi
   }
 }
 
-export async function createPerson(db: Db, input: PersonInput, actorId: string) {
+async function createPersonTx(tx: Tx, input: PersonInput, actorId: string): Promise<string> {
   const data = normalizePatch(input) as Prisma.PersonUncheckedCreateInput;
   data.kind = input.kind;
 
+  await assertDepartmentActive(tx, input.departmentId);
+  const person = await tx.person.create({ data, select: { id: true } });
+
+  const settings = await getSettings(tx);
+  const defaultRoleId = input.kind === 'Candidate' ? settings.probationRoleId : settings.memberRoleId;
+  if (defaultRoleId) {
+    await tx.personRole.create({ data: { personId: person.id, discordRoleId: defaultRoleId } });
+  }
+
+  await writeAudit(tx, {
+    actorId,
+    action: 'PersonCreated',
+    entityType: 'Person',
+    entityId: person.id,
+    metadata: { kind: input.kind, studentId: data.studentId, defaultRoleId },
+  });
+  return person.id;
+}
+
+export async function createPerson(db: Db, input: PersonInput, actorId: string) {
   try {
-    return await db.$transaction(async (tx) => {
-      await assertDepartmentActive(tx, input.departmentId);
-      const person = await tx.person.create({ data, select: { id: true } });
-
-      const settings = await getSettings(tx);
-      const defaultRoleId = input.kind === 'Candidate' ? settings.probationRoleId : settings.memberRoleId;
-      if (defaultRoleId) {
-        await tx.personRole.create({ data: { personId: person.id, discordRoleId: defaultRoleId } });
-      }
-
-      await writeAudit(tx, {
-        actorId,
-        action: 'PersonCreated',
-        entityType: 'Person',
-        entityId: person.id,
-        metadata: { kind: input.kind, studentId: data.studentId, defaultRoleId },
-      });
-      return getPerson(tx, person.id);
-    });
+    return await db.$transaction(async (tx) => getPerson(tx, await createPersonTx(tx, input, actorId)));
   } catch (error) {
     rethrowUniqueViolation(error, uniqueMessage);
   }
+}
+
+// All or nothing: one bad row rolls back the whole file.
+export async function importPeople(db: Db, inputs: readonly PersonInput[], actorId: string): Promise<number> {
+  try {
+    return await db.$transaction(async (tx) => {
+      for (const input of inputs) await createPersonTx(tx, input, actorId);
+      return inputs.length;
+    }, { timeout: 60_000 });
+  } catch (error) {
+    rethrowUniqueViolation(error, uniqueMessage);
+  }
+}
+
+export async function findExistingStudentIds(db: Db, studentIds: readonly string[]): Promise<Set<string>> {
+  const rows = await db.person.findMany({ where: { studentId: { in: [...studentIds] } }, select: { studentId: true } });
+  return new Set(rows.map((row) => row.studentId));
 }
 
 // DB only: Discord roles and server membership are left as they are. Roles/mentoring cascade, audit rows keep a null actor.

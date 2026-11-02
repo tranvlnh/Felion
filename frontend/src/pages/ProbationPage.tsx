@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { api, can, isPrivilegedRole, type GuildRole, type Page, type Person, type ProbationOverview, type ProbationTeam, type SyncErrors, type TeamPerson } from '../api';
 import { useMe, useRoleMap, useRoles } from '../Layout';
 import { Avatar, Badge, Button, buttonClass, Card, EmptyState, ErrorText, Input, Loading, PageHeader, RoleChip, Select, useToast } from '../ui';
+import { ImportCsv } from './ImportCsv';
 
 type Run = (action: () => Promise<Partial<SyncErrors>>, success: string) => Promise<void>;
 type Ctx = { teams: ProbationTeam[]; canManage: boolean; busy: boolean; run: Run; canSelect: boolean; selected: Set<string>; select: (ids: string[], on: boolean) => void };
@@ -122,6 +123,8 @@ export function ProbationPage() {
           </>
         }
       />
+
+      {canManage && <ImportCsv kind="Candidate" />}
 
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Probation" value={all.length} />

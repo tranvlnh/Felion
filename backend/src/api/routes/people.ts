@@ -13,7 +13,7 @@ const kind = z.enum(['Candidate', 'Member']);
 const status = z.enum(['Active', 'Inactive']);
 const discordId = z.string().regex(/^\d{17,20}$/, 'must be a Discord id');
 
-const listQuery = z.object({
+export const listQuery = z.object({
   kind: kind.optional(),
   status: status.optional(),
   departmentId: z.string().uuid().optional(),
@@ -38,7 +38,7 @@ const patchBody = z.object({
   isAdmin: z.boolean(),
 }).partial().strict();
 
-const createBody = patchBody.extend({
+export const createBody = patchBody.extend({
   kind,
   studentId: z.string(),
   fullName: z.string(),
@@ -51,7 +51,7 @@ const roleParams = idParams.extend({ roleId: discordId });
 
 const adminOnlyFields = ['clubEmail', 'discordUserId', 'isAdmin'] as const;
 
-function assertAdminForFields(actor: Actor, body: Record<string, unknown>): void {
+export function assertAdminForFields(actor: Actor, body: Record<string, unknown>): void {
   if (adminOnlyFields.some((field) => body[field] !== undefined)) {
     assertAdmin(actor);
   }

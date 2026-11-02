@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { api, can, type Department, type Page, type Person } from '../api';
 import { useMe } from '../Layout';
 import { Avatar, Badge, Button, buttonClass, Card, EmptyState, ErrorText, Input, Loading, PageHeader, Pager, Select } from '../ui';
+import { ImportCsv } from './ImportCsv';
 
 const pageSize = 50;
 const filterKeys = ['search', 'status', 'departmentId', 'generation'] as const;
@@ -39,6 +40,9 @@ export function PeoplePage() {
     if (value) query.set(key, value);
   }
   const filtered = filterKeys.some((key) => params.get(key));
+  const exportQuery = new URLSearchParams(query);
+  exportQuery.delete('page');
+  exportQuery.delete('pageSize');
 
   const people = useQuery({
     queryKey: ['people', query.toString()],
@@ -58,10 +62,14 @@ export function PeoplePage() {
       <PageHeader
         title="Thành viên"
         subtitle={people.data ? `${people.data.total} người${filtered ? ' khớp bộ lọc' : ''}` : undefined}
-        actions={can(me, 'ManagePeople') && (
-          <Link to="/people/new?kind=Member" className={buttonClass()}>+ Thêm người</Link>
-        )}
+        actions={
+          <>
+            <a href={`/api/people/export.csv?${exportQuery}`} className={buttonClass('secondary')}>Xuất CSV</a>
+            {can(me, 'ManagePeople') && <Link to="/people/new?kind=Member" className={buttonClass()}>+ Thêm người</Link>}
+          </>
+        }
       />
+      {can(me, 'ManagePeople') && <ImportCsv kind="Member" />}
       <Card>
         <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-[2fr_1fr_1fr_6rem_auto]">
           <Input className="sm:col-span-3 lg:col-span-1" type="search" placeholder="Tìm tên, MSSV, email, Discord id…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Tìm kiếm" />

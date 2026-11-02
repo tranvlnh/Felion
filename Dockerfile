@@ -30,4 +30,8 @@ USER node
 WORKDIR /app/backend
 EXPOSE 3000
 
+# The slim image has no curl; Node's fetch does the check.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD node -e "fetch('http://localhost:'+(process.env.WEB_PORT||3000)+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+
 CMD ["sh", "-c", "../node_modules/.bin/prisma migrate deploy && node --enable-source-maps dist/index.js"]
