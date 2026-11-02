@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { api, can, isPrivilegedRole, type PersonDetail, type SyncOutcome, type WriteResult } from '../api';
 import { useMe, useRoleMap, useRoles } from '../Layout';
 import { Avatar, Badge, Button, Card, ErrorText, formatDate, Loading, Notice, RoleChip, Select, useToast } from '../ui';
@@ -10,7 +10,7 @@ const syncLabels: Record<SyncOutcome['status'], string> = {
   Synced: 'Đã đồng bộ',
   Preview: '',
   NotLinked: 'Chưa liên kết Discord: role sẽ được áp khi người này dùng /verification.',
-  Inactive: 'Tài khoản đã khóa: không đồng bộ role.',
+  Inactive: 'Không hoạt động: không đồng bộ role.',
   NotInServer: 'Không có trong server Discord: role sẽ được trả lại khi vào lại server.',
 };
 
@@ -18,6 +18,7 @@ export function PersonPage() {
   const { id = '' } = useParams();
   const me = useMe();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const roleMap = useRoleMap();
   const roles = useRoles();
   const toast = useToast();
@@ -87,7 +88,7 @@ export function PersonPage() {
                 ? <Badge tone={p.probationApproved ? 'green' : 'amber'}>{p.probationApproved ? 'Probation · đã duyệt' : 'Probation · chưa duyệt'}</Badge>
                 : <Badge>Thành viên</Badge>}
               {p.isAdmin && <Badge tone="indigo">admin</Badge>}
-              {p.status === 'Inactive' && <Badge tone="red">đã khóa</Badge>}
+              {p.status === 'Active' ? <Badge tone="green">Đang hoạt động</Badge> : <Badge>Không hoạt động</Badge>}
             </div>
             <p className="text-sm text-slate-500">
               Discord: {p.discordUserId ? <span className="font-mono">{p.discordUserId}</span> : 'chưa liên kết'} · Email CLB: {p.clubEmail ?? '—'}
@@ -117,24 +118,38 @@ export function PersonPage() {
               >{p.probationApproved ? 'Bỏ duyệt' : 'Duyệt lên thành viên'}</Button>
             )}
             {canAssign && <Button variant="secondary" disabled={busy} onClick={() => void run(() => post('/sync'), 'Đã đồng bộ role với Discord.')}>Sync role</Button>}
-            {me.isAdmin && (
-              <Button variant="secondary" disabled={busy} title="Lấy role đang có trên Discord ghi vào hệ thống" onClick={() => void run(() => post('/import-roles'), 'Đã lấy role từ Discord.')}>
-                Lấy lại từ Discord
-              </Button>
-            )}
             {canManage && (
               <Button variant="secondary" disabled={busy} onClick={() => {
                 const next = p.status === 'Active' ? 'Inactive' : 'Active';
-                if (next === 'Active' || confirm(`Khóa ${p.fullName}? Người này sẽ không đăng nhập web được và không được đồng bộ role.`)) {
-                  void run(() => api(`/people/${id}`, { method: 'PATCH', body: { status: next } }), next === 'Active' ? 'Đã mở khóa.' : 'Đã khóa.');
+                if (next === 'Active' || confirm(`Chuyển ${p.fullName} sang không hoạt động? Người này sẽ không đăng nhập web được và không được đồng bộ role.`)) {
+                  void run(() => api(`/people/${id}`, { method: 'PATCH', body: { status: next } }), next === 'Active' ? 'Đã chuyển sang đang hoạt động.' : 'Đã chuyển sang không hoạt động.');
                 }
-              }}>{p.status === 'Active' ? 'Khóa' : 'Mở khóa'}</Button>
+              }}>{p.status === 'Active' ? 'Đặt không hoạt động' : 'Đặt đang hoạt động'}</Button>
             )}
             {canKick && (
               <Button variant="danger" disabled={busy} onClick={() => {
-                const reason = prompt(`Lý do kick ${p.fullName}? Người này cũng sẽ bị khóa.`);
-                if (reason?.trim()) void run(() => post('/kick', { reason: reason.trim() }), 'Đã kick và khóa tài khoản.');
+                const reason = prompt(`Lý do kick ${p.fullName}? Người này cũng sẽ chuyển sang không hoạt động.`);
+                if (reason?.trim()) void run(() => post('/kick', { reason: reason.trim() }), 'Đã kick và chuyển sang không hoạt động.');
               }}>Kick</Button>
+            )}
+            {canManage && (
+              <Button variant="danger" disabled={busy} onClick={async () => {
+                if (!confirm(`Xóa ${p.fullName} khỏi hệ thống? Không thể hoàn tác. Role và tài khoản trên Discord giữ nguyên.`)) return;
+                setBusy(true);
+                try {
+                  await api(`/people/${id}`, { method: 'DELETE' });
+                  toast.success('Đã xóa.');
+                  queryClient.removeQueries({ queryKey: ['person', id] });
+                  await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: ['people'] }),
+                    queryClient.invalidateQueries({ queryKey: ['probation'] }),
+                  ]);
+                  void navigate(p.kind === 'Candidate' ? '/probation' : '/people');
+                } catch (e) {
+                  toast.error(e);
+                  setBusy(false);
+                }
+              }}>Xóa</Button>
             )}
         </div>
       </div>

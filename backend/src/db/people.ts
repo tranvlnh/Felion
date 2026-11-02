@@ -175,6 +175,27 @@ export async function createPerson(db: Db, input: PersonInput, actorId: string) 
   }
 }
 
+// DB only: Discord roles and server membership are left as they are. Roles/mentoring cascade, audit rows keep a null actor.
+export async function deletePerson(db: Db, id: string, actorId: string) {
+  await db.$transaction(async (tx) => {
+    const before = await getPerson(tx, id);
+    if (before.isAdmin) {
+      const otherActiveAdmins = await tx.person.count({
+        where: { isAdmin: true, status: 'Active', clubEmail: { not: null }, id: { not: id } },
+      });
+      assertKeepsAnAdmin(otherActiveAdmins, before, true);
+    }
+    await tx.person.delete({ where: { id } });
+    await writeAudit(tx, {
+      actorId: actorId === id ? null : actorId,
+      action: 'PersonDeleted',
+      entityType: 'Person',
+      entityId: id,
+      metadata: { kind: before.kind, studentId: before.studentId, fullName: before.fullName, discordUserId: before.discordUserId },
+    });
+  });
+}
+
 export async function updatePerson(db: Db, id: string, patch: PersonPatch, actorId: string) {
   const data = normalizePatch(patch);
 

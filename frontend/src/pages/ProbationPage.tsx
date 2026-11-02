@@ -98,8 +98,8 @@ export function ProbationPage() {
       `Đã ${approved ? 'duyệt' : 'bỏ duyệt'} ${items.length} người.`);
   };
   const kickSelected = () => {
-    const reason = prompt(`Kick ${pickedActive.length} người khỏi Discord? Họ cũng bị khóa tài khoản.\n\nLý do:`)?.trim();
-    if (reason) bulk(pickedActive, (candidate) => api(`/people/${candidate.id}/kick`, { method: 'POST', body: { reason } }), `Đã kick và khóa ${pickedActive.length} người.`);
+    const reason = prompt(`Kick ${pickedActive.length} người khỏi Discord? Họ cũng chuyển sang không hoạt động.\n\nLý do:`)?.trim();
+    if (reason) bulk(pickedActive, (candidate) => api(`/people/${candidate.id}/kick`, { method: 'POST', body: { reason } }), `Đã kick và chuyển ${pickedActive.length} người sang không hoạt động.`);
   };
 
   const endRound = () => {
@@ -310,7 +310,7 @@ function CandidateList({ candidates, teamId, ctx }: { candidates: TeamPerson[]; 
                 <span className="flex flex-wrap items-center gap-2">
                   <Link to={`/people/${candidate.id}`} className="truncate font-medium hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">{candidate.fullName}</Link>
                   <span className="font-mono text-xs text-slate-500">{candidate.studentId}</span>
-                  {!active && <Badge tone="red">đã khóa</Badge>}
+                  {!active && <Badge>không hoạt động</Badge>}
                   {!candidate.discordUserId && <Badge>chưa link</Badge>}
                 </span>
                 {candidate.roles.length > 0 && (

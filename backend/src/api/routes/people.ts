@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { createPerson, getPerson, listPeople, updatePerson } from '#app/db/people.js';
+import { createPerson, deletePerson, getPerson, listPeople, updatePerson } from '#app/db/people.js';
 import { addPersonRole, getRoleWebPermissions, removePersonRole } from '#app/db/roles.js';
 import { getGuildRole, getAssignableGuildRole } from '#app/discord/guild-roles.js';
 import { kickPerson } from '#app/discord/kick.js';
@@ -150,11 +150,11 @@ export function registerPeopleRoutes(app: FastifyInstance, context: WebContext):
     return syncPerson(db, await context.getGuild(), id, request.actor.id);
   });
 
-  app.post('/people/:id/import-roles', async (request) => {
+  app.delete('/people/:id', async (request, reply) => {
     const { id } = idParams.parse(request.params);
-    assertAdmin(request.actor);
-    const result = await importFromDiscord(db, await context.getGuild(), id, request.actor.id);
-    return { ...result, person: await getPerson(db, id) };
+    assertCanActOn(request.actor, 'ManagePeople', await getPerson(db, id));
+    await deletePerson(db, id, request.actor.id);
+    return reply.code(204).send();
   });
 
   app.post('/people/:id/kick', async (request) => {

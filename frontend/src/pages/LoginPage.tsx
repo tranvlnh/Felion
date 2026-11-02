@@ -4,7 +4,7 @@ const errors: Record<string, string> = {
   state: 'Phiên đăng nhập đã hết hạn, hãy thử lại.',
   google: 'Google từ chối đăng nhập, hãy thử lại.',
   domain: 'Hãy dùng tài khoản email của CLB.',
-  'not-member': 'Email này chưa được admin thêm vào hệ thống, hoặc tài khoản đã bị khóa.',
+  'not-member': 'Email này chưa được admin thêm vào hệ thống, hoặc tài khoản đang ở trạng thái không hoạt động.',
 };
 
 export function LoginPage() {

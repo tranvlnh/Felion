@@ -68,7 +68,7 @@ export function PeoplePage() {
           <Select value={params.get('status') ?? ''} onChange={(e) => setFilter('status', e.target.value)} aria-label="Trạng thái">
             <option value="">Mọi trạng thái</option>
             <option value="Active">Đang hoạt động</option>
-            <option value="Inactive">Đã khóa</option>
+            <option value="Inactive">Không hoạt động</option>
           </Select>
           <Select value={params.get('departmentId') ?? ''} onChange={(e) => setFilter('departmentId', e.target.value)} aria-label="Ban">
             <option value="">Mọi ban</option>
@@ -106,7 +106,7 @@ export function PeoplePage() {
                         <Avatar discordUserId={person.discordUserId} name={person.fullName} className="size-8 text-[11px]" />
                         <Link to={`/people/${person.id}`} className="font-medium hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">{person.fullName}</Link>
                         {person.isAdmin && <Badge tone="indigo">admin</Badge>}
-                        {person.status === 'Inactive' && <Badge tone="red">đã khóa</Badge>}
+                        {person.status === 'Inactive' && <Badge>không hoạt động</Badge>}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 font-mono text-xs text-slate-600 dark:text-slate-400">{person.studentId}</td>
