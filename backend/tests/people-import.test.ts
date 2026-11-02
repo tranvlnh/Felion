@@ -27,6 +27,20 @@ describe('parseImportRows', () => {
     expect(errors[3]?.error).toContain('phone');
   });
 
+  it('keeps spreadsheet row numbers across blank rows', () => {
+    const csv = [header, 'B1,An Le,Tech,5,', ',,,,', '', 'B2,Binh,Old,5,'].join('\r\n');
+    const { inputs, errors } = parseImportRows(csv, 'Member', departments);
+    expect(inputs.map((entry) => entry.row)).toEqual([2]);
+    expect(errors.map((entry) => entry.row)).toEqual([5]);
+  });
+
+  it('reports a club email repeated in the file', () => {
+    const csv = ['studentId,fullName,department,generation,clubEmail', 'B1,An Le,Tech,5,a@gdg.vn', 'B2,Binh,Tech,5, A@GDG.vn '].join('\n');
+    const { inputs, errors } = parseImportRows(csv, 'Member', departments);
+    expect(inputs[0]?.input.clubEmail).toBe('a@gdg.vn');
+    expect(errors).toEqual([{ row: 3, error: 'clubEmail a@gdg.vn is also on row 2.' }]);
+  });
+
   it('rejects unknown or missing headers and empty files up front', () => {
     expect(() => parseImportRows('studentId,fullName,department,generation,isAdmin\nB1,A B,Tech,1,true', 'Member', departments)).toThrow(/Unknown columns: isAdmin/);
     expect(() => parseImportRows('studentId,fullName\nB1,A B', 'Member', departments)).toThrow(/Missing columns/);

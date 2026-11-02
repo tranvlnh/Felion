@@ -9,15 +9,16 @@ export type AuditEntry = {
   metadata?: Prisma.InputJsonValue;
 };
 
-export async function writeAudit(db: Db | Tx, entry: AuditEntry): Promise<void> {
-  await db.auditLog.create({
-    data: {
+// An array is written with one query (bulk actions such as CSV import).
+export async function writeAudit(db: Db | Tx, entries: AuditEntry | readonly AuditEntry[]): Promise<void> {
+  await db.auditLog.createMany({
+    data: (Array.isArray(entries) ? entries : [entries]).map((entry: AuditEntry) => ({
       actorId: entry.actorId,
       action: entry.action,
       entityType: entry.entityType,
       entityId: entry.entityId ?? null,
       ...(entry.metadata === undefined ? {} : { metadata: entry.metadata }),
-    },
+    })),
   });
 }
 

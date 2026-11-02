@@ -1,14 +1,18 @@
-// RFC 4180: quoted cells, "" escapes, newlines inside quotes, CRLF. Blank lines are skipped.
+// RFC 4180: quoted cells, "" escapes, newlines inside quotes, CRLF. Blank rows are kept so
+// row numbers match the spreadsheet. Excel in locales with a decimal comma (vi-VN) saves with ';',
+// so the separator is ';' when the first line has ';' and no ','.
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = '';
   let quoted = false;
   const input = text.replace(/^﻿/, '');
+  const firstLine = input.split(/\r?\n/, 1)[0] ?? '';
+  const separator = firstLine.includes(';') && !firstLine.includes(',') ? ';' : ',';
 
   const endRow = () => {
     row.push(cell);
-    if (row.some((value) => value.trim() !== '')) rows.push(row);
+    rows.push(row);
     row = [];
     cell = '';
   };
@@ -26,7 +30,7 @@ export function parseCsv(text: string): string[][] {
       }
     } else if (char === '"') {
       quoted = true;
-    } else if (char === ',') {
+    } else if (char === separator) {
       row.push(cell);
       cell = '';
     } else if (char === '\n' || char === '\r') {
@@ -36,7 +40,8 @@ export function parseCsv(text: string): string[][] {
       cell += char;
     }
   }
-  endRow();
+  // A trailing newline does not start another row.
+  if (cell !== '' || row.length > 0) endRow();
   return rows;
 }
 

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z, ZodError } from 'zod';
 import { listDepartments } from '#app/db/departments.js';
-import { findExistingStudentIds, importPeople, listPeople, type PersonInput } from '#app/db/people.js';
+import { findTakenIdentifiers, importPeople, listPeople, type PersonInput } from '#app/db/people.js';
 import { parseCsv, toCsv } from '#app/domain/csv.js';
 import { normalizeClubEmail, normalizeFullName, normalizeStudentId } from '#app/domain/member.js';
 import { AppError, getPublicErrorMessage } from '#app/errors.js';
@@ -23,14 +23,18 @@ function rowError(error: unknown): string {
   return getPublicErrorMessage(error, 'Invalid row.');
 }
 
+const isBlank = (cells: readonly string[]) => cells.every((cell) => cell.trim() === '');
+
 // Row numbers are spreadsheet rows: the header is row 1.
 export function parseImportRows(
   csv: string,
   kind: PersonInput['kind'],
   departments: readonly { id: string; name: string; active: boolean }[],
 ): { inputs: { row: number; input: PersonInput }[]; errors: ImportRowError[] } {
-  const [header, ...rows] = parseCsv(csv);
-  if (!header) throw new AppError('VALIDATION', 'The CSV file is empty.');
+  const [header, ...records] = parseCsv(csv);
+  if (!header || isBlank(header)) throw new AppError('VALIDATION', 'The CSV file is empty or its first row is blank.');
+  // Blank rows are dropped here, after numbering, so errors point at the right spreadsheet row.
+  const rows = records.map((cells, index) => ({ cells, row: index + 2 })).filter(({ cells }) => !isBlank(cells));
   const columns = header.map((column) => column.trim());
   const unknown = columns.filter((column) => !(importColumns as readonly string[]).includes(column));
   if (unknown.length > 0) throw new AppError('VALIDATION', `Unknown columns: ${unknown.join(', ')}. Allowed: ${importColumns.join(', ')}.`);
@@ -44,9 +48,13 @@ export function parseImportRows(
   const seen = new Map<string, number>();
   const inputs: { row: number; input: PersonInput }[] = [];
   const errors: ImportRowError[] = [];
+  const claim = (key: string, label: string, row: number) => {
+    const firstRow = seen.get(key);
+    if (firstRow) throw new AppError('CONFLICT', `${label} is also on row ${firstRow}.`);
+    seen.set(key, row);
+  };
 
-  rows.forEach((cells, index) => {
-    const row = index + 2;
+  rows.forEach(({ cells, row }) => {
     try {
       if (cells.length > columns.length) throw new AppError('VALIDATION', 'More cells than header columns.');
       const record = Object.fromEntries(
@@ -58,14 +66,13 @@ export function parseImportRows(
 
       const input = createBody.parse({ ...rest, kind, departmentId, generation: generation === undefined ? undefined : Number(generation) });
       // Checked here so a bad row is reported by number instead of failing the whole transaction.
-      const studentId = normalizeStudentId(input.studentId);
+      input.studentId = normalizeStudentId(input.studentId);
       normalizeFullName(input.fullName);
-      if (input.clubEmail) normalizeClubEmail(input.clubEmail);
+      if (input.clubEmail) input.clubEmail = normalizeClubEmail(input.clubEmail);
 
-      const firstRow = seen.get(studentId);
-      if (firstRow) throw new AppError('CONFLICT', `studentId ${studentId} is also on row ${firstRow}.`);
-      seen.set(studentId, row);
-      inputs.push({ row, input: { ...input, studentId } });
+      claim(`studentId:${input.studentId}`, `studentId ${input.studentId}`, row);
+      if (input.clubEmail) claim(`clubEmail:${input.clubEmail}`, `clubEmail ${input.clubEmail}`, row);
+      inputs.push({ row, input });
     } catch (error) {
       errors.push({ row, error: rowError(error) });
     }
@@ -88,16 +95,19 @@ export function registerPeopleCsvRoutes(app: FastifyInstance, context: WebContex
 
     const { inputs, errors } = parseImportRows(csv, kind, await listDepartments(db));
     for (const { input } of inputs) assertAdminForFields(request.actor, input);
-    const existing = await findExistingStudentIds(db, inputs.map(({ input }) => input.studentId));
+    const taken = await findTakenIdentifiers(db, inputs.map(({ input }) => input));
     const fresh = inputs.filter(({ row, input }) => {
-      if (!existing.has(input.studentId)) return true;
-      errors.push({ row, error: `studentId ${input.studentId} already exists.` });
+      const clash = taken.studentIds.has(input.studentId) ? `studentId ${input.studentId}`
+        : input.clubEmail && taken.clubEmails.has(input.clubEmail) ? `clubEmail ${input.clubEmail}`
+          : null;
+      if (!clash) return true;
+      errors.push({ row, error: `${clash} already exists.` });
       return false;
     });
     if (errors.length > 0 || dryRun) {
       return { valid: fresh.length, errors: errors.sort((a, b) => a.row - b.row) };
     }
-    return { created: await importPeople(db, fresh.map(({ input }) => input), request.actor.id) };
+    return { created: await importPeople(db, kind, fresh.map(({ input }) => input), request.actor.id) };
   });
 
   app.get('/people/export.csv', async (request, reply) => {

@@ -92,6 +92,8 @@ Configuration comes from `backend/.env`.
   `phone, personalEmail, birthDate, facebookUrl, clubEmail` (optional; `clubEmail` is admin-only).
   `department` is a department name, `birthDate` is `YYYY-MM-DD`. The file is checked first (dry run); one bad
   row means nobody is added. Imported people get the default Probation/Member role from Settings, like
-  people added by hand. Save from Excel as "CSV UTF-8". At most 500 rows.
+  people added by hand. Save from Excel as "CSV UTF-8"; comma or semicolon separators both work (Excel uses `;`
+  when Windows is set to a decimal-comma region such as Vietnamese). Error row numbers match the spreadsheet,
+  blank rows included. At most 500 rows.
 - **Export** ("Xuất CSV" on the Members page, needs `ViewPeople`) uses the current filters and writes UTF-8 with
   a BOM. Cells starting with `= + - @` get a leading `'` so spreadsheets don't run them as formulas.

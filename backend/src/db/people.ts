@@ -146,52 +146,88 @@ async function assertDepartmentActive(tx: Tx, departmentId: string): Promise<voi
   }
 }
 
-async function createPersonTx(tx: Tx, input: PersonInput, actorId: string): Promise<string> {
-  const data = normalizePatch(input) as Prisma.PersonUncheckedCreateInput;
-  data.kind = input.kind;
-
-  await assertDepartmentActive(tx, input.departmentId);
-  const person = await tx.person.create({ data, select: { id: true } });
-
+async function getDefaultRoleId(tx: Tx, kind: PersonKind): Promise<string | null> {
   const settings = await getSettings(tx);
-  const defaultRoleId = input.kind === 'Candidate' ? settings.probationRoleId : settings.memberRoleId;
-  if (defaultRoleId) {
-    await tx.personRole.create({ data: { personId: person.id, discordRoleId: defaultRoleId } });
-  }
+  return kind === 'Candidate' ? settings.probationRoleId : settings.memberRoleId;
+}
 
-  await writeAudit(tx, {
-    actorId,
-    action: 'PersonCreated',
-    entityType: 'Person',
-    entityId: person.id,
-    metadata: { kind: input.kind, studentId: data.studentId, defaultRoleId },
-  });
-  return person.id;
+function toCreateData(input: PersonInput): Prisma.PersonCreateManyInput {
+  return { ...normalizePatch(input), kind: input.kind } as Prisma.PersonCreateManyInput;
 }
 
 export async function createPerson(db: Db, input: PersonInput, actorId: string) {
-  try {
-    return await db.$transaction(async (tx) => getPerson(tx, await createPersonTx(tx, input, actorId)));
-  } catch (error) {
-    rethrowUniqueViolation(error, uniqueMessage);
-  }
-}
+  const data = toCreateData(input);
 
-// All or nothing: one bad row rolls back the whole file.
-export async function importPeople(db: Db, inputs: readonly PersonInput[], actorId: string): Promise<number> {
   try {
     return await db.$transaction(async (tx) => {
-      for (const input of inputs) await createPersonTx(tx, input, actorId);
-      return inputs.length;
-    }, { timeout: 60_000 });
+      await assertDepartmentActive(tx, input.departmentId);
+      const person = await tx.person.create({ data, select: { id: true } });
+
+      const defaultRoleId = await getDefaultRoleId(tx, input.kind);
+      if (defaultRoleId) {
+        await tx.personRole.create({ data: { personId: person.id, discordRoleId: defaultRoleId } });
+      }
+
+      await writeAudit(tx, {
+        actorId,
+        action: 'PersonCreated',
+        entityType: 'Person',
+        entityId: person.id,
+        metadata: { kind: input.kind, studentId: data.studentId, defaultRoleId },
+      });
+      return getPerson(tx, person.id);
+    });
   } catch (error) {
     rethrowUniqueViolation(error, uniqueMessage);
   }
 }
 
-export async function findExistingStudentIds(db: Db, studentIds: readonly string[]): Promise<Set<string>> {
-  const rows = await db.person.findMany({ where: { studentId: { in: [...studentIds] } }, select: { studentId: true } });
-  return new Set(rows.map((row) => row.studentId));
+// All or nothing, and a fixed number of queries however many rows: a per-row loop is
+// thousands of round trips and times out against a remote database.
+export async function importPeople(db: Db, kind: PersonKind, inputs: readonly PersonInput[], actorId: string): Promise<number> {
+  const departmentIds = [...new Set(inputs.map((input) => input.departmentId))];
+
+  try {
+    return await db.$transaction(async (tx) => {
+      const activeDepartments = await tx.department.count({ where: { id: { in: departmentIds }, active: true } });
+      if (activeDepartments !== departmentIds.length) {
+        throw new AppError('VALIDATION', 'A department in the file does not exist or is inactive.');
+      }
+      const people = await tx.person.createManyAndReturn({
+        data: inputs.map((input) => toCreateData({ ...input, kind })),
+        select: { id: true, studentId: true },
+      });
+
+      const defaultRoleId = await getDefaultRoleId(tx, kind);
+      if (defaultRoleId) {
+        await tx.personRole.createMany({ data: people.map((person) => ({ personId: person.id, discordRoleId: defaultRoleId })) });
+      }
+
+      await writeAudit(tx, people.map((person) => ({
+        actorId,
+        action: 'PersonCreated',
+        entityType: 'Person',
+        entityId: person.id,
+        metadata: { kind, studentId: person.studentId, defaultRoleId, imported: true },
+      })));
+      return people.length;
+    });
+  } catch (error) {
+    rethrowUniqueViolation(error, uniqueMessage);
+  }
+}
+
+// Already-used unique fields, so the import dry run can name the clashing row.
+export async function findTakenIdentifiers(db: Db, inputs: readonly Pick<PersonInput, 'studentId' | 'clubEmail'>[]) {
+  const clubEmails = inputs.flatMap((input) => (input.clubEmail ? [input.clubEmail] : []));
+  const rows = await db.person.findMany({
+    where: { OR: [{ studentId: { in: inputs.map((input) => input.studentId) } }, { clubEmail: { in: clubEmails } }] },
+    select: { studentId: true, clubEmail: true },
+  });
+  return {
+    studentIds: new Set(rows.map((row) => row.studentId)),
+    clubEmails: new Set(rows.flatMap((row) => (row.clubEmail ? [row.clubEmail] : []))),
+  };
 }
 
 // DB only: Discord roles and server membership are left as they are. Roles/mentoring cascade, audit rows keep a null actor.

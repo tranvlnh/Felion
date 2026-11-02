@@ -6,8 +6,12 @@ describe('parseCsv', () => {
     expect(parseCsv('a,b\n"x, y","say ""hi""\nthere"')).toEqual([['a', 'b'], ['x, y', 'say "hi"\nthere']]);
   });
 
-  it('strips the BOM, accepts CRLF and skips blank lines', () => {
-    expect(parseCsv('﻿a,b\r\n1,2\r\n\r\n,\r\n3,4\r\n')).toEqual([['a', 'b'], ['1', '2'], ['3', '4']]);
+  it('strips the BOM, accepts CRLF and keeps blank rows so numbering matches', () => {
+    expect(parseCsv('﻿a,b\r\n1,2\r\n\r\n,\r\n3,4\r\n')).toEqual([['a', 'b'], ['1', '2'], [''], ['', ''], ['3', '4']]);
+  });
+
+  it('reads semicolon files saved by Excel in a decimal-comma locale', () => {
+    expect(parseCsv('a;b\n"x;y";2,5')).toEqual([['a', 'b'], ['x;y', '2,5']]);
   });
 
   it('keeps empty cells', () => {
