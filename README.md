@@ -5,8 +5,8 @@ One Node process for one Discord guild:
 - **Web admin** (Fastify API in `backend/`, React SPA in `frontend/`): people, probation → member,
   Discord roles and their permissions, role sync, kick, departments, audit log. Sign-in is Google
   Workspace OAuth for anyone whose club email an admin has added.
-- **Discord bot** (discord.js, in `backend/`): only `/verification publish` and the StudentId
-  button/modal that links a Discord account to a person. It also restores roles when a linked person
+- **Discord bot** (discord.js, in `backend/`): no slash commands; the StudentId
+  button/modal (message published from the web Settings page) that links a Discord account to a person. It also restores roles when a linked person
   rejoins and forgets roles deleted in Discord.
 - **PostgreSQL via Prisma 7** (`backend/prisma/schema.prisma`, migrations next to it).
 
@@ -24,7 +24,7 @@ backend/
     errors.ts       AppError + public error messages
     api/            Fastify: server, Google auth, permission rules, routes/
     db/             Prisma queries (people, roles, settings, departments, audit, linking)
-    discord/        client, /verification, role sync, guild role CRUD, kick
+    discord/        client, verification message, role sync, guild role CRUD, kick
     domain/         pure helpers (normalization, role sync plan)
     generated/      Prisma client (generated, ignored)
   scripts/          one-off: bootstrap admin

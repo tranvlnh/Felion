@@ -46,6 +46,10 @@ model Person {
   // Lowercase; having one is what lets a person sign in.
   clubEmail     String?      @unique @map("club_email") @db.VarChar(320)
   discordUserId String?      @unique @map("discord_user_id") @db.VarChar(32)
+  phone         String?      @db.VarChar(32)
+  personalEmail String?      @map("personal_email") @db.VarChar(320)
+  birthDate     DateTime?    @map("birth_date") @db.Date
+  facebookUrl   String?      @map("facebook_url") @db.VarChar(500)
   isAdmin       Boolean      @default(false) @map("is_admin")
   departmentId  String       @map("department_id") @db.Uuid
   department    Department   @relation(fields: [departmentId], references: [id])
@@ -112,6 +116,13 @@ model Settings {
   id              Int     @id @default(1)
   probationRoleId String? @map("probation_role_id") @db.VarChar(32)
   memberRoleId    String? @map("member_role_id") @db.VarChar(32)
+
+  // Verification message: null text falls back to the defaults in db/settings.ts.
+  verificationChannelId   String? @map("verification_channel_id") @db.VarChar(32)
+  verificationMessageId   String? @map("verification_message_id") @db.VarChar(32)
+  verificationTitle       String? @map("verification_title") @db.VarChar(256)
+  verificationDescription String? @map("verification_description") @db.VarChar(4096)
+  verificationButtonLabel String? @map("verification_button_label") @db.VarChar(80)
 
   @@map("settings")
 }

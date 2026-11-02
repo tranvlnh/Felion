@@ -16,6 +16,11 @@ export type Person = {
   studentId: string;
   fullName: string;
   clubEmail: string | null;
+  phone: string | null;
+  personalEmail: string | null;
+  // ISO timestamp at UTC midnight; the date is its first 10 chars.
+  birthDate: string | null;
+  facebookUrl: string | null;
   discordUserId: string | null;
   isAdmin: boolean;
   generation: number;
@@ -45,11 +50,20 @@ export type SyncOutcome = { status: 'Synced' | 'Preview' | 'NotLinked' | 'Inacti
 export type WriteResult = { person: PersonDetail; sync?: SyncOutcome | null; syncError?: string | null };
 
 export type Department = { id: string; name: string; active: boolean };
-export type TeamPerson = Pick<Person, 'id' | 'fullName' | 'studentId' | 'status' | 'discordUserId' | 'isAdmin' | 'probationApproved'>;
+export type TeamPerson = Pick<Person, 'id' | 'fullName' | 'studentId' | 'status' | 'discordUserId' | 'isAdmin' | 'probationApproved'> & { roles: string[] };
 export type ProbationTeam = { id: string; name: string; discordRoleId: string | null; mentors: TeamPerson[]; candidates: TeamPerson[] };
 export type ProbationOverview = { teams: ProbationTeam[]; unassigned: TeamPerson[] };
 export type SyncErrors = { syncErrors: { fullName: string; error: string }[] };
-export type Settings = { probationRoleId: string | null; memberRoleId: string | null };
+export type Settings = {
+  probationRoleId: string | null;
+  memberRoleId: string | null;
+  verificationChannelId: string | null;
+  verificationMessageId: string | null;
+  verificationTitle: string;
+  verificationDescription: string;
+  verificationButtonLabel: string;
+};
+export type Channel = { id: string; name: string };
 export type AuditItem = {
   id: string;
   action: string;

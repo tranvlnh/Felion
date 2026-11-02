@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react';
+import { createContext, useCallback, useContext, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import type { GuildRole } from './api';
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(' ');
@@ -22,8 +22,17 @@ export function Button({ variant = 'primary', className, ...props }: ButtonHTMLA
 
 const fieldClass = 'h-9 w-full rounded-lg border-0 bg-white px-3 text-sm shadow-xs ring-1 ring-slate-200 ring-inset transition placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 dark:bg-slate-900 dark:ring-slate-700 dark:disabled:bg-slate-800/50';
 
+// ISO date or timestamp → dd/MM/yyyy, read from the string so time zones can't shift the day.
+export function formatDate(iso: string): string {
+  return iso.slice(0, 10).split('-').reverse().join('/');
+}
+
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cx(fieldClass, props.className)} />;
+}
+
+export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea {...props} className={cx(fieldClass, 'h-auto py-2', props.className)} />;
 }
 
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {

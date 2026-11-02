@@ -6,7 +6,7 @@ import { useMe } from '../Layout';
 import { Avatar, Badge, Button, buttonClass, Card, EmptyState, ErrorText, Input, Loading, PageHeader, Pager, Select } from '../ui';
 
 const pageSize = 50;
-const filterKeys = ['search', 'kind', 'status', 'departmentId', 'generation'] as const;
+const filterKeys = ['search', 'status', 'departmentId', 'generation'] as const;
 
 export function PeoplePage() {
   const me = useMe();
@@ -32,7 +32,8 @@ export function PeoplePage() {
     return () => clearTimeout(timer);
   }, [search, generation]);
 
-  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  // Candidates live on the Probation page.
+  const query = new URLSearchParams({ kind: 'Member', page: String(page), pageSize: String(pageSize) });
   for (const key of filterKeys) {
     const value = params.get(key);
     if (value) query.set(key, value);
@@ -62,13 +63,8 @@ export function PeoplePage() {
         )}
       />
       <Card>
-        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-[2fr_1fr_1fr_1fr_6rem_auto]">
+        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-[2fr_1fr_1fr_6rem_auto]">
           <Input className="sm:col-span-3 lg:col-span-1" type="search" placeholder="Tìm tên, MSSV, email, Discord id…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Tìm kiếm" />
-          <Select value={params.get('kind') ?? ''} onChange={(e) => setFilter('kind', e.target.value)} aria-label="Loại">
-            <option value="">Mọi loại</option>
-            <option value="Member">Thành viên</option>
-            <option value="Candidate">Probation</option>
-          </Select>
           <Select value={params.get('status') ?? ''} onChange={(e) => setFilter('status', e.target.value)} aria-label="Trạng thái">
             <option value="">Mọi trạng thái</option>
             <option value="Active">Đang hoạt động</option>
@@ -93,7 +89,6 @@ export function PeoplePage() {
                 <tr>
                   <th className="px-5 py-2.5 font-medium">Tên</th>
                   <th className="px-3 py-2.5 font-medium">MSSV</th>
-                  <th className="px-3 py-2.5 font-medium">Loại</th>
                   <th className="px-3 py-2.5 font-medium">Ban</th>
                   <th className="px-3 py-2.5 font-medium">Gen</th>
                   <th className="px-5 py-2.5 font-medium">Discord</th>
@@ -115,9 +110,6 @@ export function PeoplePage() {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 font-mono text-xs text-slate-600 dark:text-slate-400">{person.studentId}</td>
-                    <td className="px-3 py-2.5">
-                      {person.kind === 'Member' ? 'Thành viên' : <Badge tone={person.probationApproved ? 'green' : 'amber'}>{person.probationApproved ? 'Probation · đã duyệt' : 'Probation'}</Badge>}
-                    </td>
                     <td className="px-3 py-2.5">{person.department.name}</td>
                     <td className="px-3 py-2.5 tabular-nums">{person.generation}</td>
                     <td className="px-5 py-2.5">{person.discordUserId ? <Badge tone="green">đã link</Badge> : <Badge>chưa</Badge>}</td>

@@ -24,6 +24,11 @@ export type PersonPatch = {
   generation?: number | undefined;
   status?: PersonStatus | undefined;
   clubEmail?: string | null | undefined;
+  phone?: string | null | undefined;
+  personalEmail?: string | null | undefined;
+  // YYYY-MM-DD
+  birthDate?: string | null | undefined;
+  facebookUrl?: string | null | undefined;
   discordUserId?: string | null | undefined;
   isAdmin?: boolean | undefined;
 };
@@ -45,6 +50,10 @@ const personSelect = {
   studentId: true,
   fullName: true,
   clubEmail: true,
+  phone: true,
+  personalEmail: true,
+  birthDate: true,
+  facebookUrl: true,
   discordUserId: true,
   isAdmin: true,
   generation: true,
@@ -63,6 +72,10 @@ function normalizePatch(patch: PersonPatch): Prisma.PersonUncheckedUpdateInput {
   if (patch.generation !== undefined) data.generation = patch.generation;
   if (patch.status !== undefined) data.status = patch.status;
   if (patch.clubEmail !== undefined) data.clubEmail = patch.clubEmail === null ? null : normalizeClubEmail(patch.clubEmail);
+  if (patch.phone !== undefined) data.phone = patch.phone;
+  if (patch.personalEmail !== undefined) data.personalEmail = patch.personalEmail;
+  if (patch.birthDate !== undefined) data.birthDate = patch.birthDate === null ? null : new Date(patch.birthDate);
+  if (patch.facebookUrl !== undefined) data.facebookUrl = patch.facebookUrl;
   if (patch.discordUserId !== undefined) data.discordUserId = patch.discordUserId;
   if (patch.isAdmin !== undefined) data.isAdmin = patch.isAdmin;
   return data;

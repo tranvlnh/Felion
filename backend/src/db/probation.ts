@@ -19,7 +19,11 @@ const personBrief = {
   discordUserId: true,
   isAdmin: true,
   probationApproved: true,
+  roles: { select: { discordRoleId: true }, orderBy: { discordRoleId: 'asc' } },
 } satisfies Prisma.PersonSelect;
+
+const brief = ({ roles, ...person }: Prisma.PersonGetPayload<{ select: typeof personBrief }>) =>
+  ({ ...person, roles: roles.map((role) => role.discordRoleId) });
 
 export async function getProbationOverview(db: Db) {
   const [teams, unassigned] = await Promise.all([
@@ -35,7 +39,10 @@ export async function getProbationOverview(db: Db) {
     }),
     db.person.findMany({ where: { kind: 'Candidate', teamId: null }, select: personBrief, orderBy: { fullName: 'asc' } }),
   ]);
-  return { teams: teams.map((team) => ({ ...team, mentors: team.mentors.map((mentor) => mentor.person) })), unassigned };
+  return {
+    teams: teams.map((team) => ({ ...team, candidates: team.candidates.map(brief), mentors: team.mentors.map((mentor) => brief(mentor.person)) })),
+    unassigned: unassigned.map(brief),
+  };
 }
 
 export async function getTeam(db: Db | Tx, id: string) {

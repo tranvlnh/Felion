@@ -2,61 +2,78 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ChannelType,
   EmbedBuilder,
   MessageFlags,
   ModalBuilder,
   PermissionFlagsBits,
-  SlashCommandBuilder,
   TextInputBuilder,
   TextInputStyle,
   type Client,
+  type Guild,
   type Interaction,
 } from 'discord.js';
 import type { Config } from '#app/config.js';
 import type { Db } from '#app/db/client.js';
 import { linkDiscordIdentity } from '#app/db/linking.js';
-import { getPublicErrorMessage } from '#app/errors.js';
+import type { SettingsValues } from '#app/db/settings.js';
+import { AppError, getPublicErrorMessage } from '#app/errors.js';
 import { importFromDiscord, syncPerson } from './role-sync.js';
 
-export const verificationCommands = [
-  new SlashCommandBuilder()
-    .setName('verification')
-    .setDescription('Manage the StudentId verification message.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator.toString())
-    .addSubcommand((command) => command
-      .setName('publish')
-      .setDescription('Publish the StudentId verification message in this channel.')),
-];
-
-function createVerificationMessage() {
+function createVerificationMessage(settings: SettingsValues) {
   return {
     embeds: [new EmbedBuilder()
-      .setTitle('Felion verification')
-      .setDescription('Nhấn nút bên dưới và nhập Mã sinh viên của bạn để liên kết tài khoản Discord.')
+      .setTitle(settings.verificationTitle)
+      .setDescription(settings.verificationDescription)
       .setColor(0x5865f2)],
     components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId('verification:open')
-        .setLabel('Nhấn để mở')
+        .setLabel(settings.verificationButtonLabel)
         .setStyle(ButtonStyle.Primary),
     )],
   };
 }
 
+const sendPermissions = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks];
+
+export async function listSendableChannels(guild: Guild): Promise<{ id: string; name: string }[]> {
+  const [me, channels] = await Promise.all([guild.members.fetchMe(), guild.channels.fetch()]);
+  return [...channels.values()]
+    .filter((channel) => channel !== null)
+    .filter((channel) => channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement)
+    .filter((channel) => channel.permissionsFor(me).has(sendPermissions))
+    .sort((a, b) => a.rawPosition - b.rawPosition)
+    .map((channel) => ({ id: channel.id, name: channel.name }));
+}
+
+// Edits the published message in place; sends a new one if it was deleted or the channel changed.
+export async function publishVerificationMessage(
+  guild: Guild,
+  settings: SettingsValues,
+  channelId: string,
+): Promise<{ channelId: string; messageId: string }> {
+  const channel = await guild.channels.fetch(channelId).catch(() => null);
+  if (!channel?.isSendable()) throw new AppError('VALIDATION', 'Bot không gửi được tin nhắn vào kênh này.');
+  const message = createVerificationMessage(settings);
+  const { verificationChannelId: oldChannelId, verificationMessageId: oldMessageId } = settings;
+
+  if (oldMessageId && oldChannelId === channelId) {
+    const existing = await channel.messages.fetch(oldMessageId).catch(() => null);
+    if (existing) return { channelId, messageId: (await existing.edit(message)).id };
+  }
+  const sent = await channel.send(message);
+  if (oldMessageId && oldChannelId && oldChannelId !== channelId) {
+    // Best effort: the old message or its channel may already be gone.
+    const oldChannel = await guild.channels.fetch(oldChannelId).catch(() => null);
+    if (oldChannel?.isTextBased()) await oldChannel.messages.delete(oldMessageId).catch(() => undefined);
+  }
+  return { channelId, messageId: sent.id };
+}
+
 export type VerificationContext = { client: Client; config: Config; db: Db };
 
 export async function handleVerificationInteraction(interaction: Interaction, context: VerificationContext): Promise<boolean> {
-  if (interaction.isChatInputCommand() && interaction.commandName === 'verification') {
-    if (!interaction.channel?.isSendable()) {
-      await interaction.reply({ content: 'This channel cannot receive messages.', flags: MessageFlags.Ephemeral });
-      return true;
-    }
-
-    await interaction.channel.send(createVerificationMessage());
-    await interaction.reply({ content: 'Verification message published.', flags: MessageFlags.Ephemeral });
-    return true;
-  }
-
   if (interaction.isButton() && interaction.customId === 'verification:open') {
     const studentId = new TextInputBuilder()
       .setCustomId('studentId')
@@ -103,7 +120,7 @@ export async function handleVerificationInteraction(interaction: Interaction, co
     );
   } catch (error) {
     const message = getPublicErrorMessage(error, 'Unable to synchronize Discord roles.');
-    await interaction.editReply(`Đã liên kết, nhưng đồng bộ role thất bại: ${message} Hãy nhờ admin bấm Sync trên web.`);
+    await interaction.editReply(`Đã liên kết, nhưng đồng bộ role thất bại: ${message} Hãy liên hệ admin.`);
   }
   return true;
 }

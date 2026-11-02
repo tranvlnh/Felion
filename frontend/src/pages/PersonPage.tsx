@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { api, can, isPrivilegedRole, type PersonDetail, type SyncOutcome, type WriteResult } from '../api';
 import { useMe, useRoleMap, useRoles } from '../Layout';
-import { Avatar, Badge, Button, Card, ErrorText, Loading, Notice, RoleChip, Select, useToast } from '../ui';
+import { Avatar, Badge, Button, Card, ErrorText, formatDate, Loading, Notice, RoleChip, Select, useToast } from '../ui';
 import { PersonForm, toBody, toFormValues } from './PersonForm';
 
 const syncLabels: Record<SyncOutcome['status'], string> = {
@@ -91,6 +91,10 @@ export function PersonPage() {
             </div>
             <p className="text-sm text-slate-500">
               Discord: {p.discordUserId ? <span className="font-mono">{p.discordUserId}</span> : 'chưa liên kết'} · Email CLB: {p.clubEmail ?? '—'}
+            </p>
+            <p className="text-sm text-slate-500">
+              SĐT: {p.phone ?? '—'} · Email cá nhân: {p.personalEmail ?? '—'} · Ngày sinh: {p.birthDate ? formatDate(p.birthDate) : '—'}
+              {' · '}Facebook: {p.facebookUrl ? <a href={p.facebookUrl} target="_blank" rel="noreferrer" className="text-indigo-700 hover:underline dark:text-indigo-300">mở</a> : '—'}
             </p>
             {(p.kind === 'Candidate' || p.mentorTeams.length > 0) && (
               <p className="text-sm text-slate-500">

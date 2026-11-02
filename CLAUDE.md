@@ -42,7 +42,7 @@ routes call Discord directly.
   `auth.ts` is Google OAuth + signed session cookie; `permissions.ts` holds all authorization rules;
   `routes/` register handlers under `/api` behind `requireSession`, which sets `request.actor`.
 - `db/` — Prisma queries per area; `writeAudit` records actions in `AuditLog`.
-- `discord/` — client, `/verification` (the bot's only command: StudentId button/modal that links a Discord
+- `discord/` — client, verification (no slash commands; the web Settings page publishes the StudentId button/modal message that links a Discord
   account to a Person), role sync, guild role CRUD, kick.
 - `domain/` — pure helpers (e.g. `planRoleSync`), the main target for unit tests.
 - Imports use the `#app/*` alias: tsconfig `paths` → `src/*` for tsc/tsx/vitest, and package.json `imports`

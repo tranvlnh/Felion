@@ -6,7 +6,7 @@ import { useMe, useRoleMap, useRoles } from '../Layout';
 import { Avatar, Badge, Button, buttonClass, Card, EmptyState, ErrorText, Input, Loading, PageHeader, RoleChip, Select, useToast } from '../ui';
 
 type Run = (action: () => Promise<Partial<SyncErrors>>, success: string) => Promise<void>;
-type Ctx = { teams: ProbationTeam[]; canManage: boolean; busy: boolean; run: Run };
+type Ctx = { teams: ProbationTeam[]; canManage: boolean; busy: boolean; run: Run; canSelect: boolean; selected: Set<string>; select: (ids: string[], on: boolean) => void };
 
 const endConfirmWord = 'KET THUC';
 const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -21,11 +21,15 @@ export function ProbationPage() {
   const [name, setName] = useState('');
   const [roleId, setRoleId] = useState('');
   const [filter, setFilter] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [target, setTarget] = useState('');
 
   if (overview.isLoading) return <Loading />;
   if (!overview.data) return <ErrorText error={overview.error} />;
   const { teams, unassigned } = overview.data;
   const canManage = can(me, 'ManagePeople');
+  const canKick = can(me, 'KickMembers');
+  const canSelect = canManage || canKick;
 
   const run: Run = async (action, success) => {
     setBusy(true);
@@ -33,18 +37,27 @@ export function ProbationPage() {
       const failed = (await action()).syncErrors ?? [];
       if (failed.length > 0) toast.warn(`${success} Nhưng chưa đồng bộ được Discord cho: ${failed.map((f) => `${f.fullName} (${f.error})`).join('; ')}`);
       else toast.success(success);
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      // Also after a failure: a bulk move may have saved some people before it stopped.
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['probation'] }),
         queryClient.invalidateQueries({ queryKey: ['people'] }),
         queryClient.invalidateQueries({ queryKey: ['person'] }),
       ]);
-    } catch (e) {
-      toast.error(e);
-    } finally {
       setBusy(false);
     }
   };
-  const ctx: Ctx = { teams, canManage, busy, run };
+  const select = (ids: string[], on: boolean) => setSelected((prev) => {
+    const next = new Set(prev);
+    for (const id of ids) {
+      if (on) next.add(id);
+      else next.delete(id);
+    }
+    return next;
+  });
+  const ctx: Ctx = { teams, canManage, busy, run, canSelect, selected, select };
 
   const usedRoleIds = new Set(teams.flatMap((team) => (team.discordRoleId ? [team.discordRoleId] : [])));
   // Same filter as the server: assignable, and non-admins only get roles without power.
@@ -59,6 +72,35 @@ export function ProbationPage() {
     .map((team) => (!term || fold(team.name).includes(term) ? team : { ...team, candidates: team.candidates.filter(matches) }))
     .filter((team) => !term || fold(team.name).includes(term) || team.candidates.length > 0 || team.mentors.some(matches));
   const visibleUnassigned = unassigned.filter(matches);
+
+  const teamOf = new Map<string, string | null>([
+    ...unassigned.map((candidate) => [candidate.id, null] as const),
+    ...teams.flatMap((team) => team.candidates.map((candidate) => [candidate.id, team.id] as const)),
+  ]);
+  const picked = all.filter((candidate) => selected.has(candidate.id));
+  const pickedActive = picked.filter((candidate) => candidate.status === 'Active');
+  const bulk = (items: TeamPerson[], call: (candidate: TeamPerson) => Promise<Partial<SyncErrors>>, success: string) => void run(async () => {
+    const syncErrors: SyncErrors['syncErrors'] = [];
+    for (const candidate of items) syncErrors.push(...((await call(candidate)).syncErrors ?? []));
+    setSelected(new Set());
+    setTarget('');
+    return { syncErrors };
+  }, success);
+  const moveSelected = () => {
+    const teamId = target === 'none' ? null : target;
+    const label = teams.find((team) => team.id === teamId)?.name ?? 'Chưa có team';
+    const moving = picked.filter((candidate) => teamOf.get(candidate.id) !== teamId);
+    bulk(moving, (candidate) => api(`/probation/candidates/${candidate.id}`, { method: 'PUT', body: { teamId } }), `Đã chuyển ${moving.length} người vào “${label}”.`);
+  };
+  const approveSelected = (approved: boolean) => {
+    const items = pickedActive.filter((candidate) => candidate.probationApproved !== approved);
+    bulk(items, (candidate) => api(`/probation/candidates/${candidate.id}/approval`, { method: 'PUT', body: { approved } }),
+      `Đã ${approved ? 'duyệt' : 'bỏ duyệt'} ${items.length} người.`);
+  };
+  const kickSelected = () => {
+    const reason = prompt(`Kick ${pickedActive.length} người khỏi Discord? Họ cũng bị khóa tài khoản.\n\nLý do:`)?.trim();
+    if (reason) bulk(pickedActive, (candidate) => api(`/people/${candidate.id}/kick`, { method: 'POST', body: { reason } }), `Đã kick và khóa ${pickedActive.length} người.`);
+  };
 
   const endRound = () => {
     const removed = all.length - approved;
@@ -125,6 +167,26 @@ export function ProbationPage() {
             ? <p className="text-sm text-slate-500">Mọi probation đều đã có team.</p>
             : <CandidateList candidates={visibleUnassigned} teamId={null} ctx={ctx} />}
         </Card>
+      )}
+
+      {canSelect && picked.length > 0 && (
+        <div className="sticky bottom-4 z-20 flex flex-wrap items-center gap-2 rounded-xl bg-white px-4 py-3 shadow-lg ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+          <span className="text-sm font-medium">Đã chọn {picked.length} probation</span>
+          {canManage && (
+            <>
+              <Select className="sm:max-w-56" value={target} disabled={busy} onChange={(e) => setTarget(e.target.value)} aria-label="Team đích">
+                <option value="" disabled>Chuyển vào team…</option>
+                {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                <option value="none">Chưa có team</option>
+              </Select>
+              <Button disabled={busy || !target} onClick={moveSelected}>Chuyển</Button>
+              <Button variant="secondary" disabled={busy || !pickedActive.some((c) => !c.probationApproved)} onClick={() => approveSelected(true)}>Duyệt</Button>
+              <Button variant="secondary" disabled={busy || !pickedActive.some((c) => c.probationApproved)} onClick={() => approveSelected(false)}>Bỏ duyệt</Button>
+            </>
+          )}
+          {canKick && <Button variant="danger" disabled={busy || pickedActive.length === 0} onClick={kickSelected}>Kick</Button>}
+          <Button variant="secondary" className="ml-auto" disabled={busy} onClick={() => setSelected(new Set())}>Bỏ chọn</Button>
+        </div>
       )}
     </>
   );
@@ -223,19 +285,40 @@ function TeamCard({ team, roleOptions, ctx }: { team: ProbationTeam; roleOptions
 }
 
 function CandidateList({ candidates, teamId, ctx }: { candidates: TeamPerson[]; teamId: string | null; ctx: Ctx }) {
-  const { teams, canManage, busy, run } = ctx;
+  const { teams, canManage, busy, run, canSelect, selected, select } = ctx;
+  const roleMap = useRoleMap();
+  const ids = candidates.map((candidate) => candidate.id);
   return (
+    <>
+      {canSelect && (
+        <label className="flex w-fit cursor-pointer items-center gap-2 py-1 text-xs text-slate-500">
+          <input type="checkbox" className="size-4" checked={ids.every((id) => selected.has(id))} onChange={(e) => select(ids, e.target.checked)} />
+          Chọn tất cả ({ids.length})
+        </label>
+      )}
     <ul className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
       {candidates.map((candidate) => {
         const active = candidate.status === 'Active';
         return (
           <li key={candidate.id} className={`flex flex-wrap items-center gap-x-3 gap-y-2 py-2 ${active ? '' : 'opacity-60'}`}>
             <span className="flex min-w-0 basis-full items-center gap-2 sm:basis-0 sm:flex-1">
-              <Avatar discordUserId={candidate.discordUserId} name={candidate.fullName} className="size-7 text-[10px]" />
-              <Link to={`/people/${candidate.id}`} className="truncate font-medium hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">{candidate.fullName}</Link>
-              <span className="font-mono text-xs text-slate-500">{candidate.studentId}</span>
-              {!active && <Badge tone="red">đã khóa</Badge>}
-              {!candidate.discordUserId && <Badge>chưa link</Badge>}
+              {canSelect && (
+                <input type="checkbox" className="size-4 shrink-0" checked={selected.has(candidate.id)} onChange={(e) => select([candidate.id], e.target.checked)} aria-label={`Chọn ${candidate.fullName}`} />
+              )}
+              <Avatar discordUserId={candidate.discordUserId} name={candidate.fullName} className="size-7 shrink-0 text-[10px]" />
+              <span className="min-w-0 space-y-1">
+                <span className="flex flex-wrap items-center gap-2">
+                  <Link to={`/people/${candidate.id}`} className="truncate font-medium hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">{candidate.fullName}</Link>
+                  <span className="font-mono text-xs text-slate-500">{candidate.studentId}</span>
+                  {!active && <Badge tone="red">đã khóa</Badge>}
+                  {!candidate.discordUserId && <Badge>chưa link</Badge>}
+                </span>
+                {candidate.roles.length > 0 && (
+                  <span className="flex flex-wrap gap-1">
+                    {candidate.roles.map((roleId) => <RoleChip key={roleId} roleId={roleId} role={roleMap.get(roleId)} />)}
+                  </span>
+                )}
+              </span>
             </span>
             {canManage && active ? (
               <ApproveToggle
@@ -265,6 +348,7 @@ function CandidateList({ candidates, teamId, ctx }: { candidates: TeamPerson[]; 
         );
       })}
     </ul>
+    </>
   );
 }
 

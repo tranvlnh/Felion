@@ -1,6 +1,6 @@
 import { webPermissions } from '../api';
 import { useMe, useRoleMap } from '../Layout';
-import { Avatar, Badge, Card, RoleChip } from '../ui';
+import { Avatar, Badge, Card, formatDate, RoleChip } from '../ui';
 
 export function MePage() {
   const me = useMe();
@@ -21,12 +21,16 @@ export function MePage() {
         <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
           <Item label="MSSV" value={person.studentId} />
           <Item label="Email CLB" value={person.clubEmail ?? '—'} />
+          <Item label="Email cá nhân" value={person.personalEmail ?? '—'} />
+          <Item label="Số điện thoại" value={person.phone ?? '—'} />
+          <Item label="Ngày sinh" value={person.birthDate ? formatDate(person.birthDate) : '—'} />
+          <Item label="Facebook" value={person.facebookUrl ?? '—'} />
           <Item label="Ban" value={person.department.name} />
           <Item label="Gen" value={`Gen ${person.generation}`} />
           <Item label="Loại" value={person.kind === 'Member' ? 'Thành viên' : 'Probation'} />
           {person.kind === 'Candidate' && <Item label="Team" value={person.team?.name ?? 'chưa có'} />}
           {person.mentorTeams.length > 0 && <Item label="Mentor team" value={person.mentorTeams.map((team) => team.name).join(', ')} />}
-          <Item label="Discord" value={person.discordUserId ?? 'chưa liên kết (dùng /verification trên Discord)'} />
+          <Item label="Discord" value={person.discordUserId ?? 'chưa liên kết (bấm nút xác minh trên Discord)'} />
         </dl>
       </Card>
       <div className="space-y-6">

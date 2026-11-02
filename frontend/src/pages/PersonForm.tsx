@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { api, type Department, type PersonDetail, type PersonKind } from '../api';
 import { useMe } from '../Layout';
-import { Button, ErrorText, Field, Input, Select } from '../ui';
+import { Button, ErrorText, Field, formatDate, Input, Select } from '../ui';
 
 export type PersonFormValues = {
   kind: PersonKind;
@@ -11,6 +11,10 @@ export type PersonFormValues = {
   departmentId: string;
   generation: string;
   clubEmail: string;
+  phone: string;
+  personalEmail: string;
+  birthDate: string;
+  facebookUrl: string;
   discordUserId: string;
   isAdmin: boolean;
 };
@@ -23,6 +27,10 @@ export function toFormValues(person?: PersonDetail): PersonFormValues {
     departmentId: person?.department.id ?? '',
     generation: person ? String(person.generation) : '',
     clubEmail: person?.clubEmail ?? '',
+    phone: person?.phone ?? '',
+    personalEmail: person?.personalEmail ?? '',
+    birthDate: person?.birthDate ? formatDate(person.birthDate) : '',
+    facebookUrl: person?.facebookUrl ?? '',
     discordUserId: person?.discordUserId ?? '',
     isAdmin: person?.isAdmin ?? false,
   };
@@ -39,6 +47,11 @@ export function toBody(values: PersonFormValues, initial: PersonFormValues, incl
   set('fullName', values.fullName);
   set('departmentId', values.departmentId);
   set('generation', Number(values.generation));
+  set('phone', values.phone.trim() || null);
+  set('personalEmail', values.personalEmail.trim() || null);
+  // dd/MM/yyyy → yyyy-MM-dd; the server rejects impossible dates like 31/02.
+  set('birthDate', values.birthDate.trim() ? values.birthDate.trim().split('/').reverse().join('-') : null);
+  set('facebookUrl', values.facebookUrl.trim() || null);
   set('clubEmail', values.clubEmail.trim() || null);
   set('discordUserId', values.discordUserId.trim() || null);
   set('isAdmin', values.isAdmin);
@@ -98,6 +111,10 @@ export function PersonForm({
           </Select>
         </Field>
         <Field label="Gen"><Input required type="number" min={1} max={999} value={values.generation} onChange={(e) => update('generation', e.target.value)} /></Field>
+        <Field label="Số điện thoại"><Input type="tel" value={values.phone} onChange={(e) => update('phone', e.target.value)} /></Field>
+        <Field label="Email cá nhân"><Input type="email" value={values.personalEmail} onChange={(e) => update('personalEmail', e.target.value)} /></Field>
+        <Field label="Ngày sinh"><Input placeholder="dd/MM/yyyy" pattern="\d{2}/\d{2}/\d{4}" title="dd/MM/yyyy, ví dụ 05/09/2004" inputMode="numeric" value={values.birthDate} onChange={(e) => update('birthDate', e.target.value)} /></Field>
+        <Field label="Link Facebook"><Input type="url" placeholder="https://facebook.com/..." value={values.facebookUrl} onChange={(e) => update('facebookUrl', e.target.value)} /></Field>
         {me.isAdmin && (
           <>
             <Field label="Email CLB (chỉ admin)" hint="Có email thì người này đăng nhập web được."><Input type="email" value={values.clubEmail} onChange={(e) => update('clubEmail', e.target.value)} /></Field>

@@ -30,6 +30,10 @@ const patchBody = z.object({
   generation: z.number().int().min(1).max(999),
   status,
   clubEmail: z.string().nullable(),
+  phone: z.string().trim().regex(/^\+?[0-9 .-]{8,20}$/, 'must be a phone number').nullable(),
+  personalEmail: z.string().trim().toLowerCase().pipe(z.email().max(320)).nullable(),
+  birthDate: z.iso.date().nullable(),
+  facebookUrl: z.string().trim().pipe(z.url({ protocol: /^https?$/ }).max(500)).nullable(),
   discordUserId: discordId.nullable(),
   isAdmin: z.boolean(),
 }).partial().strict();

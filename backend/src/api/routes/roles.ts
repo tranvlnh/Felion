@@ -5,6 +5,7 @@ import { deleteRoleEverywhere, getRolePermissionMap, setRoleWebPermissions } fro
 import { getSettings, updateSettings } from '#app/db/settings.js';
 import { createGuildRole, deleteGuildRole, editGuildRole, getAssignableGuildRole, listGuildRoles } from '#app/discord/guild-roles.js';
 import { syncAll } from '#app/discord/role-sync.js';
+import { listSendableChannels, publishVerificationMessage } from '#app/discord/verification.js';
 import { assertAdmin } from '../permissions.js';
 import type { WebContext } from '../server.js';
 
@@ -84,6 +85,28 @@ export function registerRoleRoutes(app: FastifyInstance, context: WebContext): v
       if (roleId) await getAssignableGuildRole(guild, roleId);
     }
     return updateSettings(db, body, request.actor.id);
+  });
+
+  app.get('/channels', async (request) => {
+    assertAdmin(request.actor);
+    return listSendableChannels(await context.getGuild());
+  });
+
+  // Saves the message text and publishes it (editing the existing message when possible).
+  app.post('/verification-message', async (request) => {
+    assertAdmin(request.actor);
+    const { channelId, ...text } = z.object({
+      channelId: discordId,
+      verificationTitle: z.string().trim().min(1).max(256),
+      verificationDescription: z.string().trim().min(1).max(4096),
+      verificationButtonLabel: z.string().trim().min(1).max(80),
+    }).strict().parse(request.body);
+    const published = await publishVerificationMessage(await context.getGuild(), { ...await getSettings(db), ...text }, channelId);
+    return updateSettings(db, {
+      ...text,
+      verificationChannelId: published.channelId,
+      verificationMessageId: published.messageId,
+    }, request.actor.id);
   });
 
   app.post('/sync-all', async (request) => {

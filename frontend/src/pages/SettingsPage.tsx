@@ -1,8 +1,72 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { api, type Settings, type SyncAllReport } from '../api';
+import { api, type Channel, type Settings, type SyncAllReport } from '../api';
 import { useRoleMap, useRoles } from '../Layout';
-import { Button, Card, Field, Loading, PageHeader, Select, useToast } from '../ui';
+import { Button, Card, Field, Input, Loading, PageHeader, Select, Textarea, useToast } from '../ui';
+
+function VerificationCard({ settings }: { settings: Settings }) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const channels = useQuery({ queryKey: ['channels'], queryFn: () => api<Channel[]>('/channels') });
+  const [form, setForm] = useState({
+    channelId: settings.verificationChannelId ?? '',
+    verificationTitle: settings.verificationTitle,
+    verificationDescription: settings.verificationDescription,
+    verificationButtonLabel: settings.verificationButtonLabel,
+  });
+  const [busy, setBusy] = useState(false);
+  const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
+  const published = settings.verificationMessageId !== null && settings.verificationChannelId === form.channelId;
+
+  const publish = async () => {
+    setBusy(true);
+    try {
+      await api('/verification-message', { method: 'POST', body: form });
+      await queryClient.invalidateQueries({ queryKey: ['settings'] });
+      toast.success(published ? 'Đã cập nhật tin nhắn trên Discord.' : 'Đã đăng tin nhắn lên Discord.');
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card
+      title="Tin nhắn xác minh"
+      actions={
+        <Button disabled={busy || !form.channelId} onClick={() => void publish()}>
+          {published ? 'Lưu & cập nhật' : 'Lưu & đăng'}
+        </Button>
+      }
+    >
+      <p className="mb-3 text-sm text-slate-500">
+        Tin nhắn trên Discord có nút để mọi người nhập Mã sinh viên, liên kết tài khoản và nhận role.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Kênh" hint="Chỉ hiện kênh bot gửi được tin nhắn. Đổi kênh sẽ xoá tin nhắn cũ.">
+          <Select value={form.channelId} onChange={set('channelId')}>
+            <option value="">— chưa chọn —</option>
+            {(channels.data ?? []).map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+          </Select>
+        </Field>
+        <Field label="Nhãn nút">
+          <Input value={form.verificationButtonLabel} maxLength={80} onChange={set('verificationButtonLabel')} />
+        </Field>
+        <div className="sm:col-span-2">
+          <Field label="Tiêu đề">
+            <Input value={form.verificationTitle} maxLength={256} onChange={set('verificationTitle')} />
+          </Field>
+        </div>
+        <div className="sm:col-span-2">
+          <Field label="Nội dung">
+            <Textarea rows={4} value={form.verificationDescription} maxLength={4096} onChange={set('verificationDescription')} />
+          </Field>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
@@ -56,6 +120,7 @@ export function SettingsPage() {
           {roleSelect('memberRoleId', 'Role Member', 'Gán khi tạo thành viên mới, hoặc cho probation đã duyệt khi kết thúc đợt.')}
         </div>
       </Card>
+      {settings.data && <VerificationCard settings={settings.data} />}
       <Card
         title="Đồng bộ toàn bộ"
         actions={
