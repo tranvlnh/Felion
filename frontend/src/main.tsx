@@ -8,6 +8,7 @@ import { Layout } from './Layout';
 import './index.css';
 import { AuditPage } from './pages/AuditPage';
 import { DepartmentsPage } from './pages/DepartmentsPage';
+import { EmailPage } from './pages/EmailPage';
 import { LoginPage } from './pages/LoginPage';
 import { MePage } from './pages/MePage';
 import { PeoplePage } from './pages/PeoplePage';
@@ -39,6 +40,7 @@ const router = createBrowserRouter([
       { path: 'probation', element: <ProbationPage /> },
       { path: 'roles', element: <RolesPage /> },
       { path: 'departments', element: <DepartmentsPage /> },
+      { path: 'email', element: <EmailPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'audit', element: <AuditPage /> },
     ],

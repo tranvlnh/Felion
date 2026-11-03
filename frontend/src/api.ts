@@ -1,9 +1,10 @@
-export type WebPermission = 'ViewPeople' | 'ManagePeople' | 'AssignRoles' | 'KickMembers';
+export type WebPermission = 'ViewPeople' | 'ManagePeople' | 'AssignRoles' | 'KickMembers' | 'SendEmail';
 export const webPermissions: { value: WebPermission; label: string }[] = [
   { value: 'ViewPeople', label: 'Xem danh sách thành viên' },
   { value: 'ManagePeople', label: 'Quản lý thành viên (tạo, sửa, promote)' },
   { value: 'AssignRoles', label: 'Thêm/bớt role, sync' },
   { value: 'KickMembers', label: 'Kick khỏi server' },
+  { value: 'SendEmail', label: 'Gửi email hàng loạt' },
 ];
 
 export type PersonKind = 'Candidate' | 'Member';
@@ -78,6 +79,21 @@ export type SyncAllReport = {
   changed: { personId: string; fullName: string; add: string[]; remove: string[] }[];
   notInServer: number;
   failed: { personId: string; fullName: string; error: string }[];
+};
+export type AddressMode = 'club' | 'personal' | 'clubThenPersonal';
+export type EmailRecipient = { id: string; fullName: string; studentId: string; email: string };
+export type EmailRecipients = {
+  configured: boolean;
+  sender: string | null;
+  items: EmailRecipient[];
+};
+export type EmailJob = {
+  id: string;
+  total: number;
+  sent: number;
+  failed: { fullName: string; email: string; error: string }[];
+  done: boolean;
+  stopped: boolean;
 };
 export type Page<T> = { items: T[]; total: number };
 // Dry run or rejected file: valid + errors. Real import: created.

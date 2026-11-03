@@ -25,6 +25,7 @@ enum WebPermission {
   ManagePeople
   AssignRoles
   KickMembers
+  SendEmail
 }
 
 model Department {

@@ -12,10 +12,11 @@ export type PersonFilter = {
   status?: PersonStatus | undefined;
   departmentId?: string | undefined;
   generation?: number | undefined;
+  roleId?: string | undefined;
   search?: string | undefined;
-  page: number;
-  pageSize: number;
 };
+
+export type PersonPageFilter = PersonFilter & { page: number; pageSize: number };
 
 export type PersonPatch = {
   studentId?: string | undefined;
@@ -81,13 +82,14 @@ function normalizePatch(patch: PersonPatch): Prisma.PersonUncheckedUpdateInput {
   return data;
 }
 
-export async function listPeople(db: Db, filter: PersonFilter) {
+function peopleWhere(filter: PersonFilter): Prisma.PersonWhereInput {
   const search = filter.search?.trim();
-  const where: Prisma.PersonWhereInput = {
+  return {
     ...(filter.kind ? { kind: filter.kind } : {}),
     ...(filter.status ? { status: filter.status } : {}),
     ...(filter.departmentId ? { departmentId: filter.departmentId } : {}),
     ...(filter.generation ? { generation: filter.generation } : {}),
+    ...(filter.roleId ? { roles: { some: { discordRoleId: filter.roleId } } } : {}),
     ...(search
       ? {
         OR: [
@@ -99,6 +101,10 @@ export async function listPeople(db: Db, filter: PersonFilter) {
       }
       : {}),
   };
+}
+
+export async function listPeople(db: Db, filter: PersonPageFilter) {
+  const where = peopleWhere(filter);
   const [items, total] = await Promise.all([
     db.person.findMany({
       where,
@@ -110,6 +116,24 @@ export async function listPeople(db: Db, filter: PersonFilter) {
     db.person.count({ where }),
   ]);
   return { items, total };
+}
+
+const emailRecipientSelect = {
+  id: true,
+  fullName: true,
+  studentId: true,
+  clubEmail: true,
+  personalEmail: true,
+  generation: true,
+  department: { select: { name: true } },
+} satisfies Prisma.PersonSelect;
+
+export async function listEmailRecipients(db: Db, filter: PersonFilter | { ids: readonly string[] }) {
+  return db.person.findMany({
+    where: 'ids' in filter ? { id: { in: [...filter.ids] } } : peopleWhere(filter),
+    select: emailRecipientSelect,
+    orderBy: [{ generation: 'desc' }, { fullName: 'asc' }],
+  });
 }
 
 export async function getPerson(db: Db | Tx, id: string) {

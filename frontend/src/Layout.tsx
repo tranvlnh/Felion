@@ -31,6 +31,7 @@ const icons = {
   probation: <Icon><path d="M5 21V4h11l-2 4 2 4H5" /></Icon>,
   roles: <Icon><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" /></Icon>,
   departments: <Icon><rect x="3.5" y="3.5" width="7" height="7" rx="1.5" /><rect x="13.5" y="3.5" width="7" height="7" rx="1.5" /><rect x="3.5" y="13.5" width="7" height="7" rx="1.5" /><rect x="13.5" y="13.5" width="7" height="7" rx="1.5" /></Icon>,
+  email: <Icon><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 6.5 8.5 6 8.5-6" /></Icon>,
   settings: <Icon><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" /><circle cx="15" cy="6" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="17" cy="18" r="2" /></Icon>,
   audit: <Icon><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Icon>,
   logout: <Icon><path d="M15 12H4M8 8l-4 4 4 4M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" /></Icon>,
@@ -62,6 +63,7 @@ export function Layout() {
     { to: '/probation', label: 'Probation', icon: icons.probation, show: can(me, 'ViewPeople') },
     { to: '/roles', label: 'Role', icon: icons.roles, show: true },
     { to: '/departments', label: 'Ban', icon: icons.departments, show: can(me, 'ManagePeople') },
+    { to: '/email', label: 'Email', icon: icons.email, show: can(me, 'SendEmail') },
     { to: '/settings', label: 'Cài đặt', icon: icons.settings, show: me.isAdmin },
     { to: '/audit', label: 'Lịch sử', icon: icons.audit, show: me.isAdmin },
   ].filter((link) => link.show);

@@ -10,6 +10,7 @@ import type { Db } from '#app/db/client.js';
 import { AppError, getPublicErrorMessage, type AppErrorCode } from '#app/errors.js';
 import { registerAuth, requireSession } from './auth.js';
 import type { Actor } from './permissions.js';
+import { registerEmailRoutes } from './routes/email.js';
 import { registerMiscRoutes } from './routes/misc.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import { registerPeopleCsvRoutes } from './routes/people-csv.js';
@@ -94,6 +95,7 @@ export function buildWebServer(context: WebContext): FastifyInstance {
     registerProbationRoutes(api, context);
     registerRoleRoutes(api, context);
     registerMiscRoutes(api, context);
+    registerEmailRoutes(api, context);
   }, { prefix: '/api' });
 
   // backend/{src,dist}/api -> frontend/dist; both layouts sit at the same depth.

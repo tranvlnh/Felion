@@ -10,7 +10,7 @@ import { assertAdmin } from '../permissions.js';
 import type { WebContext } from '../server.js';
 
 const discordId = z.string().regex(/^\d{17,20}$/, 'must be a Discord id');
-const webPermission = z.enum(['ViewPeople', 'ManagePeople', 'AssignRoles', 'KickMembers']);
+const webPermission = z.enum(['ViewPeople', 'ManagePeople', 'AssignRoles', 'KickMembers', 'SendEmail']);
 
 const roleBody = z.object({
   name: z.string().trim().min(1).max(100),

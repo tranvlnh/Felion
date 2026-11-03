@@ -3,7 +3,7 @@
 One Node process for one Discord guild:
 
 - **Web admin** (Fastify API in `backend/`, React SPA in `frontend/`): people, probation → member,
-  Discord roles and their permissions, role sync, kick, departments, audit log. Sign-in is Google
+  Discord roles and their permissions, role sync, kick, departments, bulk email, audit log. Sign-in is Google
   Workspace OAuth for anyone whose club email an admin has added.
 - **Discord bot** (discord.js, in `backend/`): no slash commands; the StudentId
   button/modal (message published from the web Settings page) that links a Discord account to a person. It also restores roles when a linked person
@@ -25,6 +25,7 @@ backend/
     api/            Fastify: server, Google auth, permission rules, routes/
     db/             Prisma queries (people, roles, settings, departments, audit, linking)
     discord/        client, verification message, role sync, guild role CRUD, kick
+    google/         Gmail SMTP sending for bulk email
     domain/         pure helpers (normalization, role sync plan)
     generated/      Prisma client (generated, ignored)
   scripts/          one-off: bootstrap admin
@@ -40,7 +41,7 @@ Dockerfile, compose.yaml
 - Roles are the guild's real roles. `PersonRole` stores the roles each person *should* have; sync makes
   Discord match (only roles the bot can manage: not `@everyone`, not integration roles, below the bot).
 - `RolePermission` gives a Discord role web permissions (`ViewPeople`, `ManagePeople`, `AssignRoles`,
-  `KickMembers`). `Person.isAdmin` is the only web-only role and grants everything.
+  `KickMembers`, `SendEmail`). `Person.isAdmin` is the only web-only role and grants everything.
 - Non-admins never act on admins, and cannot assign roles that carry web permissions or moderation
   Discord permissions. The last admin cannot be removed. See `backend/src/api/permissions.ts`.
 - Generation is a number. The Probation page holds one round at a time: `ProbationTeam` (optional Discord
@@ -56,6 +57,24 @@ Copy `backend/.env.example` to `backend/.env` and fill it in. Discord: enable th
 Intent** for the bot, and put the bot's role above every role it should manage. Google: create an OAuth
 client (Web application, consent screen *Internal*) with redirect URI
 `<WEB_PUBLIC_URL>/auth/google/callback`.
+
+**Bulk email** (optional; the Email page needs `SendEmail`). Mail goes out from one Workspace mailbox through
+Gmail SMTP (`smtp.gmail.com:465`), one message per recipient. Google no longer accepts the normal password
+there, so it uses an App Password:
+
+1. Sign in as the sending mailbox (a real user, not a group or alias) and turn on **2-Step Verification**
+   (myaccount.google.com → Security). If the option is missing, a Workspace admin must allow 2-Step
+   Verification (Admin console → Security → Authentication → 2-step verification).
+2. Create an App Password at https://myaccount.google.com/apppasswords (any name, e.g. "Felion").
+3. Set `EMAIL_SENDER` (that mailbox, in `GOOGLE_WORKSPACE_DOMAIN`), `EMAIL_APP_PASSWORD` (the 16 characters;
+   spaces are ignored) and optionally `EMAIL_SENDER_NAME`. Without them the page shows a notice.
+
+Changing the account's password revokes its App Passwords; create a new one then.
+
+The body is HTML pasted from Google Docs; `{{name}}`, `{{studentId}}`, `{{email}}`, `{{department}}`,
+`{{generation}}` are filled per person. Pasted images are embedded (Docs image links expire), images +
+attachments are capped at 15 MB (Gmail's 25 MB limit after encoding) and a send at 500 people. Workspace allows about 2,000 messages per day per
+sender. Progress is kept in memory: a restart mid-send stops it (finished sends are logged as `EmailSent`).
 
 ## Development
 

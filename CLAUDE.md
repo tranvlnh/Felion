@@ -42,6 +42,8 @@ routes call Discord directly.
   `auth.ts` is Google OAuth + signed session cookie; `permissions.ts` holds all authorization rules;
   `routes/` register handlers under `/api` behind `requireSession`, which sets `request.actor`.
 - `db/` — Prisma queries per area; `writeAudit` records actions in `AuditLog`.
+- `google/gmail.ts` — Gmail SMTP (nodemailer, App Password) for bulk email; `routes/email.ts`
+  runs sends as an in-memory job, `domain/email.ts` builds the MIME by hand (no dependency).
 - `discord/` — client, verification (no slash commands; the web Settings page publishes the StudentId button/modal message that links a Discord
   account to a Person), role sync, guild role CRUD, kick.
 - `domain/` — pure helpers (e.g. `planRoleSync`; `csv.ts` is a hand-written CSV parser/writer, no dependency), the main target for unit tests.
@@ -60,7 +62,7 @@ routes call Discord directly.
   have, and sync pushes DB → Discord (`discord/role-sync.ts`: `planRoleSync` diff, then add/remove only roles the
   bot can manage). Roles deleted in Discord are removed from the DB.
 - `RolePermission` gives a Discord role web permissions (`ViewPeople`, `ManagePeople`, `AssignRoles`,
-  `KickMembers`). `Person.isAdmin` is the only web-only role and grants everything.
+  `KickMembers`, `SendEmail`). `Person.isAdmin` is the only web-only role and grants everything.
 
 **Authorization invariants** (enforce in routes via `permissions.ts`, don't reimplement inline):
 non-admins never act on admins (`assertCanActOn`); delegated `AssignRoles` cannot grant roles carrying web
