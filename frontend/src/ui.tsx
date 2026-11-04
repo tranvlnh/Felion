@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import type { GuildRole } from './api';
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(' ');
@@ -145,6 +145,36 @@ export function PageHeader({ title, subtitle, actions }: { title: ReactNode; sub
         {subtitle && <p className="mt-1 max-w-2xl text-sm text-slate-500">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+// Not a native <dialog>: its top layer would hide toasts. z-45 sits above the nav (z-40), below toasts (z-50).
+export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const panel = useRef<HTMLDivElement>(null);
+  const close = useRef(onClose);
+  useEffect(() => { close.current = onClose; });
+  useEffect(() => {
+    panel.current?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close.current(); };
+    document.addEventListener('keydown', onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflow;
+    };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-45 overflow-y-auto bg-slate-900/50 p-2 sm:p-8" onMouseDown={(e) => { if (e.target === e.currentTarget) close.current(); }}>
+      <div ref={panel} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} className="mx-auto max-w-5xl space-y-4 rounded-2xl bg-slate-50 p-4 shadow-xl outline-none sm:p-6 dark:bg-slate-950 dark:ring-1 dark:ring-slate-800">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-slate-500">{title}</h2>
+          <Button variant="secondary" className="size-8 px-0" aria-label="Đóng" title="Đóng (Esc)" onClick={() => close.current()}>×</Button>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }

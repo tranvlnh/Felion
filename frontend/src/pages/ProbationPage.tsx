@@ -118,7 +118,7 @@ export function ProbationPage() {
         subtitle="Duyệt chỉ là đánh dấu; người đã duyệt lên thành viên khi admin kết thúc đợt, người còn lại bị xóa."
         actions={
           <>
-            {canManage && <Link to="/people/new?kind=Candidate" className={buttonClass()}>+ Thêm probation</Link>}
+            {canManage && <Link to="?create=Candidate" className={buttonClass()}>+ Thêm probation</Link>}
             {me.isAdmin && <Button variant="danger" disabled={busy || (all.length === 0 && teams.length === 0)} onClick={endRound}>Kết thúc đợt</Button>}
           </>
         }
@@ -230,7 +230,7 @@ function TeamCard({ team, roleOptions, ctx }: { team: ProbationTeam; roleOptions
             {team.mentors.map((mentor) => (
               <span key={mentor.id} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white py-0.5 pl-1 pr-3 text-sm ring-1 ring-slate-200 ring-inset dark:bg-slate-900 dark:ring-slate-700">
                 <Avatar discordUserId={mentor.discordUserId} name={mentor.fullName} className="size-6 text-[10px]" />
-                <Link to={`/people/${mentor.id}`} className="hover:underline">{mentor.fullName}</Link>
+                <Link to={`?person=${mentor.id}`} className="hover:underline">{mentor.fullName}</Link>
                 {canManage && (
                   <button type="button" disabled={busy} className="text-slate-400 hover:text-rose-600" aria-label={`Bỏ mentor ${mentor.fullName}`}
                     onClick={() => void run(() => api(`${path}/mentors/${mentor.id}`, { method: 'DELETE' }), `Đã bỏ mentor ${mentor.fullName}.`)}>
@@ -311,7 +311,7 @@ function CandidateList({ candidates, teamId, ctx }: { candidates: TeamPerson[]; 
               <Avatar discordUserId={candidate.discordUserId} name={candidate.fullName} className="size-7 shrink-0 text-[10px]" />
               <span className="min-w-0 space-y-1">
                 <span className="flex flex-wrap items-center gap-2">
-                  <Link to={`/people/${candidate.id}`} className="truncate font-medium hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">{candidate.fullName}</Link>
+                  <Link to={`?person=${candidate.id}`} className="truncate font-medium hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">{candidate.fullName}</Link>
                   <span className="font-mono text-xs text-slate-500">{candidate.studentId}</span>
                   {!active && <Badge>không hoạt động</Badge>}
                   {!candidate.discordUserId && <Badge>chưa link</Badge>}

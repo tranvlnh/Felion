@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router';
+import { createBrowserRouter, Navigate, RouterProvider, useParams } from 'react-router';
 import { ApiError } from './api';
 import { ToastProvider } from './ui';
 import { Layout } from './Layout';
@@ -12,8 +12,6 @@ import { EmailPage } from './pages/EmailPage';
 import { LoginPage } from './pages/LoginPage';
 import { MePage } from './pages/MePage';
 import { PeoplePage } from './pages/PeoplePage';
-import { PersonCreatePage } from './pages/PersonCreatePage';
-import { PersonPage } from './pages/PersonPage';
 import { ProbationPage } from './pages/ProbationPage';
 import { RolesPage } from './pages/RolesPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -27,6 +25,12 @@ const queryClient = new QueryClient({
   },
 });
 
+// Old detail URLs (bookmarks) now open the popup over the people list.
+function PersonRedirect() {
+  const { id = '' } = useParams();
+  return <Navigate replace to={`/people?person=${encodeURIComponent(id)}`} />;
+}
+
 const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   {
@@ -35,8 +39,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <MePage /> },
       { path: 'people', element: <PeoplePage /> },
-      { path: 'people/new', element: <PersonCreatePage /> },
-      { path: 'people/:id', element: <PersonPage /> },
+      { path: 'people/:id', element: <PersonRedirect /> },
       { path: 'probation', element: <ProbationPage /> },
       { path: 'roles', element: <RolesPage /> },
       { path: 'departments', element: <DepartmentsPage /> },

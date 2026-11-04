@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { api, can, type Department, type Page, type Person } from '../api';
-import { useMe } from '../Layout';
+import { useMe, usePersonHref } from '../Layout';
 import { Avatar, Badge, Button, buttonClass, Card, EmptyState, ErrorText, Input, Loading, PageHeader, Pager, Select } from '../ui';
 import { ImportCsv } from './ImportCsv';
 
@@ -13,6 +13,7 @@ export function PeoplePage() {
   const me = useMe();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
+  const personHref = usePersonHref();
   const page = Number(params.get('page') ?? '1');
   const [search, setSearch] = useState(params.get('search') ?? '');
   const [generation, setGeneration] = useState(params.get('generation') ?? '');
@@ -65,7 +66,7 @@ export function PeoplePage() {
         actions={
           <>
             <a href={`/api/people/export.csv?${exportQuery}`} className={buttonClass('secondary')}>Xuất CSV</a>
-            {can(me, 'ManagePeople') && <Link to="/people/new?kind=Member" className={buttonClass()}>+ Thêm người</Link>}
+            {can(me, 'ManagePeople') && <Link to={`?${new URLSearchParams([...params, ['create', 'Member']])}`} className={buttonClass()}>+ Thêm người</Link>}
           </>
         }
       />
@@ -106,13 +107,13 @@ export function PeoplePage() {
                 {people.data?.items.map((person) => (
                   <tr
                     key={person.id}
-                    onClick={(e) => { if (!(e.target as HTMLElement).closest('a')) navigate(`/people/${person.id}`); }}
+                    onClick={(e) => { if (!(e.target as HTMLElement).closest('a')) navigate(personHref(person.id)); }}
                     className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 ${person.status === 'Inactive' ? 'opacity-60' : ''}`}
                   >
                     <td className="px-5 py-2.5">
                       <span className="flex items-center gap-2.5">
                         <Avatar discordUserId={person.discordUserId} name={person.fullName} className="size-8 text-[11px]" />
-                        <Link to={`/people/${person.id}`} className="font-medium hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">{person.fullName}</Link>
+                        <Link to={personHref(person.id)} className="font-medium hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">{person.fullName}</Link>
                         {person.isAdmin && <Badge tone="indigo">admin</Badge>}
                         {person.status === 'Inactive' && <Badge>không hoạt động</Badge>}
                       </span>

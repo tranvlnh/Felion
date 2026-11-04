@@ -35,10 +35,10 @@ export function AuditPage() {
                 {audit.data?.items.map((item) => (
                   <tr key={item.id}>
                     <td className="whitespace-nowrap py-2 pr-3 text-xs">{new Date(item.createdAt).toLocaleString('vi-VN')}</td>
-                    <td className="py-2 pr-3">{item.actor ? <Link className="hover:underline" to={`/people/${item.actor.id}`}>{item.actor.fullName}</Link> : <span className="text-slate-500">hệ thống</span>}</td>
+                    <td className="py-2 pr-3">{item.actor ? <Link className="hover:underline" to={`?person=${item.actor.id}`}>{item.actor.fullName}</Link> : <span className="text-slate-500">hệ thống</span>}</td>
                     <td className="py-2 pr-3 font-mono text-xs">{item.action}</td>
                     <td className="py-2 pr-3 text-xs">
-                      {item.entityType === 'Person' && item.entityId ? <Link className="hover:underline" to={`/people/${item.entityId}`}>Person</Link> : item.entityType}
+                      {item.entityType === 'Person' && item.entityId ? <Link className="hover:underline" to={`?person=${item.entityId}`}>Person</Link> : item.entityType}
                     </td>
                     <td className="max-w-md truncate py-2 pr-3 font-mono text-xs text-slate-500" title={JSON.stringify(item.metadata)}>
                       {item.metadata ? JSON.stringify(item.metadata) : ''}

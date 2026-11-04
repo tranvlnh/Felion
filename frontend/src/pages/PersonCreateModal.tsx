@@ -1,18 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router';
-import { api, type WriteResult } from '../api';
-import { Card, PageHeader } from '../ui';
+import { api, type PersonKind, type WriteResult } from '../api';
+import { Card, Modal } from '../ui';
 import { PersonForm, toBody, toFormValues } from './PersonForm';
 
-export function PersonCreatePage() {
-  const navigate = useNavigate();
+export function PersonCreateModal({ kind, onClose, onCreated }: { kind: PersonKind; onClose: () => void; onCreated: (id: string) => void }) {
   const queryClient = useQueryClient();
-  const [params] = useSearchParams();
-  const initial = { ...toFormValues(), kind: params.get('kind') === 'Member' ? 'Member' as const : 'Candidate' as const };
+  const initial = { ...toFormValues(), kind };
 
   return (
-    <>
-      <PageHeader title="Thêm người" />
+    <Modal title="Thêm người" onClose={onClose}>
       <Card>
         <p className="mb-4 text-sm text-slate-500">Probation mới được gán role Probation, thành viên mới được gán role Member (chọn ở Cài đặt).</p>
         <PersonForm
@@ -25,10 +21,10 @@ export function PersonCreatePage() {
               queryClient.invalidateQueries({ queryKey: ['people'] }),
               queryClient.invalidateQueries({ queryKey: ['probation'] }),
             ]);
-            navigate(`/people/${result.person.id}`);
+            onCreated(result.person.id);
           }}
         />
       </Card>
-    </>
+    </Modal>
   );
 }

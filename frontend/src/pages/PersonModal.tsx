@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link } from 'react-router';
 import { api, can, isPrivilegedRole, type PersonDetail, type SyncOutcome, type WriteResult } from '../api';
 import { useMe, useRoleMap, useRoles } from '../Layout';
-import { Avatar, Badge, Button, Card, ErrorText, formatDate, Loading, Notice, RoleChip, Select, useToast } from '../ui';
+import { Avatar, Badge, Button, Card, ErrorText, formatDate, Loading, Modal, Notice, RoleChip, Select, useToast } from '../ui';
 import { PersonForm, toBody, toFormValues } from './PersonForm';
 
 const syncLabels: Record<SyncOutcome['status'], string> = {
@@ -14,11 +14,17 @@ const syncLabels: Record<SyncOutcome['status'], string> = {
   NotInServer: 'Không có trong server Discord: role sẽ được trả lại khi vào lại server.',
 };
 
-export function PersonPage() {
-  const { id = '' } = useParams();
+export function PersonModal({ id, onClose }: { id: string; onClose: () => void }) {
+  return (
+    <Modal title="Chi tiết người" onClose={onClose}>
+      <PersonDetailView id={id} onDeleted={onClose} />
+    </Modal>
+  );
+}
+
+function PersonDetailView({ id, onDeleted }: { id: string; onDeleted: () => void }) {
   const me = useMe();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const roleMap = useRoleMap();
   const roles = useRoles();
   const toast = useToast();
@@ -75,14 +81,11 @@ export function PersonPage() {
 
   return (
     <>
-      {p.kind === 'Candidate'
-        ? <Link to="/probation" className="text-sm text-slate-500 hover:text-slate-900 dark:hover:text-slate-100">← Probation</Link>
-        : <Link to="/people" className="text-sm text-slate-500 hover:text-slate-900 dark:hover:text-slate-100">← Thành viên</Link>}
       <div className="flex flex-wrap items-start justify-between gap-4 rounded-xl bg-white p-5 shadow-xs ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
         <div className="flex min-w-0 items-center gap-4">
           <Avatar discordUserId={p.discordUserId} name={p.fullName} className="size-16 text-xl" />
           <div className="min-w-0 space-y-1.5">
-            <h1 className="text-2xl font-semibold tracking-tight">{p.fullName}</h1>
+            <h2 className="text-2xl font-semibold tracking-tight">{p.fullName}</h2>
             <div className="flex flex-wrap gap-1.5">
               {p.kind === 'Candidate'
                 ? <Badge tone={p.probationApproved ? 'green' : 'amber'}>{p.probationApproved ? 'Probation · đã duyệt' : 'Probation · chưa duyệt'}</Badge>
@@ -144,7 +147,7 @@ export function PersonPage() {
                     queryClient.invalidateQueries({ queryKey: ['people'] }),
                     queryClient.invalidateQueries({ queryKey: ['probation'] }),
                   ]);
-                  void navigate(p.kind === 'Candidate' ? '/probation' : '/people');
+                  onDeleted();
                 } catch (e) {
                   toast.error(e);
                   setBusy(false);
@@ -154,7 +157,7 @@ export function PersonPage() {
         </div>
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-5">
+      <div className="grid items-start gap-4 lg:grid-cols-5">
       <Card title="Thông tin" className="lg:col-span-3">
         <PersonForm
           key={p.updatedAt}

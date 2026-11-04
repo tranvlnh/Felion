@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { createContext, useContext, type ReactNode } from 'react';
-import { NavLink, Outlet } from 'react-router';
+import { NavLink, Outlet, useSearchParams } from 'react-router';
 import { api, can, type GuildRole, type Me } from './api';
+import { PersonCreateModal } from './pages/PersonCreateModal';
+import { PersonModal } from './pages/PersonModal';
 import { Avatar, Button, ErrorText, Loading } from './ui';
 
 const MeContext = createContext<Me | null>(null);
@@ -52,8 +54,22 @@ async function logout() {
   window.location.assign('/login');
 }
 
+// Any page opens a person's detail popup by adding ?person=<id>, keeping its own filters.
+export function usePersonHref() {
+  const [params] = useSearchParams();
+  return (id: string) => {
+    const next = new URLSearchParams(params);
+    next.set('person', id);
+    return `?${next}`;
+  };
+}
+
 export function Layout() {
   const { data: me, error, isLoading } = useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') });
+  const [params, setParams] = useSearchParams();
+  const personId = params.get('person');
+  const createKind = params.get('create');
+  const editParams = (edit: (next: URLSearchParams) => void) => setParams((prev) => { const next = new URLSearchParams(prev); edit(next); return next; });
   if (isLoading) return <Loading />;
   if (!me) return <div className="p-6"><ErrorText error={error} /></div>;
 
@@ -113,6 +129,20 @@ export function Layout() {
           <Outlet />
         </div>
       </main>
+      {personId && (
+        <PersonModal
+          key={personId}
+          id={personId}
+          onClose={() => editParams((next) => next.delete('person'))}
+        />
+      )}
+      {createKind && !personId && (
+        <PersonCreateModal
+          kind={createKind === 'Member' ? 'Member' : 'Candidate'}
+          onClose={() => editParams((next) => next.delete('create'))}
+          onCreated={(id) => editParams((next) => { next.delete('create'); next.set('person', id); })}
+        />
+      )}
     </MeContext.Provider>
   );
 }
