@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
-import { useEffect, useRef, useState, type ClipboardEvent } from 'react';
+import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react';
 import { api, type AddressMode, type Department, type EmailJob, type EmailRecipient, type EmailRecipients } from '../api';
 import { useRoles } from '../Layout';
 import { Button, Card, EmptyState, ErrorText, Field, Input, Loading, Notice, PageHeader, Select, useToast } from '../ui';
@@ -14,6 +14,23 @@ const readDataUrl = (file: Blob) => new Promise<string>((resolve, reject) => {
   reader.onerror = () => reject(reader.error);
   reader.readAsDataURL(file);
 });
+
+const draftKey = 'felion.emailDraft';
+// Per-browser convenience only: storage can be blocked or full (big pasted images), so failures are ignored.
+const readDraft = (): { subject: string; html: string } => {
+  try {
+    const draft = JSON.parse(localStorage.getItem(draftKey) ?? 'null') as { subject?: unknown; html?: unknown } | null;
+    return { subject: typeof draft?.subject === 'string' ? draft.subject : '', html: typeof draft?.html === 'string' ? DOMPurify.sanitize(draft.html) : '' };
+  } catch {
+    return { subject: '', html: '' };
+  }
+};
+
+const toggleCommands = ['bold', 'italic', 'underline', 'strikeThrough', 'insertUnorderedList', 'insertOrderedList'];
+const textColors = [['Đen', '#202124'], ['Xanh dương', '#1a73e8'], ['Đỏ', '#d93025'], ['Xanh lá', '#188038'], ['Cam', '#e37400']] as const;
+
+// "gdg.vn" → https://gdg.vn, "a@b.c" → mailto:a@b.c; anything else with a scheme is left to DOMPurify.
+const toHref = (url: string) => (/^[a-z][\w+.-]*:/i.test(url) ? url : url.includes('@') && !url.includes('/') ? `mailto:${url}` : `https://${url}`);
 
 const formatSize = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.ceil(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
 
@@ -54,10 +71,13 @@ export function EmailPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   // Kept across searches and filters, so people can be picked from several searches.
   const [picked, setPicked] = useState<ReadonlyMap<string, EmailRecipient>>(new Map());
-  const [subject, setSubject] = useState('');
+  const [draft] = useState(readDraft);
+  const [subject, setSubject] = useState(draft.subject);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
+  // Space-separated active commands and block tag at the caret, for toolbar highlighting.
+  const [active, setActive] = useState('');
   const editor = useRef<HTMLDivElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
 
@@ -65,6 +85,21 @@ export function EmailPage() {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    const update = () => {
+      if (!editor.current?.contains(document.getSelection()?.anchorNode ?? null)) return;
+      setActive([...toggleCommands.filter((command) => document.queryCommandState(command)), document.queryCommandValue('formatBlock')].join(' '));
+    };
+    document.addEventListener('selectionchange', update);
+    return () => document.removeEventListener('selectionchange', update);
+  }, []);
+
+  const saveDraft = (nextSubject = subject) => {
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ subject: nextSubject, html: editor.current?.innerHTML ?? '' }));
+    } catch { /* see readDraft */ }
+  };
 
   const query = new URLSearchParams({ address });
   for (const [key, value] of Object.entries({ ...filter, search: debouncedSearch })) if (value) query.set(key, value);
@@ -92,10 +127,60 @@ export function EmailPage() {
   const setKey = (key: keyof typeof filter) => (e: { target: { value: string } }) => setFilter({ ...filter, [key]: e.target.value });
 
   // execCommand is deprecated but is still the only way to insert at the caret and keep undo working.
-  const insertHtml = (html: string) => {
+  // It fires the editor's input event, which saves the draft.
+  const exec = (command: string, value?: string) => {
     editor.current?.focus();
-    document.execCommand('insertHTML', false, DOMPurify.sanitize(html));
+    document.execCommand(command, false, value);
   };
+  const insertHtml = (html: string) => exec('insertHTML', DOMPurify.sanitize(html));
+  const insertLink = () => {
+    const url = window.prompt('Địa chỉ liên kết (URL hoặc email):')?.trim();
+    if (!url) return;
+    if (document.getSelection()?.isCollapsed ?? true) {
+      const link = document.createElement('a');
+      link.href = toHref(url);
+      link.textContent = url;
+      insertHtml(link.outerHTML);
+    } else {
+      exec('createLink', toHref(url));
+    }
+  };
+  const onEditorKeyDown = (e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      insertLink();
+    }
+  };
+  const tools: { label: string; title: string; run: () => void; on?: string; className?: string }[][] = [
+    [
+      { label: '↶', title: 'Hoàn tác (Ctrl+Z)', run: () => exec('undo') },
+      { label: '↷', title: 'Làm lại (Ctrl+Y)', run: () => exec('redo') },
+    ],
+    [
+      { label: 'H1', title: 'Tiêu đề', run: () => exec('formatBlock', '<h2>'), on: 'h2' },
+      { label: 'H2', title: 'Tiêu đề nhỏ', run: () => exec('formatBlock', '<h3>'), on: 'h3' },
+      { label: '¶', title: 'Đoạn văn thường', run: () => exec('formatBlock', '<p>') },
+    ],
+    [
+      { label: 'B', title: 'Đậm (Ctrl+B)', run: () => exec('bold'), on: 'bold', className: 'font-bold' },
+      { label: 'I', title: 'Nghiêng (Ctrl+I)', run: () => exec('italic'), on: 'italic', className: 'italic' },
+      { label: 'U', title: 'Gạch chân (Ctrl+U)', run: () => exec('underline'), on: 'underline', className: 'underline' },
+      { label: 'S', title: 'Gạch ngang', run: () => exec('strikeThrough'), on: 'strikeThrough', className: 'line-through' },
+    ],
+    [
+      { label: '•', title: 'Danh sách chấm', run: () => exec('insertUnorderedList'), on: 'insertUnorderedList' },
+      { label: '1.', title: 'Danh sách số', run: () => exec('insertOrderedList'), on: 'insertOrderedList' },
+      { label: '⇤', title: 'Căn trái', run: () => exec('justifyLeft') },
+      { label: '↔', title: 'Căn giữa', run: () => exec('justifyCenter') },
+      { label: '―', title: 'Đường kẻ ngang', run: () => exec('insertHorizontalRule') },
+    ],
+    [
+      { label: '🔗', title: 'Chèn liên kết (Ctrl+K)', run: insertLink },
+      { label: '🔗✕', title: 'Bỏ liên kết', run: () => exec('unlink') },
+      { label: 'Tx', title: 'Xoá định dạng chữ', run: () => exec('removeFormat') },
+    ],
+  ];
+  const activeSet = active.split(' ');
   const insertImages = async (images: File[]) => {
     for (const image of images) insertHtml(`<img src="${await readDataUrl(image)}" style="max-width:100%">`);
   };
@@ -131,6 +216,7 @@ export function EmailPage() {
         toast.success(`Đã gửi thử tới ${result.sentTo}.`);
       } else {
         setJobId((await api<{ jobId: string }>('/email/send', { method: 'POST', body })).jobId);
+        try { localStorage.removeItem(draftKey); } catch { /* see readDraft */ }
       }
     } catch (error) {
       toast.error(error);
@@ -221,7 +307,7 @@ export function EmailPage() {
       <Card title="Nội dung">
         <div className="space-y-3">
           <Field label="Tiêu đề">
-            <Input value={subject} maxLength={200} onChange={(e) => setSubject(e.target.value)} />
+            <Input value={subject} maxLength={200} onChange={(e) => { setSubject(e.target.value); saveDraft(e.target.value); }} />
           </Field>
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -250,17 +336,63 @@ export function EmailPage() {
                 />
               </span>
             </div>
-            <div
-              ref={editor}
-              contentEditable
-              role="textbox"
-              aria-multiline
-              aria-label="Nội dung email"
-              onPaste={onPaste}
-              className="min-h-64 overflow-auto rounded-lg bg-white px-3 py-2 text-sm shadow-xs ring-1 ring-slate-200 ring-inset focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:bg-slate-900 dark:ring-slate-700 [&_img]:max-w-full"
-            />
+            <div className="rounded-lg bg-white shadow-xs ring-1 ring-slate-200 ring-inset focus-within:ring-2 focus-within:ring-indigo-500 dark:bg-slate-900 dark:ring-slate-700">
+              <div role="toolbar" aria-label="Định dạng" className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 p-1 dark:border-slate-700">
+                {tools.map((group, index) => (
+                  <span key={index} className="flex items-center gap-0.5 border-r border-slate-200 pr-1 last:border-r-0 dark:border-slate-700">
+                    {group.map((tool) => {
+                      const on = tool.on !== undefined && activeSet.includes(tool.on);
+                      return (
+                        <button
+                          key={tool.title}
+                          type="button"
+                          title={tool.title}
+                          aria-label={tool.title}
+                          aria-pressed={tool.on === undefined ? undefined : on}
+                          // Keeps the caret in the editor so the command applies to the selection.
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={tool.run}
+                          className={`h-7 min-w-7 rounded px-1.5 text-sm ${on ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-200' : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'} ${tool.className ?? ''}`}
+                        >
+                          {tool.label}
+                        </button>
+                      );
+                    })}
+                  </span>
+                ))}
+                <span className="flex items-center gap-1 px-1">
+                  {textColors.map(([name, color]) => (
+                    <button
+                      key={color}
+                      type="button"
+                      title={`Màu chữ: ${name}`}
+                      aria-label={`Màu chữ: ${name}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => exec('foreColor', color)}
+                      className="size-5 rounded-full ring-1 ring-black/10 ring-inset hover:scale-110"
+                      style={{ background: color }}
+                    />
+                  ))}
+                </span>
+              </div>
+              <div
+                ref={editor}
+                contentEditable
+                role="textbox"
+                aria-multiline
+                aria-label="Nội dung email"
+                onPaste={onPaste}
+                onInput={() => saveDraft()}
+                onKeyDown={onEditorKeyDown}
+                // Set once from the saved draft; React leaves the DOM alone while this string stays the same.
+                dangerouslySetInnerHTML={{ __html: draft.html }}
+                // all:revert undoes Tailwind's reset inside the editor, so headings, lists and links look as in the email.
+                className="min-h-64 overflow-auto px-3 py-2 text-sm focus:outline-none [&_*]:[all:revert] [&_img]:max-w-full!"
+              />
+            </div>
             <span className="block text-xs text-slate-500">
               Copy từ Google Docs rồi dán vào đây để giữ định dạng và hình ảnh. Biến như {'{{name}}'} được thay bằng thông tin từng người.
+              Nháp được lưu tự động trên trình duyệt này. Dùng "Gửi thử cho tôi" để xem email thật trước khi gửi.
             </span>
           </div>
           <Field label="Tệp đính kèm" hint="Tổng ảnh và tệp tối đa 15 MB.">
