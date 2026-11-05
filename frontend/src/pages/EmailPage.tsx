@@ -368,7 +368,8 @@ export function EmailPage() {
                       title={`Màu chữ: ${name}`}
                       aria-label={`Màu chữ: ${name}`}
                       onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => exec('foreColor', color)}
+                      // Plain foreColor writes <font color>, which the editor's all:revert wipes; an inline style survives it.
+                      onClick={() => { exec('styleWithCSS', 'true'); exec('foreColor', color); exec('styleWithCSS', 'false'); }}
                       className="size-5 rounded-full ring-1 ring-black/10 ring-inset hover:scale-110"
                       style={{ background: color }}
                     />
