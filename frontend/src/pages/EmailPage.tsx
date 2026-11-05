@@ -320,7 +320,8 @@ export function EmailPage() {
                     className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700 hover:bg-indigo-100 dark:bg-slate-800 dark:text-slate-300"
                     title="Chèn biến"
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => insertHtml(`{{${name}}}`)}
+                    // insertText, like typing, picks up the formatting at the caret (incl. B/I toggled with nothing selected).
+                    onClick={() => exec('insertText', `{{${name}}}`)}
                   >
                     {`{{${name}}}`}
                   </button>
