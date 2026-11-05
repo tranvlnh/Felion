@@ -38,6 +38,9 @@ const patchBody = z.object({
   isAdmin: z.boolean(),
 }).partial().strict();
 
+// The only fields people may change on their own profile.
+export const selfPatchBody = patchBody.pick({ phone: true, personalEmail: true, birthDate: true, facebookUrl: true }).strict();
+
 export const createBody = patchBody.extend({
   kind,
   studentId: z.string(),
@@ -99,6 +102,10 @@ export function registerPeopleRoutes(app: FastifyInstance, context: WebContext):
     const person = await createPerson(db, body, request.actor.id);
     return reply.code(201).send({ person, ...(person.discordUserId ? await trySync(context, person.id, request.actor.id) : {}) });
   });
+
+  app.patch('/me', async (request) => ({
+    person: await updatePerson(db, request.actor.id, selfPatchBody.parse(request.body), request.actor.id),
+  }));
 
   app.patch('/people/:id', async (request) => {
     const { id } = idParams.parse(request.params);

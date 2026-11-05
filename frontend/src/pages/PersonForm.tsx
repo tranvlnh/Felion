@@ -64,12 +64,15 @@ export function PersonForm({
   submitLabel,
   onSubmit,
   disabled,
+  selfOnly = false,
 }: {
   initial: PersonFormValues;
   showKind: boolean;
   submitLabel: string;
   onSubmit: (values: PersonFormValues) => Promise<unknown>;
   disabled?: boolean;
+  // Only the contact fields a person may edit on their own profile.
+  selfOnly?: boolean;
 }) {
   const me = useMe();
   const [values, setValues] = useState(initial);
@@ -102,20 +105,24 @@ export function PersonForm({
             </Select>
           </Field>
         )}
-        <Field label="Họ tên"><Input required value={values.fullName} onChange={(e) => update('fullName', e.target.value)} /></Field>
-        <Field label="MSSV"><Input required value={values.studentId} onChange={(e) => update('studentId', e.target.value)} /></Field>
-        <Field label="Ban">
-          <Select required value={values.departmentId} onChange={(e) => update('departmentId', e.target.value)}>
-            <option value="" disabled>Chọn ban</option>
-            {departments.data?.filter((d) => d.active || d.id === values.departmentId).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </Select>
-        </Field>
-        <Field label="Gen"><Input required type="number" min={1} max={999} value={values.generation} onChange={(e) => update('generation', e.target.value)} /></Field>
+        {!selfOnly && (
+          <>
+            <Field label="Họ tên"><Input required value={values.fullName} onChange={(e) => update('fullName', e.target.value)} /></Field>
+            <Field label="MSSV"><Input required value={values.studentId} onChange={(e) => update('studentId', e.target.value)} /></Field>
+            <Field label="Ban">
+              <Select required value={values.departmentId} onChange={(e) => update('departmentId', e.target.value)}>
+                <option value="" disabled>Chọn ban</option>
+                {departments.data?.filter((d) => d.active || d.id === values.departmentId).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </Select>
+            </Field>
+            <Field label="Gen"><Input required type="number" min={1} max={999} value={values.generation} onChange={(e) => update('generation', e.target.value)} /></Field>
+          </>
+        )}
         <Field label="Số điện thoại"><Input type="tel" value={values.phone} onChange={(e) => update('phone', e.target.value)} /></Field>
         <Field label="Email cá nhân"><Input type="email" value={values.personalEmail} onChange={(e) => update('personalEmail', e.target.value)} /></Field>
         <Field label="Ngày sinh"><Input placeholder="dd/MM/yyyy" pattern="\d{2}/\d{2}/\d{4}" title="dd/MM/yyyy, ví dụ 05/09/2004" inputMode="numeric" value={values.birthDate} onChange={(e) => update('birthDate', e.target.value)} /></Field>
         <Field label="Link Facebook"><Input type="url" placeholder="https://facebook.com/..." value={values.facebookUrl} onChange={(e) => update('facebookUrl', e.target.value)} /></Field>
-        {me.isAdmin && (
+        {me.isAdmin && !selfOnly && (
           <>
             <Field label="Email CLB (chỉ admin)" hint="Có email thì người này đăng nhập web được."><Input type="email" value={values.clubEmail} onChange={(e) => update('clubEmail', e.target.value)} /></Field>
             <Field label="Discord user id (chỉ admin)" hint="Thường để trống; người dùng tự link bằng /verification."><Input inputMode="numeric" value={values.discordUserId} onChange={(e) => update('discordUserId', e.target.value)} /></Field>

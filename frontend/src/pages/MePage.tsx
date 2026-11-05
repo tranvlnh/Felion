@@ -1,11 +1,18 @@
-import { webPermissions } from '../api';
+import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { api, webPermissions } from '../api';
 import { useMe, useRoleMap } from '../Layout';
-import { Avatar, Badge, Card, formatDate, RoleChip } from '../ui';
+import { Avatar, Badge, Button, Card, formatDate, Modal, RoleChip, useToast } from '../ui';
+import { PersonForm, toBody, toFormValues } from './PersonForm';
 
 export function MePage() {
   const me = useMe();
   const roles = useRoleMap();
   const { person } = me;
+  const [editing, setEditing] = useState(false);
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const initial = toFormValues(person);
 
   return (
     <>
@@ -17,7 +24,7 @@ export function MePage() {
         </div>
       </div>
       <div className="grid items-start gap-6 lg:grid-cols-3">
-      <Card title="Hồ sơ" className="lg:col-span-2">
+      <Card title="Hồ sơ" className="lg:col-span-2" actions={<Button variant="secondary" onClick={() => setEditing(true)}>Sửa thông tin</Button>}>
         <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
           <Item label="MSSV" value={person.studentId} />
           <Item label="Email CLB" value={person.clubEmail ?? '—'} />
@@ -49,6 +56,22 @@ export function MePage() {
       </Card>
       </div>
       </div>
+      {editing && (
+        <Modal title="Sửa thông tin cá nhân" onClose={() => setEditing(false)}>
+          <PersonForm
+            selfOnly
+            showKind={false}
+            initial={initial}
+            submitLabel="Lưu"
+            onSubmit={async (values) => {
+              await api('/me', { method: 'PATCH', body: toBody(values, initial, false) });
+              await queryClient.invalidateQueries({ queryKey: ['me'] });
+              toast.success('Đã lưu thông tin.');
+              setEditing(false);
+            }}
+          />
+        </Modal>
+      )}
     </>
   );
 }
